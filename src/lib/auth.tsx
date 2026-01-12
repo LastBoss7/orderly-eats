@@ -114,8 +114,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (authError) return { error: authError };
       if (!authData.user) return { error: new Error('Failed to create user') };
+      if (!authData.session) return { error: new Error('Failed to create session') };
 
-      // Create restaurant first (need to bypass RLS for initial creation)
+      // Wait for the session to be fully established
+      // Set the session explicitly to ensure auth.uid() works in RLS
+      await supabase.auth.setSession({
+        access_token: authData.session.access_token,
+        refresh_token: authData.session.refresh_token,
+      });
+
+      // Small delay to ensure session is propagated
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Create restaurant
       const slug = restaurantName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
       
       const { data: restaurantData, error: restaurantError } = await supabase
@@ -123,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .insert({
           name: restaurantName,
           slug: `${slug}-${Date.now()}`,
-          cnpj: cnpj.replace(/\D/g, ''), // Store only digits
+          cnpj: cnpj.replace(/\D/g, ''),
         })
         .select()
         .single();
@@ -158,6 +169,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (roleError) {
         console.error('Role creation error:', roleError);
       }
+
+      // Refresh user data
+      await fetchUserData(authData.user.id);
 
       return { error: null };
     } catch (error) {
