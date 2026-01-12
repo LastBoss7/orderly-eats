@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -40,10 +41,12 @@ import {
   User, 
   Clock,
   Package,
-  CheckCircle,
-  XCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  DollarSign,
+  Pencil,
+  Trash2,
+  Settings
 } from 'lucide-react';
 
 interface Customer {
@@ -78,10 +81,21 @@ interface Order {
   customer_name: string | null;
   status: string | null;
   total: number | null;
+  delivery_fee: number | null;
   created_at: string;
   delivery_address: string | null;
   delivery_phone: string | null;
   order_items?: { product_name: string; quantity: number; product_price: number }[];
+}
+
+interface DeliveryFee {
+  id: string;
+  neighborhood: string;
+  city: string | null;
+  fee: number;
+  min_order_value: number | null;
+  estimated_time: string | null;
+  is_active: boolean | null;
 }
 
 export default function Deliveries() {
@@ -91,9 +105,10 @@ export default function Deliveries() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewOrderDialog, setShowNewOrderDialog] = useState(false);
-  const [showCustomerDialog, setShowCustomerDialog] = useState(false);
+  const [showFeeDialog, setShowFeeDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [searchPhone, setSearchPhone] = useState('');
   const [fetchingCep, setFetchingCep] = useState(false);
@@ -113,12 +128,21 @@ export default function Deliveries() {
   // Order form
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [orderNotes, setOrderNotes] = useState('');
+  const [selectedDeliveryFee, setSelectedDeliveryFee] = useState<DeliveryFee | null>(null);
+
+  // Delivery fee form
+  const [editingFee, setEditingFee] = useState<DeliveryFee | null>(null);
+  const [feeNeighborhood, setFeeNeighborhood] = useState('');
+  const [feeCity, setFeeCity] = useState('');
+  const [feeValue, setFeeValue] = useState('');
+  const [feeMinOrder, setFeeMinOrder] = useState('');
+  const [feeEstimatedTime, setFeeEstimatedTime] = useState('');
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
 
     try {
-      const [ordersRes, customersRes, productsRes] = await Promise.all([
+      const [ordersRes, customersRes, productsRes, feesRes] = await Promise.all([
         supabase
           .from('orders')
           .select('*, order_items(product_name, quantity, product_price)')
@@ -126,11 +150,13 @@ export default function Deliveries() {
           .order('created_at', { ascending: false }),
         supabase.from('customers').select('*').order('name'),
         supabase.from('products').select('*').eq('is_available', true).order('name'),
+        supabase.from('delivery_fees').select('*').order('neighborhood'),
       ]);
 
       setOrders(ordersRes.data || []);
       setCustomers(customersRes.data || []);
       setProducts(productsRes.data || []);
+      setDeliveryFees(feesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -141,6 +167,16 @@ export default function Deliveries() {
   useEffect(() => {
     fetchData();
   }, [restaurant?.id]);
+
+  // Auto-select delivery fee when neighborhood is filled
+  useEffect(() => {
+    if (customerNeighborhood && deliveryFees.length > 0) {
+      const matchingFee = deliveryFees.find(
+        f => f.neighborhood.toLowerCase() === customerNeighborhood.toLowerCase() && f.is_active
+      );
+      setSelectedDeliveryFee(matchingFee || null);
+    }
+  }, [customerNeighborhood, deliveryFees]);
 
   const resetCustomerForm = () => {
     setCustomerName('');
@@ -153,12 +189,22 @@ export default function Deliveries() {
     setCustomerCity('');
     setCustomerState('');
     setSelectedCustomer(null);
+    setSelectedDeliveryFee(null);
   };
 
   const resetOrderForm = () => {
     setOrderItems([]);
     setOrderNotes('');
     resetCustomerForm();
+  };
+
+  const resetFeeForm = () => {
+    setFeeNeighborhood('');
+    setFeeCity('');
+    setFeeValue('');
+    setFeeMinOrder('');
+    setFeeEstimatedTime('');
+    setEditingFee(null);
   };
 
   const searchCustomerByPhone = async () => {
@@ -248,8 +294,12 @@ export default function Deliveries() {
     ));
   };
 
-  const calculateTotal = () => {
+  const calculateSubtotal = () => {
     return orderItems.reduce((sum, item) => sum + item.product_price * item.quantity, 0);
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + (selectedDeliveryFee?.fee || 0);
   };
 
   const saveCustomer = async (): Promise<Customer | null> => {
@@ -317,6 +367,16 @@ export default function Deliveries() {
       return;
     }
 
+    // Check minimum order value
+    if (selectedDeliveryFee?.min_order_value && calculateSubtotal() < selectedDeliveryFee.min_order_value) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Pedido mínimo não atingido',
+        description: `O pedido mínimo para ${selectedDeliveryFee.neighborhood} é ${formatCurrency(selectedDeliveryFee.min_order_value)}`
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const customer = await saveCustomer();
@@ -344,6 +404,7 @@ export default function Deliveries() {
           customer_id: customer.id,
           delivery_address: fullAddress,
           delivery_phone: customerPhone,
+          delivery_fee: selectedDeliveryFee?.fee || 0,
           total: calculateTotal(),
           notes: orderNotes || null,
         })
@@ -376,6 +437,86 @@ export default function Deliveries() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveFee = async () => {
+    if (!feeNeighborhood || !feeValue) {
+      toast({ variant: 'destructive', title: 'Preencha bairro e valor da taxa' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const feeData = {
+        restaurant_id: restaurant?.id,
+        neighborhood: feeNeighborhood,
+        city: feeCity || null,
+        fee: parseFloat(feeValue),
+        min_order_value: feeMinOrder ? parseFloat(feeMinOrder) : null,
+        estimated_time: feeEstimatedTime || null,
+        is_active: true,
+      };
+
+      if (editingFee) {
+        const { error } = await supabase
+          .from('delivery_fees')
+          .update(feeData)
+          .eq('id', editingFee.id);
+        if (error) throw error;
+        toast({ title: 'Taxa atualizada!' });
+      } else {
+        const { error } = await supabase
+          .from('delivery_fees')
+          .insert(feeData);
+        if (error) throw error;
+        toast({ title: 'Taxa criada!' });
+      }
+
+      setShowFeeDialog(false);
+      resetFeeForm();
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar taxa', description: error.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleFeeStatus = async (fee: DeliveryFee) => {
+    try {
+      const { error } = await supabase
+        .from('delivery_fees')
+        .update({ is_active: !fee.is_active })
+        .eq('id', fee.id);
+      if (error) throw error;
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: error.message });
+    }
+  };
+
+  const deleteFee = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('delivery_fees')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Taxa excluída!' });
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
+    }
+  };
+
+  const openEditFee = (fee: DeliveryFee) => {
+    setEditingFee(fee);
+    setFeeNeighborhood(fee.neighborhood);
+    setFeeCity(fee.city || '');
+    setFeeValue(fee.fee.toString());
+    setFeeMinOrder(fee.min_order_value?.toString() || '');
+    setFeeEstimatedTime(fee.estimated_time || '');
+    setShowFeeDialog(true);
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
@@ -578,6 +719,41 @@ export default function Deliveries() {
                         className="w-20"
                       />
                     </div>
+
+                    {/* Delivery Fee Info */}
+                    {customerNeighborhood && (
+                      <Card className={selectedDeliveryFee ? 'border-success' : 'border-warning'}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4" />
+                              <span className="text-sm font-medium">Taxa de Entrega</span>
+                            </div>
+                            {selectedDeliveryFee ? (
+                              <div className="text-right">
+                                <span className="font-bold text-success">
+                                  {formatCurrency(selectedDeliveryFee.fee)}
+                                </span>
+                                {selectedDeliveryFee.estimated_time && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ~{selectedDeliveryFee.estimated_time}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-warning">
+                                Bairro não cadastrado
+                              </span>
+                            )}
+                          </div>
+                          {selectedDeliveryFee?.min_order_value && selectedDeliveryFee.min_order_value > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Pedido mínimo: {formatCurrency(selectedDeliveryFee.min_order_value)}
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
 
                   {/* Products */}
@@ -631,9 +807,20 @@ export default function Deliveries() {
                             </div>
                           </div>
                         ))}
-                        <div className="flex justify-between pt-2 border-t font-semibold">
-                          <span>Total</span>
-                          <span>{formatCurrency(calculateTotal())}</span>
+                        
+                        <div className="space-y-1 pt-2 border-t">
+                          <div className="flex justify-between text-sm">
+                            <span>Subtotal</span>
+                            <span>{formatCurrency(calculateSubtotal())}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Taxa de Entrega</span>
+                            <span>{formatCurrency(selectedDeliveryFee?.fee || 0)}</span>
+                          </div>
+                          <div className="flex justify-between font-semibold text-lg pt-1">
+                            <span>Total</span>
+                            <span>{formatCurrency(calculateTotal())}</span>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -694,6 +881,7 @@ export default function Deliveries() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="orders">Pedidos</TabsTrigger>
+            <TabsTrigger value="fees">Taxas de Entrega</TabsTrigger>
             <TabsTrigger value="customers">Clientes</TabsTrigger>
           </TabsList>
 
@@ -749,6 +937,11 @@ export default function Deliveries() {
                               ))}
                             </div>
                           )}
+                          {order.delivery_fee && order.delivery_fee > 0 && (
+                            <div className="text-sm text-muted-foreground">
+                              Taxa de entrega: {formatCurrency(order.delivery_fee)}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <span className="text-lg font-bold">
@@ -779,6 +972,149 @@ export default function Deliveries() {
             )}
           </TabsContent>
 
+          <TabsContent value="fees" className="mt-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Taxas por Bairro</CardTitle>
+                  <CardDescription>Configure as taxas de entrega por região</CardDescription>
+                </div>
+                <Dialog open={showFeeDialog} onOpenChange={(open) => {
+                  setShowFeeDialog(open);
+                  if (!open) resetFeeForm();
+                }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Taxa
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingFee ? 'Editar Taxa' : 'Nova Taxa de Entrega'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Bairro *</Label>
+                          <Input 
+                            value={feeNeighborhood}
+                            onChange={(e) => setFeeNeighborhood(e.target.value)}
+                            placeholder="Ex: Centro"
+                          />
+                        </div>
+                        <div>
+                          <Label>Cidade</Label>
+                          <Input 
+                            value={feeCity}
+                            onChange={(e) => setFeeCity(e.target.value)}
+                            placeholder="Ex: São Paulo"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Taxa de Entrega *</Label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={feeValue}
+                            onChange={(e) => setFeeValue(e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label>Pedido Mínimo</Label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={feeMinOrder}
+                            onChange={(e) => setFeeMinOrder(e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Tempo Estimado</Label>
+                        <Input 
+                          value={feeEstimatedTime}
+                          onChange={(e) => setFeeEstimatedTime(e.target.value)}
+                          placeholder="Ex: 30-45 min"
+                        />
+                      </div>
+                      <Button className="w-full" onClick={saveFee} disabled={saving}>
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        {editingFee ? 'Salvar Alterações' : 'Criar Taxa'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent className="p-0">
+                {deliveryFees.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <DollarSign className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-lg">Nenhuma taxa cadastrada</h3>
+                    <p className="text-muted-foreground">Adicione taxas por bairro</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Bairro</TableHead>
+                        <TableHead>Cidade</TableHead>
+                        <TableHead className="text-right">Taxa</TableHead>
+                        <TableHead className="text-right">Pedido Mínimo</TableHead>
+                        <TableHead>Tempo</TableHead>
+                        <TableHead className="text-center">Ativo</TableHead>
+                        <TableHead className="w-24"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {deliveryFees.map(fee => (
+                        <TableRow key={fee.id}>
+                          <TableCell className="font-medium">{fee.neighborhood}</TableCell>
+                          <TableCell>{fee.city || '-'}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(fee.fee)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {fee.min_order_value ? formatCurrency(fee.min_order_value) : '-'}
+                          </TableCell>
+                          <TableCell>{fee.estimated_time || '-'}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={fee.is_active ?? true}
+                              onCheckedChange={() => toggleFeeStatus(fee)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => openEditFee(fee)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => deleteFee(fee.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="customers" className="mt-4">
             {customers.length === 0 ? (
               <Card>
@@ -796,6 +1132,7 @@ export default function Deliveries() {
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Telefone</TableHead>
+                        <TableHead>Bairro</TableHead>
                         <TableHead>Endereço</TableHead>
                         <TableHead>Cidade</TableHead>
                       </TableRow>
@@ -805,6 +1142,7 @@ export default function Deliveries() {
                         <TableRow key={customer.id}>
                           <TableCell className="font-medium">{customer.name}</TableCell>
                           <TableCell>{customer.phone}</TableCell>
+                          <TableCell>{customer.neighborhood || '-'}</TableCell>
                           <TableCell>
                             {[customer.address, customer.number && `Nº ${customer.number}`]
                               .filter(Boolean).join(', ') || '-'}

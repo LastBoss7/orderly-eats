@@ -97,6 +97,45 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_fees: {
+        Row: {
+          city: string | null
+          created_at: string
+          estimated_time: string | null
+          fee: number
+          id: string
+          is_active: boolean | null
+          min_order_value: number | null
+          neighborhood: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          estimated_time?: string | null
+          fee?: number
+          id?: string
+          is_active?: boolean | null
+          min_order_value?: number | null
+          neighborhood: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          estimated_time?: string | null
+          fee?: number
+          id?: string
+          is_active?: boolean | null
+          min_order_value?: number | null
+          neighborhood?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -162,6 +201,7 @@ export type Database = {
           customer_id: string | null
           customer_name: string | null
           delivery_address: string | null
+          delivery_fee: number | null
           delivery_phone: string | null
           id: string
           notes: string | null
@@ -178,6 +218,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           delivery_address?: string | null
+          delivery_fee?: number | null
           delivery_phone?: string | null
           id?: string
           notes?: string | null
@@ -194,6 +235,7 @@ export type Database = {
           customer_id?: string | null
           customer_name?: string | null
           delivery_address?: string | null
+          delivery_fee?: number | null
           delivery_phone?: string | null
           id?: string
           notes?: string | null
