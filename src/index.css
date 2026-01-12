@@ -2,13 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Restaurant POS Design System
-   Clean, professional, high-contrast for quick operations
-*/
+/* Restaurant POS Design System - Anota AI Style */
 
 @layer base {
   :root {
-    /* Base colors - Slate theme for professionalism */
+    /* Base colors - Clean white background */
     --background: 210 20% 98%;
     --foreground: 222 47% 11%;
 
@@ -18,11 +16,11 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Deep blue for trust and professionalism */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Bright blue like Anota AI */
+    --primary: 207 90% 54%;
+    --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Warm neutral */
+    /* Secondary - Light gray */
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
 
@@ -30,19 +28,24 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    /* Accent - Subtle highlight */
+    /* Accent */
     --accent: 220 14% 96%;
     --accent-foreground: 222 47% 11%;
 
-    /* Status colors - Critical for POS */
+    /* Status colors - Anota AI style */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 38 92% 50%;
+    --warning: 25 95% 53%;
     --warning-foreground: 0 0% 100%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+
+    /* Kanban column colors */
+    --column-analysis: 25 95% 53%;
+    --column-production: 0 72% 51%;
+    --column-ready: 220 14% 96%;
 
     /* Table status colors */
     --table-available: 142 76% 36%;
@@ -51,19 +54,19 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 221 83% 53%;
+    --ring: 207 90% 54%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
+    /* Sidebar - Dark blue like Anota AI */
+    --sidebar-background: 210 29% 24%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 207 90% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent: 210 29% 30%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-border: 210 29% 30%;
+    --sidebar-ring: 207 90% 54%;
   }
 
   .dark {
@@ -76,7 +79,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 221 83% 53%;
+    --primary: 207 90% 54%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 17%;
@@ -91,11 +94,15 @@
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 38 92% 50%;
+    --warning: 25 95% 53%;
     --warning-foreground: 0 0% 100%;
 
     --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
+
+    --column-analysis: 25 95% 53%;
+    --column-production: 0 72% 51%;
+    --column-ready: 217 33% 17%;
 
     --table-available: 142 76% 36%;
     --table-occupied: 0 72% 51%;
@@ -103,16 +110,16 @@
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 221 83% 53%;
+    --ring: 207 90% 54%;
 
     --sidebar-background: 222 47% 6%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary: 207 90% 54%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 12%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 12%;
-    --sidebar-ring: 221 83% 53%;
+    --sidebar-ring: 207 90% 54%;
   }
 }
 
@@ -126,22 +133,86 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Custom scrollbar for POS interfaces */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-muted rounded-full;
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50;
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
   }
 }
 
 @layer components {
+  /* Kanban Column Header */
+  .kanban-header {
+    @apply px-4 py-3 rounded-t-lg font-semibold text-white flex items-center justify-between;
+  }
+
+  .kanban-header.analysis {
+    background: hsl(var(--column-analysis));
+  }
+
+  .kanban-header.production {
+    background: hsl(var(--column-production));
+  }
+
+  .kanban-header.ready {
+    @apply bg-muted text-foreground;
+  }
+
+  /* Order Card */
+  .order-card {
+    @apply bg-white rounded-lg border shadow-sm p-4 space-y-3 transition-all hover:shadow-md;
+  }
+
+  .order-card-header {
+    @apply flex items-center justify-between;
+  }
+
+  .order-number {
+    @apply flex items-center gap-2 font-semibold text-foreground;
+  }
+
+  .order-time {
+    @apply text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full flex items-center gap-1;
+  }
+
+  .order-status-bar {
+    @apply py-1.5 px-3 rounded text-xs font-medium text-center text-white;
+  }
+
+  .order-status-bar.delayed {
+    background: hsl(var(--column-production));
+  }
+
+  .order-status-bar.preparing {
+    background: hsl(var(--column-analysis));
+  }
+
+  .order-status-bar.ready {
+    @apply bg-success;
+  }
+
+  /* Menu Item Style */
+  .sidebar-menu-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 transition-all;
+    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground;
+  }
+
+  .sidebar-menu-item.active {
+    @apply bg-sidebar-primary text-sidebar-primary-foreground font-medium;
+  }
+
+  .sidebar-menu-badge {
+    @apply ml-auto bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center;
+  }
+
   /* POS Product Grid Item */
   .pos-product-card {
     @apply relative flex flex-col items-center justify-center p-4 bg-card rounded-xl border-2 border-transparent cursor-pointer transition-all duration-200;
@@ -174,7 +245,7 @@
 
   /* Order Status Badges */
   .status-badge {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide;
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
   }
 
   .status-badge.pending {
@@ -193,44 +264,31 @@
     @apply bg-primary/15 text-primary;
   }
 
-  /* Mobile Bottom Navigation */
-  .mobile-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-card border-t border-border;
-    @apply flex items-center justify-around py-2 px-4;
-    @apply safe-area-inset-bottom;
-  }
-
-  .mobile-nav-item {
-    @apply flex flex-col items-center gap-1 p-2 rounded-lg transition-colors;
-    @apply text-muted-foreground hover:text-primary hover:bg-primary/10;
-  }
-
-  .mobile-nav-item.active {
-    @apply text-primary bg-primary/10;
-  }
-
   /* Stats Card */
   .stats-card {
-    @apply relative overflow-hidden bg-card rounded-2xl p-6 border shadow-sm;
+    @apply relative overflow-hidden bg-card rounded-xl p-5 border shadow-sm;
     @apply transition-all duration-300 hover:shadow-md;
   }
 
-  .stats-card::before {
-    content: '';
-    @apply absolute top-0 right-0 w-24 h-24 rounded-full opacity-10;
-    @apply -translate-y-1/2 translate-x-1/2;
+  /* Top action bar button */
+  .top-action-btn {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
   }
 
-  .stats-card.primary::before {
-    @apply bg-primary;
+  /* Filter tabs */
+  .filter-tab {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer;
+    @apply text-muted-foreground hover:bg-muted;
   }
 
-  .stats-card.success::before {
-    @apply bg-success;
+  .filter-tab.active {
+    @apply bg-primary text-primary-foreground;
   }
 
-  .stats-card.warning::before {
-    @apply bg-warning;
+  /* NFC Badge */
+  .nfc-badge {
+    @apply inline-flex items-center justify-center px-2 py-1 bg-slate-800 text-white text-xs font-bold rounded;
   }
 }
 
@@ -248,5 +306,11 @@
   /* Gradient text */
   .gradient-text {
     @apply bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent;
+  }
+
+  /* Kanban scroll container */
+  .kanban-scroll {
+    @apply overflow-x-auto pb-4;
+    scrollbar-width: thin;
   }
 }
