@@ -243,12 +243,12 @@ export default function Products() {
                 </div>
                 <div className="space-y-2">
                   <Label>Categoria</Label>
-                  <Select value={categoryId} onValueChange={setCategoryId}>
+                  <Select value={categoryId || "none"} onValueChange={(val) => setCategoryId(val === "none" ? "" : val)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem categoria</SelectItem>
+                      <SelectItem value="none">Sem categoria</SelectItem>
                       {categories.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
