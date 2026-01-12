@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Building2, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ChefHat, Loader2, Building2, Search, CheckCircle2, AlertCircle, MapPin, Phone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // CNPJ validation function (local check digits validation)
@@ -63,8 +63,12 @@ interface CNPJData {
   nome_fantasia: string;
   situacao_cadastral: string;
   logradouro: string;
+  numero: string;
+  bairro: string;
   municipio: string;
   uf: string;
+  cep: string;
+  telefone: string;
 }
 
 export default function Login() {
@@ -293,12 +297,42 @@ export default function Login() {
                       <p className="text-sm text-destructive">{cnpjError}</p>
                     )}
                     {cnpjData && cnpjValidated && !cnpjError && (
-                      <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-2 space-y-1">
-                        <p><span className="font-medium">Razão Social:</span> {cnpjData.razao_social}</p>
-                        {cnpjData.nome_fantasia && (
-                          <p><span className="font-medium">Nome Fantasia:</span> {cnpjData.nome_fantasia}</p>
+                      <div className="text-sm bg-muted/50 rounded-lg p-3 space-y-2 border border-border/50">
+                        <div className="flex items-start gap-2">
+                          <Building2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium text-foreground">{cnpjData.razao_social}</p>
+                            {cnpjData.nome_fantasia && (
+                              <p className="text-muted-foreground">{cnpjData.nome_fantasia}</p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {(cnpjData.logradouro || cnpjData.municipio) && (
+                          <div className="flex items-start gap-2">
+                            <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                            <div className="text-muted-foreground">
+                              {cnpjData.logradouro && (
+                                <p>
+                                  {cnpjData.logradouro}
+                                  {cnpjData.numero && `, ${cnpjData.numero}`}
+                                  {cnpjData.bairro && ` - ${cnpjData.bairro}`}
+                                </p>
+                              )}
+                              <p>
+                                {cnpjData.municipio}/{cnpjData.uf}
+                                {cnpjData.cep && ` - CEP: ${cnpjData.cep}`}
+                              </p>
+                            </div>
+                          </div>
                         )}
-                        <p><span className="font-medium">Localização:</span> {cnpjData.municipio}/{cnpjData.uf}</p>
+                        
+                        {cnpjData.telefone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-primary shrink-0" />
+                            <p className="text-muted-foreground">{cnpjData.telefone}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
