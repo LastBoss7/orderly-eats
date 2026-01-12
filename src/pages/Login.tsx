@@ -4,10 +4,8 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Building2, Search, CheckCircle2, AlertCircle, MapPin, Phone } from 'lucide-react';
+import { ChefHat, Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // CNPJ validation function (local check digits validation)
@@ -71,9 +69,13 @@ interface CNPJData {
   telefone: string;
 }
 
+type AuthMode = 'login' | 'signup';
+
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isValidatingCnpj, setIsValidatingCnpj] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<AuthMode>('login');
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -140,7 +142,6 @@ export default function Login() {
         setCnpjValidated(true);
         setCnpjData(data.data);
         
-        // Auto-fill restaurant name with nome_fantasia or razao_social
         const companyName = data.data.nome_fantasia || data.data.razao_social;
         if (companyName && !restaurantName) {
           setRestaurantName(companyName);
@@ -170,8 +171,6 @@ export default function Login() {
     setCnpj(formatted);
     setCnpjValidated(false);
     setCnpjData(null);
-    
-    // Clear error when typing
     if (cnpjError) setCnpjError('');
   };
 
@@ -185,7 +184,6 @@ export default function Login() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate CNPJ before submitting
     const cnpjDigits = cnpj.replace(/\D/g, '');
     if (!validateCNPJDigits(cnpjDigits)) {
       setCnpjError('CNPJ inválido. Por favor, verifique o número.');
@@ -214,190 +212,355 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <div className="w-full max-w-md animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/25">
-            <ChefHat className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen flex">
+      {/* Left Side - Form */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-center px-8 md:px-16 lg:px-20 py-12 bg-white">
+        <div className="max-w-md w-full mx-auto">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+              <ChefHat className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-semibold text-primary">RestaurantePOS</span>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">RestaurantePOS</h1>
-          <p className="text-muted-foreground text-sm">Sistema de gestão para restaurantes</p>
-        </div>
 
-        <Card className="border-0 shadow-xl">
-          <Tabs defaultValue="login" className="w-full">
-            <CardHeader className="pb-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Criar Conta</TabsTrigger>
-              </TabsList>
-            </CardHeader>
+          {mode === 'login' ? (
+            <>
+              {/* Welcome Text */}
+              <h1 className="text-2xl font-bold text-foreground mb-8">
+                Que bom ter você aqui com a gente!
+              </h1>
 
-            <CardContent>
-              <TabsContent value="login" className="mt-0">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Senha</Label>
+              {/* Login Form */}
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email" className="text-sm font-medium">
+                    E-mail <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="Seu e-mail"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="h-12 border-border/60"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="login-password" className="text-sm font-medium">
+                    Senha <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
                     <Input
                       id="login-password"
-                      type="password"
-                      placeholder="••••••••"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Sua senha"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
+                      className="h-12 pr-12 border-border/60"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Entrando...
-                      </>
-                    ) : (
-                      'Entrar'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
+                  <div className="text-right">
+                    <button type="button" className="text-sm text-primary hover:underline">
+                      Esqueci a senha
+                    </button>
+                  </div>
+                </div>
 
-              <TabsContent value="signup" className="mt-0">
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cnpj">CNPJ do Estabelecimento</Label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="cnpj"
-                        placeholder="00.000.000/0000-00"
-                        value={cnpj}
-                        onChange={(e) => handleCnpjChange(e.target.value)}
-                        onBlur={handleCnpjBlur}
-                        className={`pl-10 pr-10 ${cnpjError ? 'border-destructive focus-visible:ring-destructive' : cnpjValidated ? 'border-green-500 focus-visible:ring-green-500' : ''}`}
-                        required
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {isValidatingCnpj && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                        {cnpjValidated && !cnpjError && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                        {cnpjError && <AlertCircle className="h-4 w-4 text-destructive" />}
-                      </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-medium text-base"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Entrando...
+                    </>
+                  ) : (
+                    'Entrar'
+                  )}
+                </Button>
+              </form>
+
+              {/* Separator */}
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="bg-white px-4 text-muted-foreground">Não é cliente ainda?</span>
+                </div>
+              </div>
+
+              {/* Create Account Button */}
+              <Button 
+                type="button"
+                variant="outline"
+                className="w-full h-12 border-primary text-primary hover:bg-primary/5 font-medium text-base"
+                onClick={() => setMode('signup')}
+              >
+                Criar conta
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Signup Header */}
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                Crie sua conta
+              </h1>
+              <p className="text-muted-foreground mb-6">
+                Preencha os dados do seu estabelecimento
+              </p>
+
+              {/* Signup Form */}
+              <form onSubmit={handleSignup} className="space-y-4">
+                {/* CNPJ */}
+                <div className="space-y-2">
+                  <Label htmlFor="cnpj" className="text-sm font-medium">
+                    CNPJ <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="cnpj"
+                      placeholder="00.000.000/0000-00"
+                      value={cnpj}
+                      onChange={(e) => handleCnpjChange(e.target.value)}
+                      onBlur={handleCnpjBlur}
+                      className={`h-12 pr-12 ${cnpjError ? 'border-destructive' : cnpjValidated ? 'border-success' : 'border-border/60'}`}
+                      required
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      {isValidatingCnpj && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+                      {cnpjValidated && !cnpjError && <CheckCircle2 className="h-5 w-5 text-success" />}
+                      {cnpjError && <AlertCircle className="h-5 w-5 text-destructive" />}
                     </div>
-                    {cnpjError && (
-                      <p className="text-sm text-destructive">{cnpjError}</p>
-                    )}
-                    {cnpjData && cnpjValidated && !cnpjError && (
-                      <div className="text-sm bg-muted/50 rounded-lg p-3 space-y-2 border border-border/50">
+                  </div>
+                  {cnpjError && <p className="text-sm text-destructive">{cnpjError}</p>}
+                  
+                  {cnpjData && cnpjValidated && !cnpjError && (
+                    <div className="text-sm bg-muted/50 rounded-lg p-3 space-y-2 border border-border/50">
+                      <div className="flex items-start gap-2">
+                        <Building2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-foreground">{cnpjData.razao_social}</p>
+                          {cnpjData.nome_fantasia && (
+                            <p className="text-muted-foreground">{cnpjData.nome_fantasia}</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {(cnpjData.logradouro || cnpjData.municipio) && (
                         <div className="flex items-start gap-2">
-                          <Building2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-medium text-foreground">{cnpjData.razao_social}</p>
-                            {cnpjData.nome_fantasia && (
-                              <p className="text-muted-foreground">{cnpjData.nome_fantasia}</p>
+                          <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                          <div className="text-muted-foreground">
+                            {cnpjData.logradouro && (
+                              <p>{cnpjData.logradouro}{cnpjData.numero && `, ${cnpjData.numero}`}{cnpjData.bairro && ` - ${cnpjData.bairro}`}</p>
                             )}
+                            <p>{cnpjData.municipio}/{cnpjData.uf}{cnpjData.cep && ` - CEP: ${cnpjData.cep}`}</p>
                           </div>
                         </div>
-                        
-                        {(cnpjData.logradouro || cnpjData.municipio) && (
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                            <div className="text-muted-foreground">
-                              {cnpjData.logradouro && (
-                                <p>
-                                  {cnpjData.logradouro}
-                                  {cnpjData.numero && `, ${cnpjData.numero}`}
-                                  {cnpjData.bairro && ` - ${cnpjData.bairro}`}
-                                </p>
-                              )}
-                              <p>
-                                {cnpjData.municipio}/{cnpjData.uf}
-                                {cnpjData.cep && ` - CEP: ${cnpjData.cep}`}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {cnpjData.telefone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-primary shrink-0" />
-                            <p className="text-muted-foreground">{cnpjData.telefone}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="restaurant-name">Nome do Restaurante</Label>
-                    <Input
-                      id="restaurant-name"
-                      placeholder="Meu Restaurante"
-                      value={restaurantName}
-                      onChange={(e) => setRestaurantName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="full-name">Nome Completo do Admin</Label>
-                    <Input
-                      id="full-name"
-                      placeholder="João da Silva"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Senha</Label>
+                      )}
+                      
+                      {cnpjData.telefone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-primary shrink-0" />
+                          <p className="text-muted-foreground">{cnpjData.telefone}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Restaurant Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="restaurant-name" className="text-sm font-medium">
+                    Nome do Restaurante <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="restaurant-name"
+                    placeholder="Meu Restaurante"
+                    value={restaurantName}
+                    onChange={(e) => setRestaurantName(e.target.value)}
+                    className="h-12 border-border/60"
+                    required
+                  />
+                </div>
+
+                {/* Full Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="full-name" className="text-sm font-medium">
+                    Nome Completo <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="full-name"
+                    placeholder="João da Silva"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="h-12 border-border/60"
+                    required
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email" className="text-sm font-medium">
+                    E-mail <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
+                    className="h-12 border-border/60"
+                    required
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password" className="text-sm font-medium">
+                    Senha <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
                     <Input
                       id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Mínimo 6 caracteres"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
+                      className="h-12 pr-12 border-border/60"
                       required
                       minLength={6}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading || isValidatingCnpj || !!cnpjError}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Criando conta...
-                      </>
-                    ) : (
-                      'Criar Restaurante'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-        </Card>
+                </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Ao continuar, você concorda com nossos termos de uso.
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-medium text-base"
+                  disabled={isLoading || isValidatingCnpj || !!cnpjError}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando conta...
+                    </>
+                  ) : (
+                    'Criar conta'
+                  )}
+                </Button>
+              </form>
+
+              {/* Back to Login */}
+              <div className="text-center mt-6">
+                <span className="text-muted-foreground">Já tem uma conta? </span>
+                <button 
+                  type="button"
+                  className="text-primary hover:underline font-medium"
+                  onClick={() => setMode('login')}
+                >
+                  Fazer login
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Right Side - Promo */}
+      <div className="hidden lg:flex w-[55%] bg-sky-50 flex-col items-center justify-center p-12">
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-6 shadow-lg">
+          <ChefHat className="w-8 h-8 text-primary-foreground" />
+        </div>
+
+        {/* Headline */}
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-4">
+          Gestão completa para seu restaurante
+        </h2>
+
+        {/* Description */}
+        <p className="text-muted-foreground text-center max-w-lg mb-12">
+          Robô de atendimento, app para garçom, cardápio digital e muito mais. Tudo isso em um só lugar!
         </p>
+
+        {/* Mockup Illustration */}
+        <div className="relative w-full max-w-2xl">
+          {/* Laptop mockup */}
+          <div className="relative mx-auto w-full max-w-xl">
+            <div className="bg-slate-700 rounded-t-xl p-2">
+              <div className="flex gap-1.5 mb-2">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+              </div>
+              <div className="bg-white rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-primary/5 to-primary/20 flex items-center justify-center">
+                  <div className="grid grid-cols-3 gap-2 p-4 w-full">
+                    <div className="bg-warning/80 rounded h-20"></div>
+                    <div className="bg-destructive/80 rounded h-20"></div>
+                    <div className="bg-muted rounded h-20"></div>
+                    <div className="bg-success/30 rounded h-8 col-span-2"></div>
+                    <div className="bg-primary/30 rounded h-8"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-slate-600 h-4 rounded-b-lg mx-4" />
+            <div className="bg-slate-500 h-2 rounded-b-lg mx-16" />
+          </div>
+
+          {/* Phone mockup */}
+          <div className="absolute -right-8 bottom-0 w-24 md:w-32">
+            <div className="bg-slate-800 rounded-2xl p-1.5 shadow-xl">
+              <div className="bg-white rounded-xl overflow-hidden aspect-[9/16]">
+                <div className="bg-gradient-to-br from-primary/10 to-success/20 h-full p-2">
+                  <div className="bg-primary rounded h-6 w-full mb-2"></div>
+                  <div className="space-y-1">
+                    <div className="bg-muted rounded h-8"></div>
+                    <div className="bg-muted rounded h-8"></div>
+                    <div className="bg-muted rounded h-8"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="flex flex-wrap justify-center gap-4 mt-12">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Gestão de Pedidos</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
+            <Monitor className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">PDV Completo</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
+            <Smartphone className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">App Garçom</span>
+          </div>
+        </div>
       </div>
     </div>
   );
