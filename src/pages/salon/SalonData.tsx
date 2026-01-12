@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import {
   HelpCircle,
   ChevronRight,
   ArrowLeft,
+  Loader2,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -20,46 +21,149 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+
+interface SalonSettings {
+  id?: string;
+  has_dining_room: boolean;
+  table_count: number;
+  order_tab_count: number;
+  has_waiters: boolean;
+  operation_type: string | null;
+  service_table: boolean;
+  service_individual: boolean;
+  service_counter: boolean;
+  service_self: boolean;
+}
 
 export default function SalonData() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { restaurant } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
-  // State for form fields - all defaults to empty/zero for admin to configure
-  const [hasDiningRoom, setHasDiningRoom] = useState('');
-  const [tableCount, setTableCount] = useState(0);
-  const [orderTabCount, setOrderTabCount] = useState(0);
-  const [hasWaiters, setHasWaiters] = useState('');
-  const [operationType, setOperationType] = useState('');
-  const [serviceTypes, setServiceTypes] = useState({
-    table: false,
-    individual: false,
-    counter: false,
-    selfService: false,
+  const [settings, setSettings] = useState<SalonSettings>({
+    has_dining_room: false,
+    table_count: 0,
+    order_tab_count: 0,
+    has_waiters: false,
+    operation_type: null,
+    service_table: false,
+    service_individual: false,
+    service_counter: false,
+    service_self: false,
   });
 
+  useEffect(() => {
+    fetchSettings();
+  }, [restaurant?.id]);
+
+  const fetchSettings = async () => {
+    if (!restaurant?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('salon_settings')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setSettings({
+          id: data.id,
+          has_dining_room: data.has_dining_room || false,
+          table_count: data.table_count || 0,
+          order_tab_count: data.order_tab_count || 0,
+          has_waiters: data.has_waiters || false,
+          operation_type: data.operation_type,
+          service_table: data.service_table || false,
+          service_individual: data.service_individual || false,
+          service_counter: data.service_counter || false,
+          service_self: data.service_self || false,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleTableCountChange = (delta: number) => {
-    setTableCount(prev => Math.max(0, prev + delta));
+    setSettings(prev => ({ ...prev, table_count: Math.max(0, prev.table_count + delta) }));
   };
 
   const handleOrderTabCountChange = (delta: number) => {
-    setOrderTabCount(prev => Math.max(0, prev + delta));
+    setSettings(prev => ({ ...prev, order_tab_count: Math.max(0, prev.order_tab_count + delta) }));
   };
 
-  const handleServiceTypeChange = (type: keyof typeof serviceTypes) => {
-    setServiceTypes(prev => ({
-      ...prev,
-      [type]: !prev[type],
-    }));
+  const handleSave = async () => {
+    if (!restaurant?.id) return;
+
+    setSaving(true);
+
+    try {
+      const payload = {
+        restaurant_id: restaurant.id,
+        has_dining_room: settings.has_dining_room,
+        table_count: settings.table_count,
+        order_tab_count: settings.order_tab_count,
+        has_waiters: settings.has_waiters,
+        operation_type: settings.operation_type,
+        service_table: settings.service_table,
+        service_individual: settings.service_individual,
+        service_counter: settings.service_counter,
+        service_self: settings.service_self,
+      };
+
+      if (settings.id) {
+        // Update existing
+        const { error } = await supabase
+          .from('salon_settings')
+          .update(payload)
+          .eq('id', settings.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { data, error } = await supabase
+          .from('salon_settings')
+          .insert(payload)
+          .select()
+          .single();
+
+        if (error) throw error;
+        setSettings(prev => ({ ...prev, id: data.id }));
+      }
+
+      toast({
+        title: 'Configurações salvas',
+        description: 'As configurações do salão foram atualizadas com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar',
+        description: error.message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSave = () => {
-    // TODO: Save settings to database
-    toast({
-      title: 'Configurações salvas',
-      description: 'As configurações do salão foram atualizadas com sucesso.',
-    });
-  };
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -109,8 +213,8 @@ export default function SalonData() {
                     Você tem atendimento de salão no seu estabelecimento? *
                   </Label>
                   <RadioGroup 
-                    value={hasDiningRoom} 
-                    onValueChange={setHasDiningRoom}
+                    value={settings.has_dining_room ? 'yes' : 'no'} 
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, has_dining_room: v === 'yes' }))}
                     className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
@@ -126,7 +230,7 @@ export default function SalonData() {
               </fieldset>
             </div>
 
-            {hasDiningRoom === 'yes' && (
+            {settings.has_dining_room && (
               <>
                 {/* Estrutura e Modelo de Negócio */}
                 <fieldset className="border rounded-lg p-4">
@@ -146,7 +250,7 @@ export default function SalonData() {
                           <Minus className="w-4 h-4" />
                         </Button>
                         <div className="w-16 text-center text-xl font-semibold">
-                          {tableCount}
+                          {settings.table_count}
                         </div>
                         <Button 
                           variant="outline" 
@@ -173,7 +277,7 @@ export default function SalonData() {
                           <Minus className="w-4 h-4" />
                         </Button>
                         <div className="w-16 text-center text-xl font-semibold">
-                          {orderTabCount}
+                          {settings.order_tab_count}
                         </div>
                         <Button 
                           variant="outline" 
@@ -192,8 +296,8 @@ export default function SalonData() {
                     <div className="space-y-3">
                       <Label className="text-base font-medium">Possui Garçons? *</Label>
                       <RadioGroup 
-                        value={hasWaiters} 
-                        onValueChange={setHasWaiters}
+                        value={settings.has_waiters ? 'yes' : 'no'} 
+                        onValueChange={(v) => setSettings(prev => ({ ...prev, has_waiters: v === 'yes' }))}
                         className="flex gap-6"
                       >
                         <div className="flex items-center space-x-2">
@@ -220,8 +324,8 @@ export default function SalonData() {
                     Como você opera? * (Selecione apenas 1 opção, considere a principal)
                   </Label>
                   <RadioGroup 
-                    value={operationType} 
-                    onValueChange={setOperationType}
+                    value={settings.operation_type || ''} 
+                    onValueChange={(v) => setSettings(prev => ({ ...prev, operation_type: v }))}
                     className="grid grid-cols-1 md:grid-cols-3 gap-4"
                   >
                     <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -303,8 +407,8 @@ export default function SalonData() {
                     <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <Checkbox 
                         id="service-table" 
-                        checked={serviceTypes.table}
-                        onCheckedChange={() => handleServiceTypeChange('table')}
+                        checked={settings.service_table}
+                        onCheckedChange={(checked) => setSettings(prev => ({ ...prev, service_table: !!checked }))}
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -329,8 +433,8 @@ export default function SalonData() {
                     <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <Checkbox 
                         id="service-individual" 
-                        checked={serviceTypes.individual}
-                        onCheckedChange={() => handleServiceTypeChange('individual')}
+                        checked={settings.service_individual}
+                        onCheckedChange={(checked) => setSettings(prev => ({ ...prev, service_individual: !!checked }))}
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -355,8 +459,8 @@ export default function SalonData() {
                     <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <Checkbox 
                         id="service-counter" 
-                        checked={serviceTypes.counter}
-                        onCheckedChange={() => handleServiceTypeChange('counter')}
+                        checked={settings.service_counter}
+                        onCheckedChange={(checked) => setSettings(prev => ({ ...prev, service_counter: !!checked }))}
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -381,8 +485,8 @@ export default function SalonData() {
                     <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                       <Checkbox 
                         id="service-self" 
-                        checked={serviceTypes.selfService}
-                        onCheckedChange={() => handleServiceTypeChange('selfService')}
+                        checked={settings.service_self}
+                        onCheckedChange={(checked) => setSettings(prev => ({ ...prev, service_self: !!checked }))}
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -420,8 +524,16 @@ export default function SalonData() {
               <Button 
                 className="min-w-[120px]"
                 onClick={handleSave}
+                disabled={saving}
               >
-                Salvar
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Salvar'
+                )}
               </Button>
             </div>
           </CardContent>

@@ -292,6 +292,87 @@ export type Database = {
         }
         Relationships: []
       }
+      salon_areas: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          restaurant_id: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          restaurant_id: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          restaurant_id?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      salon_settings: {
+        Row: {
+          created_at: string
+          has_dining_room: boolean | null
+          has_waiters: boolean | null
+          id: string
+          operation_type: string | null
+          order_tab_count: number | null
+          restaurant_id: string
+          service_counter: boolean | null
+          service_individual: boolean | null
+          service_self: boolean | null
+          service_table: boolean | null
+          table_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          has_dining_room?: boolean | null
+          has_waiters?: boolean | null
+          id?: string
+          operation_type?: string | null
+          order_tab_count?: number | null
+          restaurant_id: string
+          service_counter?: boolean | null
+          service_individual?: boolean | null
+          service_self?: boolean | null
+          service_table?: boolean | null
+          table_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          has_dining_room?: boolean | null
+          has_waiters?: boolean | null
+          id?: string
+          operation_type?: string | null
+          order_tab_count?: number | null
+          restaurant_id?: string
+          service_counter?: boolean | null
+          service_individual?: boolean | null
+          service_self?: boolean | null
+          service_table?: boolean | null
+          table_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tables: {
         Row: {
           capacity: number | null
@@ -348,6 +429,39 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      waiters: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          restaurant_id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          restaurant_id: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          restaurant_id?: string
+          status?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

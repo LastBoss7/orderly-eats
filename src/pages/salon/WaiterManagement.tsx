@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import {
   MoreVertical,
   UserPlus,
   Users,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -32,33 +33,57 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 interface Waiter {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  status: 'active' | 'inactive';
-  assignedTables: number[];
+  email: string | null;
+  phone: string | null;
+  status: string;
 }
 
 export default function WaiterManagement() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { restaurant } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [newWaiter, setNewWaiter] = useState({ name: '', email: '', phone: '' });
-  
-  // Mock data - will be replaced with database
   const [waiters, setWaiters] = useState<Waiter[]>([]);
+
+  useEffect(() => {
+    fetchWaiters();
+  }, [restaurant?.id]);
+
+  const fetchWaiters = async () => {
+    if (!restaurant?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('waiters')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setWaiters(data || []);
+    } catch (error) {
+      console.error('Error fetching waiters:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredWaiters = waiters.filter(waiter =>
     waiter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    waiter.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (waiter.email && waiter.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddWaiter = () => {
-    if (!newWaiter.name) {
+  const handleAddWaiter = async () => {
+    if (!newWaiter.name.trim()) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -67,44 +92,103 @@ export default function WaiterManagement() {
       return;
     }
 
-    const waiter: Waiter = {
-      id: Date.now().toString(),
-      name: newWaiter.name,
-      email: newWaiter.email,
-      phone: newWaiter.phone,
-      status: 'active',
-      assignedTables: [],
-    };
+    if (!restaurant?.id) return;
 
-    setWaiters(prev => [...prev, waiter]);
-    setNewWaiter({ name: '', email: '', phone: '' });
-    setIsDialogOpen(false);
+    setSaving(true);
 
-    toast({
-      title: 'Garçom adicionado',
-      description: `${waiter.name} foi adicionado à equipe.`,
-    });
+    try {
+      const { error } = await supabase
+        .from('waiters')
+        .insert({
+          restaurant_id: restaurant.id,
+          name: newWaiter.name.trim(),
+          email: newWaiter.email.trim() || null,
+          phone: newWaiter.phone.trim() || null,
+          status: 'active',
+        });
+
+      if (error) throw error;
+
+      setNewWaiter({ name: '', email: '', phone: '' });
+      setIsDialogOpen(false);
+      fetchWaiters();
+
+      toast({
+        title: 'Garçom adicionado',
+        description: `${newWaiter.name} foi adicionado à equipe.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const toggleWaiterStatus = (id: string) => {
-    setWaiters(prev => prev.map(w => 
-      w.id === id 
-        ? { ...w, status: w.status === 'active' ? 'inactive' : 'active' }
-        : w
-    ));
+  const toggleWaiterStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+
+    try {
+      const { error } = await supabase
+        .from('waiters')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchWaiters();
+
+      toast({
+        title: 'Status atualizado',
+        description: `Garçom ${newStatus === 'active' ? 'ativado' : 'desativado'}.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    }
   };
 
-  const removeWaiter = (id: string) => {
-    setWaiters(prev => prev.filter(w => w.id !== id));
-    toast({
-      title: 'Garçom removido',
-      description: 'O garçom foi removido da equipe.',
-    });
+  const removeWaiter = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('waiters')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchWaiters();
+
+      toast({
+        title: 'Garçom removido',
+        description: 'O garçom foi removido da equipe.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    }
   };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -186,8 +270,15 @@ export default function WaiterManagement() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAddWaiter}>
-                  Adicionar
+                <Button onClick={handleAddWaiter} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adicionando...
+                    </>
+                  ) : (
+                    'Adicionar'
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -234,7 +325,7 @@ export default function WaiterManagement() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => toggleWaiterStatus(waiter.id)}>
+                      <DropdownMenuItem onClick={() => toggleWaiterStatus(waiter.id, waiter.status)}>
                         {waiter.status === 'active' ? 'Desativar' : 'Ativar'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 

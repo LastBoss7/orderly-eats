@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
   MapPin,
   Edit,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -31,13 +32,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 interface SalonArea {
   id: string;
   name: string;
-  description: string;
-  tableCount: number;
+  description: string | null;
   color: string;
+  sort_order: number;
 }
 
 const areaColors = [
@@ -52,14 +55,37 @@ const areaColors = [
 export default function SalonAreas() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { restaurant } = useAuth();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [newArea, setNewArea] = useState({ name: '', description: '', color: 'bg-blue-500' });
-  
-  // Mock data - will be replaced with database
   const [areas, setAreas] = useState<SalonArea[]>([]);
 
-  const handleAddArea = () => {
-    if (!newArea.name) {
+  useEffect(() => {
+    fetchAreas();
+  }, [restaurant?.id]);
+
+  const fetchAreas = async () => {
+    if (!restaurant?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('salon_areas')
+        .select('*')
+        .order('sort_order');
+
+      if (error) throw error;
+      setAreas(data || []);
+    } catch (error) {
+      console.error('Error fetching areas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddArea = async () => {
+    if (!newArea.name.trim()) {
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -68,31 +94,78 @@ export default function SalonAreas() {
       return;
     }
 
-    const area: SalonArea = {
-      id: Date.now().toString(),
-      name: newArea.name,
-      description: newArea.description,
-      tableCount: 0,
-      color: newArea.color,
-    };
+    if (!restaurant?.id) return;
 
-    setAreas(prev => [...prev, area]);
-    setNewArea({ name: '', description: '', color: 'bg-blue-500' });
-    setIsDialogOpen(false);
+    setSaving(true);
 
-    toast({
-      title: 'Área adicionada',
-      description: `${area.name} foi criada com sucesso.`,
-    });
+    try {
+      const nextSortOrder = areas.length > 0 
+        ? Math.max(...areas.map(a => a.sort_order || 0)) + 1 
+        : 0;
+
+      const { error } = await supabase
+        .from('salon_areas')
+        .insert({
+          restaurant_id: restaurant.id,
+          name: newArea.name.trim(),
+          description: newArea.description.trim() || null,
+          color: newArea.color,
+          sort_order: nextSortOrder,
+        });
+
+      if (error) throw error;
+
+      setNewArea({ name: '', description: '', color: 'bg-blue-500' });
+      setIsDialogOpen(false);
+      fetchAreas();
+
+      toast({
+        title: 'Área adicionada',
+        description: `${newArea.name} foi criada com sucesso.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const removeArea = (id: string) => {
-    setAreas(prev => prev.filter(a => a.id !== id));
-    toast({
-      title: 'Área removida',
-      description: 'A área foi removida do salão.',
-    });
+  const removeArea = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('salon_areas')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchAreas();
+
+      toast({
+        title: 'Área removida',
+        description: 'A área foi removida do salão.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -165,6 +238,7 @@ export default function SalonAreas() {
                     {areaColors.map((color) => (
                       <button
                         key={color.value}
+                        type="button"
                         className={`w-8 h-8 rounded-full ${color.value} transition-all ${
                           newArea.color === color.value 
                             ? 'ring-2 ring-offset-2 ring-primary scale-110' 
@@ -181,8 +255,15 @@ export default function SalonAreas() {
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAddArea}>
-                  Criar Área
+                <Button onClick={handleAddArea} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Criando...
+                    </>
+                  ) : (
+                    'Criar Área'
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -204,9 +285,6 @@ export default function SalonAreas() {
                     <p className="text-sm text-muted-foreground">
                       {area.description || 'Sem descrição'}
                     </p>
-                    <Badge variant="secondary" className="mt-1">
-                      {area.tableCount} mesas
-                    </Badge>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
