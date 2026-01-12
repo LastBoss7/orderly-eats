@@ -7,19 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Building2 } from 'lucide-react';
+import { ChefHat, Loader2, Building2, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
-// CNPJ validation function
-const validateCNPJ = (cnpj: string): boolean => {
-  // Remove non-digits
+// CNPJ validation function (local check digits validation)
+const validateCNPJDigits = (cnpj: string): boolean => {
   cnpj = cnpj.replace(/\D/g, '');
   
   if (cnpj.length !== 14) return false;
-  
-  // Check for known invalid patterns
   if (/^(\d)\1+$/.test(cnpj)) return false;
   
-  // Validate check digits
   let size = cnpj.length - 2;
   let numbers = cnpj.substring(0, size);
   const digits = cnpj.substring(size);
@@ -61,8 +58,18 @@ const formatCNPJ = (value: string): string => {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 };
 
+interface CNPJData {
+  razao_social: string;
+  nome_fantasia: string;
+  situacao_cadastral: string;
+  logradouro: string;
+  municipio: string;
+  uf: string;
+}
+
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidatingCnpj, setIsValidatingCnpj] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -78,6 +85,8 @@ export default function Login() {
   const [fullName, setFullName] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [cnpjError, setCnpjError] = useState('');
+  const [cnpjValidated, setCnpjValidated] = useState(false);
+  const [cnpjData, setCnpjData] = useState<CNPJData | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,19 +111,70 @@ export default function Login() {
     setIsLoading(false);
   };
 
+  const validateCNPJOnServer = async (cnpjValue: string) => {
+    const digits = cnpjValue.replace(/\D/g, '');
+    
+    if (digits.length !== 14) return;
+    if (!validateCNPJDigits(digits)) {
+      setCnpjError('CNPJ inválido (dígitos verificadores incorretos)');
+      return;
+    }
+
+    setIsValidatingCnpj(true);
+    setCnpjError('');
+    setCnpjValidated(false);
+    setCnpjData(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('validate-cnpj', {
+        body: { cnpj: digits },
+      });
+
+      if (error) throw error;
+
+      if (data.valid) {
+        setCnpjValidated(true);
+        setCnpjData(data.data);
+        
+        // Auto-fill restaurant name with nome_fantasia or razao_social
+        const companyName = data.data.nome_fantasia || data.data.razao_social;
+        if (companyName && !restaurantName) {
+          setRestaurantName(companyName);
+        }
+
+        if (!data.active) {
+          setCnpjError(`CNPJ com situação: ${data.data.situacao_cadastral}. Verifique se está ativo.`);
+        } else {
+          toast({
+            title: 'CNPJ validado!',
+            description: `Empresa: ${data.data.razao_social}`,
+          });
+        }
+      } else {
+        setCnpjError(data.error || 'CNPJ não encontrado');
+      }
+    } catch (error: any) {
+      console.error('CNPJ validation error:', error);
+      setCnpjError('Erro ao consultar CNPJ. Tente novamente.');
+    } finally {
+      setIsValidatingCnpj(false);
+    }
+  };
+
   const handleCnpjChange = (value: string) => {
     const formatted = formatCNPJ(value);
     setCnpj(formatted);
+    setCnpjValidated(false);
+    setCnpjData(null);
     
     // Clear error when typing
     if (cnpjError) setCnpjError('');
-    
-    // Validate when complete
-    const digits = value.replace(/\D/g, '');
+  };
+
+  const handleCnpjBlur = () => {
+    const digits = cnpj.replace(/\D/g, '');
     if (digits.length === 14) {
-      if (!validateCNPJ(digits)) {
-        setCnpjError('CNPJ inválido');
-      }
+      validateCNPJOnServer(cnpj);
     }
   };
 
@@ -123,7 +183,7 @@ export default function Login() {
     
     // Validate CNPJ before submitting
     const cnpjDigits = cnpj.replace(/\D/g, '');
-    if (!validateCNPJ(cnpjDigits)) {
+    if (!validateCNPJDigits(cnpjDigits)) {
       setCnpjError('CNPJ inválido. Por favor, verifique o número.');
       return;
     }
@@ -219,12 +279,27 @@ export default function Login() {
                         placeholder="00.000.000/0000-00"
                         value={cnpj}
                         onChange={(e) => handleCnpjChange(e.target.value)}
-                        className={`pl-10 ${cnpjError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                        onBlur={handleCnpjBlur}
+                        className={`pl-10 pr-10 ${cnpjError ? 'border-destructive focus-visible:ring-destructive' : cnpjValidated ? 'border-green-500 focus-visible:ring-green-500' : ''}`}
                         required
                       />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {isValidatingCnpj && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                        {cnpjValidated && !cnpjError && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                        {cnpjError && <AlertCircle className="h-4 w-4 text-destructive" />}
+                      </div>
                     </div>
                     {cnpjError && (
                       <p className="text-sm text-destructive">{cnpjError}</p>
+                    )}
+                    {cnpjData && cnpjValidated && !cnpjError && (
+                      <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-2 space-y-1">
+                        <p><span className="font-medium">Razão Social:</span> {cnpjData.razao_social}</p>
+                        {cnpjData.nome_fantasia && (
+                          <p><span className="font-medium">Nome Fantasia:</span> {cnpjData.nome_fantasia}</p>
+                        )}
+                        <p><span className="font-medium">Localização:</span> {cnpjData.municipio}/{cnpjData.uf}</p>
+                      </div>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -270,7 +345,7 @@ export default function Login() {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading || !!cnpjError}>
+                  <Button type="submit" className="w-full" disabled={isLoading || isValidatingCnpj || !!cnpjError}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
