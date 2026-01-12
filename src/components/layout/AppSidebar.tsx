@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import {
@@ -17,23 +18,28 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   ChefHat,
-  LayoutDashboard,
   ShoppingCart,
   Grid3X3,
   Package,
   FolderOpen,
   LogOut,
-  User,
   Search,
   ClipboardList,
   Calendar,
   Truck,
   BarChart3,
   UtensilsCrossed,
-  Bot,
   Settings,
   ChevronRight,
+  ChevronDown,
+  Image,
+  Edit3,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -41,8 +47,16 @@ const mainMenuItems = [
   { title: 'Pedidos balcão (PDV)', url: '/pos', icon: ShoppingCart },
   { title: 'Pedidos salão', url: '/tables', icon: Grid3X3 },
   { title: 'Pedidos agendados', url: '/scheduled', icon: Calendar, badge: 0 },
-  { title: 'Gestor de cardápio', url: '/products', icon: UtensilsCrossed, hasSubmenu: true },
+];
+
+const cardapioSubmenu = [
+  { title: 'Gestor', url: '/products', icon: Package },
   { title: 'Categorias', url: '/categories', icon: FolderOpen },
+  { title: 'Imagens do cardápio', url: '/menu-images', icon: Image },
+  { title: 'Edição em massa', url: '/bulk-edit', icon: Edit3 },
+];
+
+const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck, badge: 3 },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
@@ -50,7 +64,11 @@ const mainMenuItems = [
 
 export function AppSidebar() {
   const location = useLocation();
-  const { user, profile, restaurant, signOut } = useAuth();
+  const { profile, restaurant, signOut } = useAuth();
+  
+  // Check if any cardapio route is active
+  const isCardapioActive = cardapioSubmenu.some(item => location.pathname === item.url);
+  const [cardapioOpen, setCardapioOpen] = useState(isCardapioActive);
 
   const getInitials = (name: string | null) => {
     if (!name) return 'U';
@@ -107,8 +125,54 @@ export function AppSidebar() {
                       {item.badge !== undefined && item.badge > 0 && (
                         <span className="sidebar-menu-badge">{item.badge}</span>
                       )}
-                      {item.hasSubmenu && (
-                        <ChevronRight className="w-4 h-4 opacity-50" />
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* Gestor de cardápio - Collapsible */}
+              <SidebarMenuItem>
+                <Collapsible open={cardapioOpen} onOpenChange={setCardapioOpen}>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className={`sidebar-menu-item w-full cursor-pointer ${isCardapioActive ? 'active' : ''}`}
+                    >
+                      <UtensilsCrossed className="w-5 h-5" />
+                      <span className="flex-1">Gestor de cardápio</span>
+                      {cardapioOpen ? (
+                        <ChevronDown className="w-4 h-4 opacity-50 transition-transform" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 opacity-50 transition-transform" />
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                    {cardapioSubmenu.map((subItem) => (
+                      <SidebarMenuButton
+                        key={subItem.title}
+                        asChild
+                        className={`sidebar-menu-item text-sm ${isActive(subItem.url) ? 'active' : ''}`}
+                      >
+                        <Link to={subItem.url}>
+                          <span className="flex-1 ml-5">{subItem.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              </SidebarMenuItem>
+
+              {bottomMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
+                  >
+                    <Link to={item.url}>
+                      <item.icon className="w-5 h-5" />
+                      <span className="flex-1">{item.title}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="sidebar-menu-badge">{item.badge}</span>
                       )}
                     </Link>
                   </SidebarMenuButton>
