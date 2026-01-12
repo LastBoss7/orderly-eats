@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import {
   Sidebar,
   SidebarContent,
@@ -57,7 +58,7 @@ const cardapioSubmenu = [
 ];
 
 const bottomMenuItems = [
-  { title: 'Entregas', url: '/deliveries', icon: Truck, badge: 3 },
+  { title: 'Entregas', url: '/deliveries', icon: Truck },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
 ];
@@ -65,10 +66,18 @@ const bottomMenuItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { profile, restaurant, signOut } = useAuth();
+  const { newDeliveriesCount, markDeliveriesAsViewed } = useSidebarBadges();
   
   // Check if any cardapio route is active
   const isCardapioActive = cardapioSubmenu.some(item => location.pathname === item.url);
   const [cardapioOpen, setCardapioOpen] = useState(isCardapioActive);
+
+  // Mark deliveries as viewed when visiting deliveries page
+  useEffect(() => {
+    if (location.pathname === '/deliveries') {
+      markDeliveriesAsViewed();
+    }
+  }, [location.pathname, markDeliveriesAsViewed]);
 
   const getInitials = (name: string | null) => {
     if (!name) return 'U';
@@ -162,22 +171,29 @@ export function AppSidebar() {
                 </Collapsible>
               </SidebarMenuItem>
 
-              {bottomMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="w-5 h-5" />
-                      <span className="flex-1">{item.title}</span>
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <span className="sidebar-menu-badge">{item.badge}</span>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {bottomMenuItems.map((item) => {
+                const isDeliveries = item.url === '/deliveries';
+                const badgeCount = isDeliveries ? newDeliveriesCount : 0;
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
+                    >
+                      <Link to={item.url}>
+                        <item.icon className="w-5 h-5" />
+                        <span className="flex-1">{item.title}</span>
+                        {badgeCount > 0 && (
+                          <span className={`sidebar-menu-badge ${isDeliveries ? 'animated' : ''}`}>
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
