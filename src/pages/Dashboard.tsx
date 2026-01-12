@@ -2,214 +2,368 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { 
-  DollarSign, 
-  ShoppingBag, 
-  Users, 
-  TrendingUp,
+  Search,
+  Plus,
+  Printer,
+  Settings,
   Clock,
-  CheckCircle2,
-  AlertCircle,
+  AlertTriangle,
+  ChefHat,
+  ArrowRight,
+  UtensilsCrossed,
+  MapPin,
+  Phone,
+  CreditCard,
+  Banknote,
+  MessageCircle,
 } from 'lucide-react';
 
-interface DashboardStats {
-  totalSales: number;
-  totalOrders: number;
-  pendingOrders: number;
-  completedOrders: number;
-  occupiedTables: number;
-  totalTables: number;
+interface Order {
+  id: string;
+  order_type: string | null;
+  status: string | null;
+  total: number | null;
+  customer_name: string | null;
+  table_id: string | null;
+  created_at: string;
+  notes: string | null;
+  order_items?: {
+    id: string;
+    product_name: string;
+    quantity: number;
+    product_price: number;
+  }[];
 }
+
+interface Table {
+  id: string;
+  number: number;
+}
+
+type FilterType = 'all' | 'delivery' | 'table' | 'scheduled';
 
 export default function Dashboard() {
   const { restaurant } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalSales: 0,
-    totalOrders: 0,
-    pendingOrders: 0,
-    completedOrders: 0,
-    occupiedTables: 0,
-    totalTables: 0,
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [autoAccept, setAutoAccept] = useState(true);
+  const [filter, setFilter] = useState<FilterType>('all');
 
   useEffect(() => {
-    const fetchStats = async () => {
-      if (!restaurant?.id) return;
-
-      try {
-        // Get today's date range
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        // Fetch orders
-        const { data: orders } = await supabase
-          .from('orders')
-          .select('*')
-          .gte('created_at', today.toISOString())
-          .lt('created_at', tomorrow.toISOString());
-
-        // Fetch tables
-        const { data: tables } = await supabase
-          .from('tables')
-          .select('*');
-
-        const ordersList = orders || [];
-        const tablesList = tables || [];
-
-        setStats({
-          totalSales: ordersList
-            .filter(o => o.status === 'delivered')
-            .reduce((sum, o) => sum + Number(o.total || 0), 0),
-          totalOrders: ordersList.length,
-          pendingOrders: ordersList.filter(o => ['pending', 'preparing'].includes(o.status)).length,
-          completedOrders: ordersList.filter(o => o.status === 'delivered').length,
-          occupiedTables: tablesList.filter(t => t.status === 'occupied').length,
-          totalTables: tablesList.length,
-        });
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
+    fetchOrders();
+    fetchTables();
   }, [restaurant?.id]);
 
-  const formatCurrency = (value: number) => {
+  const fetchOrders = async () => {
+    if (!restaurant?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTables = async () => {
+    const { data } = await supabase.from('tables').select('id, number');
+    if (data) setTables(data);
+  };
+
+  const getTableNumber = (tableId: string | null) => {
+    if (!tableId) return null;
+    const table = tables.find(t => t.id === tableId);
+    return table?.number;
+  };
+
+  const formatCurrency = (value: number | null) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(value);
+    }).format(value || 0);
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const isDelayed = (order: Order) => {
+    const created = new Date(order.created_at);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - created.getTime()) / 1000 / 60;
+    return diffMinutes > 30;
+  };
+
+  // Filter orders by status
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const preparingOrders = orders.filter(o => o.status === 'preparing');
+  const readyOrders = orders.filter(o => ['ready', 'delivered'].includes(o.status || ''));
+
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    await supabase.from('orders').update({ status }).eq('id', orderId);
+    fetchOrders();
+  };
+
+  const OrderCard = ({ order, showAdvanceButton = false, showFinalizeButton = false }: { 
+    order: Order; 
+    showAdvanceButton?: boolean;
+    showFinalizeButton?: boolean;
+  }) => {
+    const tableNumber = getTableNumber(order.table_id);
+    const delayed = isDelayed(order);
+
+    return (
+      <div className="order-card">
+        {/* Header */}
+        <div className="order-card-header">
+          <div className="order-number">
+            <ChefHat className="w-5 h-5 text-muted-foreground" />
+            <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
+          </div>
+          <div className="order-time">
+            <Clock className="w-3 h-3" />
+            {formatTime(order.created_at)}
+          </div>
+        </div>
+
+        {/* Status bar for delayed */}
+        {delayed && order.status !== 'delivered' && (
+          <div className="order-status-bar delayed flex items-center justify-center gap-2">
+            <AlertTriangle className="w-3 h-3" />
+            Pedido atrasado
+          </div>
+        )}
+
+        {/* Customer info */}
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">
+              {order.customer_name || 'Não identificado'}
+            </span>
+            <span className="font-semibold">Total: {formatCurrency(order.total)}</span>
+          </div>
+          {!order.customer_name && (
+            <p className="text-xs text-muted-foreground">Não registrado</p>
+          )}
+        </div>
+
+        {/* Table info */}
+        {tableNumber && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <UtensilsCrossed className="w-4 h-4" />
+            Mesa {tableNumber}
+          </div>
+        )}
+
+        {/* Order type badge */}
+        {order.order_type === 'delivery' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="w-4 h-4" />
+            Retirada no local
+          </div>
+        )}
+
+        {/* Action buttons */}
+        {showAdvanceButton && (
+          <Button 
+            variant="outline" 
+            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            onClick={() => updateOrderStatus(order.id, order.status === 'pending' ? 'preparing' : 'ready')}
+          >
+            Avançar pedido
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
+
+        {showFinalizeButton && (
+          <div className="flex gap-2">
+            <Badge className="nfc-badge">NFC</Badge>
+            <Button 
+              variant="outline" 
+              className="flex-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => updateOrderStatus(order.id, 'delivered')}
+            >
+              Finalizar pedido
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Visão geral de {restaurant?.name || 'seu restaurante'} hoje
-          </p>
+      <div className="h-full flex flex-col">
+        {/* Top Bar */}
+        <div className="bg-card border-b px-4 py-3">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger />
+            
+            {/* Filter tabs */}
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-full">
+              <button 
+                className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
+              >
+                Todos
+              </button>
+              <button 
+                className={`filter-tab ${filter === 'delivery' ? 'active' : ''}`}
+                onClick={() => setFilter('delivery')}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+              </button>
+              <button 
+                className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
+                onClick={() => setFilter('table')}
+              >
+                <ChefHat className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Busque por cliente ou número do pedido"
+                  className="pl-9"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <Button className="top-action-btn">
+              <Plus className="w-4 h-4" />
+              Novo pedido
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Printer className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Settings className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* Total Sales */}
-          <Card className="stats-card primary">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Vendas do Dia
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? '...' : formatCurrency(stats.totalSales)}
+        {/* Kanban Board */}
+        <div className="flex-1 overflow-hidden p-4">
+          <div className="h-full flex gap-4 kanban-scroll">
+            {/* Column: Em análise */}
+            <div className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden">
+              <div className="kanban-header analysis">
+                <span>Em análise</span>
+                <Badge variant="secondary" className="bg-white/20 text-white">
+                  {pendingOrders.length}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.completedOrders} pedidos finalizados
-              </p>
-            </CardContent>
-          </Card>
+              
+              {/* Auto accept toggle */}
+              <div className="p-4 bg-white border-b">
+                <div className="text-sm space-y-1">
+                  <p><strong>Balcão:</strong> 10 a 50 min <span className="text-primary cursor-pointer">Editar</span></p>
+                  <p><strong>Delivery:</strong> 25 a 80 min</p>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
+                  <span className="text-sm">Aceitar os pedidos automaticamente</span>
+                </div>
+              </div>
 
-          {/* Total Orders */}
-          <Card className="stats-card success">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total de Pedidos
-              </CardTitle>
-              <ShoppingBag className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? '...' : stats.totalOrders}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                pedidos realizados hoje
-              </p>
-            </CardContent>
-          </Card>
+              {pendingOrders.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                  <div className="w-12 h-12 mb-3 opacity-50">↩</div>
+                  <p className="text-sm">Todos os pedidos</p>
+                  <p className="text-sm">são aceitos automaticamente</p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {pendingOrders.map(order => (
+                    <OrderCard key={order.id} order={order} showAdvanceButton />
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Pending Orders */}
-          <Card className="stats-card warning">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pedidos Pendentes
-              </CardTitle>
-              <Clock className="h-4 w-4 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? '...' : stats.pendingOrders}
+            {/* Column: Em produção */}
+            <div className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden">
+              <div className="kanban-header production">
+                <div className="flex items-center gap-2">
+                  <span>Em produção</span>
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <Badge variant="secondary" className="bg-white/20 text-white">
+                  {preparingOrders.length}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                aguardando preparo/entrega
-              </p>
-            </CardContent>
-          </Card>
+              
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {preparingOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                    <ChefHat className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">Nenhum pedido em produção</p>
+                  </div>
+                ) : (
+                  preparingOrders.map(order => (
+                    <OrderCard key={order.id} order={order} showAdvanceButton />
+                  ))
+                )}
+              </div>
+            </div>
 
-          {/* Tables Status */}
-          <Card className="stats-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Mesas Ocupadas
-              </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? '...' : `${stats.occupiedTables}/${stats.totalTables}`}
+            {/* Column: Prontos para entrega */}
+            <div className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden">
+              <div className="kanban-header ready">
+                <span>Prontos para entrega</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                    Finalizar
+                  </Button>
+                  <Badge variant="secondary">
+                    {readyOrders.length}
+                  </Badge>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                mesas em uso agora
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6 text-primary" />
+              
+              <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                {readyOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                    <UtensilsCrossed className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">Nenhum pedido pronto</p>
+                  </div>
+                ) : (
+                  readyOrders.map(order => (
+                    <OrderCard key={order.id} order={order} showFinalizeButton />
+                  ))
+                )}
               </div>
-              <div>
-                <h3 className="font-semibold">Nova Venda</h3>
-                <p className="text-sm text-muted-foreground">Acessar o PDV</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-success" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Ver Mesas</h3>
-                <p className="text-sm text-muted-foreground">Gerenciar ocupação</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-warning" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Pedidos Pendentes</h3>
-                <p className="text-sm text-muted-foreground">{stats.pendingOrders} aguardando</p>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>
