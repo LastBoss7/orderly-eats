@@ -127,10 +127,10 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
-                  className={`sidebar-menu-item ${isActive('/waiter') ? 'active' : ''}`}
+                  className={`sidebar-menu-item ${isActive('/salon-settings') ? 'active' : ''}`}
                 >
-                  <Link to="/waiter">
-                    <User className="w-5 h-5" />
+                  <Link to="/salon-settings">
+                    <Settings className="w-5 h-5" />
                     <span className="flex-1">Gestão de salão</span>
                     <Badge variant="outline" className="text-[10px] border-success text-success">
                       Grátis

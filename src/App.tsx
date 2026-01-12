@@ -12,6 +12,7 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Waiter from "./pages/Waiter";
 import Kitchen from "./pages/Kitchen";
+import SalonSettings from "./pages/SalonSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/categories" element={<Categories />} />
             <Route path="/waiter" element={<Waiter />} />
             <Route path="/kitchen" element={<Kitchen />} />
+            <Route path="/salon-settings" element={<SalonSettings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
