@@ -12,6 +12,7 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import MenuImages from "./pages/MenuImages";
 import BulkEdit from "./pages/BulkEdit";
+import Deliveries from "./pages/Deliveries";
 import Waiter from "./pages/Waiter";
 import Kitchen from "./pages/Kitchen";
 import SalonSettings from "./pages/SalonSettings";
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/categories" element={<Categories />} />
             <Route path="/menu-images" element={<MenuImages />} />
             <Route path="/bulk-edit" element={<BulkEdit />} />
+            <Route path="/deliveries" element={<Deliveries />} />
             <Route path="/waiter" element={<Waiter />} />
             <Route path="/kitchen" element={<Kitchen />} />
             <Route path="/salon-settings" element={<SalonSettings />} />
