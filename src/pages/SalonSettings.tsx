@@ -23,16 +23,16 @@ import {
 export default function SalonSettings() {
   const navigate = useNavigate();
   
-  // State for form fields
-  const [hasDiningRoom, setHasDiningRoom] = useState('yes');
-  const [tableCount, setTableCount] = useState(30);
-  const [orderTabCount, setOrderTabCount] = useState(30);
-  const [hasWaiters, setHasWaiters] = useState('yes');
-  const [operationType, setOperationType] = useState('a-la-carte');
+  // State for form fields - all defaults to empty/zero for admin to configure
+  const [hasDiningRoom, setHasDiningRoom] = useState('');
+  const [tableCount, setTableCount] = useState(0);
+  const [orderTabCount, setOrderTabCount] = useState(0);
+  const [hasWaiters, setHasWaiters] = useState('');
+  const [operationType, setOperationType] = useState('');
   const [serviceTypes, setServiceTypes] = useState({
-    table: true,
-    individual: true,
-    counter: true,
+    table: false,
+    individual: false,
+    counter: false,
     selfService: false,
   });
 
