@@ -1,0 +1,23 @@
+[GERAL]
+# URL do Supabase (não altere)
+SUPABASE_URL = https://ueddnccouuevidwrcjaa.supabase.co
+
+# Chave pública do Supabase (solicite ao administrador)
+SUPABASE_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlZGRuY2NvdXVldmlkd3JjamFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNjc1ODcsImV4cCI6MjA4Mzc0MzU4N30.tBeOzLyv4qcjb5wySPJWgCR7Fjzk0PEtLPxX9jp99ZI
+
+[RESTAURANTE]
+# ID único do restaurante (fornecido pelo administrador)
+# Este é o UUID do restaurante no banco de dados
+ID = seu_restaurant_id_aqui
+
+# Nome da impressora no Windows
+# Deixe em branco para usar a impressora padrão
+# Para ver o nome exato: Painel de Controle > Dispositivos e Impressoras
+IMPRESSORA = 
+
+[SISTEMA]
+# Intervalo em segundos para verificar novos pedidos
+INTERVALO = 5
+
+# Largura do papel em caracteres (48 para 80mm, 32 para 58mm)
+LARGURA_PAPEL = 48
