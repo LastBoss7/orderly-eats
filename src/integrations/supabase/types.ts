@@ -206,6 +206,9 @@ export type Database = {
           id: string
           notes: string | null
           order_type: string | null
+          print_count: number | null
+          print_status: string | null
+          printed_at: string | null
           restaurant_id: string
           status: string | null
           table_id: string | null
@@ -223,6 +226,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_type?: string | null
+          print_count?: number | null
+          print_status?: string | null
+          printed_at?: string | null
           restaurant_id: string
           status?: string | null
           table_id?: string | null
@@ -240,6 +246,9 @@ export type Database = {
           id?: string
           notes?: string | null
           order_type?: string | null
+          print_count?: number | null
+          print_status?: string | null
+          printed_at?: string | null
           restaurant_id?: string
           status?: string | null
           table_id?: string | null
