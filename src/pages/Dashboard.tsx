@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { 
   Search,
   Plus,
@@ -18,10 +19,9 @@ import {
   ArrowRight,
   UtensilsCrossed,
   MapPin,
-  Phone,
-  CreditCard,
-  Banknote,
-  MessageCircle,
+  Volume2,
+  VolumeX,
+  Bell,
 } from 'lucide-react';
 
 interface Order {
@@ -56,10 +56,44 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [autoAccept, setAutoAccept] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
+  
+  // Order notifications hook
+  const { 
+    notifications, 
+    soundEnabled, 
+    toggleSound,
+    playNotificationSound 
+  } = useOrderNotifications(restaurant?.id);
 
   useEffect(() => {
     fetchOrders();
     fetchTables();
+  }, [restaurant?.id]);
+
+  // Subscribe to realtime order updates
+  useEffect(() => {
+    if (!restaurant?.id) return;
+
+    const channel = supabase
+      .channel('orders-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        () => {
+          // Refresh orders when any change happens
+          fetchOrders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [restaurant?.id]);
 
   const fetchOrders = async () => {
@@ -135,14 +169,14 @@ export default function Dashboard() {
     const delayed = isDelayed(order);
 
     return (
-      <div className="order-card">
+      <div className={`order-card ${delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''}`}>
         {/* Header */}
         <div className="order-card-header">
           <div className="order-number">
             <ChefHat className="w-5 h-5 text-muted-foreground" />
             <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
           </div>
-          <div className="order-time">
+          <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
             <Clock className="w-3 h-3" />
             {formatTime(order.created_at)}
           </div>
@@ -150,7 +184,7 @@ export default function Dashboard() {
 
         {/* Status bar for delayed */}
         {delayed && order.status !== 'delivered' && (
-          <div className="order-status-bar delayed flex items-center justify-center gap-2">
+          <div className="order-status-bar delayed flex items-center justify-center gap-2 animate-pulse">
             <AlertTriangle className="w-3 h-3" />
             Pedido atrasado
           </div>
@@ -262,6 +296,28 @@ export default function Dashboard() {
               <Plus className="w-4 h-4" />
               Novo pedido
             </Button>
+            
+            {/* Sound toggle */}
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={toggleSound}
+              className={soundEnabled ? 'text-primary' : 'text-muted-foreground'}
+              title={soundEnabled ? 'Som ativado' : 'Som desativado'}
+            >
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </Button>
+            
+            {/* Notifications indicator */}
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                  {notifications.length}
+                </span>
+              )}
+            </Button>
+            
             <Button variant="ghost" size="icon">
               <Printer className="w-5 h-5" />
             </Button>
