@@ -470,6 +470,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_restaurant_with_profile: {
+        Args: {
+          _cnpj: string
+          _full_name: string
+          _restaurant_name: string
+          _restaurant_slug: string
+          _user_id: string
+        }
+        Returns: string
+      }
       get_user_restaurant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
