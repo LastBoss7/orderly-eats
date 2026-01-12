@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { PrintReceipt } from '@/components/PrintReceipt';
 import {
   Dialog,
   DialogContent,
@@ -45,8 +46,7 @@ import {
   RefreshCw,
   DollarSign,
   Pencil,
-  Trash2,
-  Settings
+  Trash2
 } from 'lucide-react';
 
 interface Customer {
@@ -85,6 +85,7 @@ interface Order {
   created_at: string;
   delivery_address: string | null;
   delivery_phone: string | null;
+  notes: string | null;
   order_items?: { product_name: string; quantity: number; product_price: number }[];
 }
 
@@ -963,6 +964,7 @@ export default function Deliveries() {
                               <SelectItem value="cancelled">Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
+                          <PrintReceipt order={order} restaurantName={restaurant?.name} />
                         </div>
                       </div>
                     </CardContent>
