@@ -24,7 +24,7 @@ interface AuthContextType {
   restaurant: Restaurant | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, restaurantName: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, restaurantName: string, fullName: string) => {
+  const signUp = async (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => {
     try {
       // Create the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -123,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .insert({
           name: restaurantName,
           slug: `${slug}-${Date.now()}`,
+          cnpj: cnpj.replace(/\D/g, ''), // Store only digits
         })
         .select()
         .single();

@@ -7,7 +7,59 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2 } from 'lucide-react';
+import { ChefHat, Loader2, Building2 } from 'lucide-react';
+
+// CNPJ validation function
+const validateCNPJ = (cnpj: string): boolean => {
+  // Remove non-digits
+  cnpj = cnpj.replace(/\D/g, '');
+  
+  if (cnpj.length !== 14) return false;
+  
+  // Check for known invalid patterns
+  if (/^(\d)\1+$/.test(cnpj)) return false;
+  
+  // Validate check digits
+  let size = cnpj.length - 2;
+  let numbers = cnpj.substring(0, size);
+  const digits = cnpj.substring(size);
+  let sum = 0;
+  let pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(0))) return false;
+  
+  size = size + 1;
+  numbers = cnpj.substring(0, size);
+  sum = 0;
+  pos = size - 7;
+  
+  for (let i = size; i >= 1; i--) {
+    sum += parseInt(numbers.charAt(size - i)) * pos--;
+    if (pos < 2) pos = 9;
+  }
+  
+  result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (result !== parseInt(digits.charAt(1))) return false;
+  
+  return true;
+};
+
+// Format CNPJ as user types
+const formatCNPJ = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 14);
+  
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+};
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +76,8 @@ export default function Login() {
   const [signupPassword, setSignupPassword] = useState('');
   const [restaurantName, setRestaurantName] = useState('');
   const [fullName, setFullName] = useState('');
+  const [cnpj, setCnpj] = useState('');
+  const [cnpjError, setCnpjError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +102,35 @@ export default function Login() {
     setIsLoading(false);
   };
 
+  const handleCnpjChange = (value: string) => {
+    const formatted = formatCNPJ(value);
+    setCnpj(formatted);
+    
+    // Clear error when typing
+    if (cnpjError) setCnpjError('');
+    
+    // Validate when complete
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 14) {
+      if (!validateCNPJ(digits)) {
+        setCnpjError('CNPJ inválido');
+      }
+    }
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate CNPJ before submitting
+    const cnpjDigits = cnpj.replace(/\D/g, '');
+    if (!validateCNPJ(cnpjDigits)) {
+      setCnpjError('CNPJ inválido. Por favor, verifique o número.');
+      return;
+    }
+    
     setIsLoading(true);
 
-    const { error } = await signUp(signupEmail, signupPassword, restaurantName, fullName);
+    const { error } = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj);
 
     if (error) {
       toast({
@@ -133,6 +211,23 @@ export default function Login() {
               <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="cnpj">CNPJ do Estabelecimento</Label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="cnpj"
+                        placeholder="00.000.000/0000-00"
+                        value={cnpj}
+                        onChange={(e) => handleCnpjChange(e.target.value)}
+                        className={`pl-10 ${cnpjError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                        required
+                      />
+                    </div>
+                    {cnpjError && (
+                      <p className="text-sm text-destructive">{cnpjError}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="restaurant-name">Nome do Restaurante</Label>
                     <Input
                       id="restaurant-name"
@@ -143,10 +238,10 @@ export default function Login() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="full-name">Seu Nome</Label>
+                    <Label htmlFor="full-name">Nome Completo do Admin</Label>
                     <Input
                       id="full-name"
-                      placeholder="João Silva"
+                      placeholder="João da Silva"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
@@ -175,7 +270,7 @@ export default function Login() {
                       minLength={6}
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full" disabled={isLoading || !!cnpjError}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
