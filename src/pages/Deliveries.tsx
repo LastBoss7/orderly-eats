@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { useDeliveryNotifications } from '@/hooks/useDeliveryNotifications';
 import { PrintReceipt } from '@/components/PrintReceipt';
 import { PrintKitchen } from '@/components/PrintKitchen';
 import {
@@ -114,6 +115,23 @@ export default function Deliveries() {
   const [saving, setSaving] = useState(false);
   const [searchPhone, setSearchPhone] = useState('');
   const [fetchingCep, setFetchingCep] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Real-time notifications for new delivery orders
+  const handleNewOrder = useCallback(() => {
+    // Refresh orders list when new order arrives
+    fetchDataRef.current?.();
+  }, []);
+
+  useDeliveryNotifications({
+    restaurantId: restaurant?.id,
+    enabled: notificationsEnabled,
+    onNewOrder: handleNewOrder,
+    playSound: true,
+  });
+
+  // Store fetchData in a ref so callback can access latest version
+  const fetchDataRef = useRef<() => Promise<void>>();
 
   // Customer form
   const [customerName, setCustomerName] = useState('');
@@ -165,6 +183,9 @@ export default function Deliveries() {
       setLoading(false);
     }
   };
+
+  // Store fetchData in ref for realtime callback
+  fetchDataRef.current = fetchData;
 
   useEffect(() => {
     fetchData();
@@ -596,7 +617,19 @@ export default function Deliveries() {
             <h1 className="text-2xl font-bold text-foreground">Entregas</h1>
             <p className="text-muted-foreground">Gerencie pedidos para entrega</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted">
+              <span className="text-sm text-muted-foreground">Notificações</span>
+              <Switch 
+                checked={notificationsEnabled}
+                onCheckedChange={setNotificationsEnabled}
+              />
+              {notificationsEnabled && (
+                <Badge variant="outline" className="text-xs border-success text-success">
+                  🔔 Ativo
+                </Badge>
+              )}
+            </div>
             <Button variant="outline" onClick={fetchData}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Atualizar
