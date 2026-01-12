@@ -146,14 +146,14 @@ export function AppSidebar() {
                       )}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4 mt-1 space-y-1">
+                  <CollapsibleContent className="pl-4 mt-1 space-y-1 overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
                     {cardapioSubmenu.map((subItem) => (
                       <SidebarMenuButton
                         key={subItem.title}
                         asChild
                         className={`sidebar-menu-item text-sm ${isActive(subItem.url) ? 'active' : ''}`}
                       >
-                        <Link to={subItem.url}>
+                        <Link to={subItem.url} className="animate-fade-in">
                           <span className="flex-1 ml-5">{subItem.title}</span>
                         </Link>
                       </SidebarMenuButton>
