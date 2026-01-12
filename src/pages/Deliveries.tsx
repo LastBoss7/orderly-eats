@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { PrintReceipt } from '@/components/PrintReceipt';
+import { PrintKitchen } from '@/components/PrintKitchen';
 import {
   Dialog,
   DialogContent,
@@ -964,7 +965,10 @@ export default function Deliveries() {
                               <SelectItem value="cancelled">Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
-                          <PrintReceipt order={order} restaurantName={restaurant?.name} />
+                          <div className="flex gap-2">
+                            <PrintReceipt order={order} restaurantName={restaurant?.name} />
+                            <PrintKitchen order={order} />
+                          </div>
                         </div>
                       </div>
                     </CardContent>
