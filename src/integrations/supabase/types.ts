@@ -299,6 +299,7 @@ export type Database = {
           id: string
           number: number
           restaurant_id: string
+          sort_order: number | null
           status: string | null
         }
         Insert: {
@@ -307,6 +308,7 @@ export type Database = {
           id?: string
           number: number
           restaurant_id: string
+          sort_order?: number | null
           status?: string | null
         }
         Update: {
@@ -315,6 +317,7 @@ export type Database = {
           id?: string
           number?: number
           restaurant_id?: string
+          sort_order?: number | null
           status?: string | null
         }
         Relationships: [

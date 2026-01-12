@@ -68,6 +68,7 @@ interface Table {
   number: number;
   capacity: number;
   status: string;
+  sort_order: number;
 }
 
 interface SortableTableProps {
@@ -223,7 +224,7 @@ export default function TableLayout() {
       const { data, error } = await supabase
         .from('tables')
         .select('*')
-        .order('number');
+        .order('sort_order');
 
       if (error) throw error;
       setTables(data || []);
@@ -253,14 +254,30 @@ export default function TableLayout() {
     }
   };
 
-  const handleSaveLayout = () => {
-    // Here you would save the new order to the database
-    // For now, we'll just show a success message
-    toast({
-      title: 'Layout salvo',
-      description: 'A organização das mesas foi salva com sucesso.',
-    });
-    setHasChanges(false);
+  const handleSaveLayout = async () => {
+    try {
+      // Update sort_order for each table based on current position
+      const updates = tables.map((table, index) => 
+        supabase
+          .from('tables')
+          .update({ sort_order: index })
+          .eq('id', table.id)
+      );
+
+      await Promise.all(updates);
+
+      toast({
+        title: 'Layout salvo',
+        description: 'A organização das mesas foi salva com sucesso.',
+      });
+      setHasChanges(false);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar layout',
+        description: error.message,
+      });
+    }
   };
 
   const handleAddTable = async () => {
@@ -274,6 +291,11 @@ export default function TableLayout() {
     }
 
     try {
+      // Get the next sort_order value
+      const nextSortOrder = tables.length > 0 
+        ? Math.max(...tables.map(t => t.sort_order || 0)) + 1 
+        : 0;
+
       const { error } = await supabase
         .from('tables')
         .insert({
@@ -281,6 +303,7 @@ export default function TableLayout() {
           number: parseInt(newTable.number),
           capacity: parseInt(newTable.capacity),
           status: 'available',
+          sort_order: nextSortOrder,
         });
 
       if (error) throw error;
