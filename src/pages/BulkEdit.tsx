@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Edit3, 
   Search, 
   Trash2, 
   Save,
-  Filter,
   MoreVertical,
   Check,
   X,
@@ -19,7 +21,9 @@ import {
   Tag,
   Eye,
   EyeOff,
-  ChevronDown
+  ChevronDown,
+  Loader2,
+  Package
 } from 'lucide-react';
 import {
   Select,
@@ -43,32 +47,86 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-// Mock data for demonstration
-const mockProducts = [
-  { id: '1', name: 'Pizza Margherita', category: 'Pizzas', price: 45.90, available: true },
-  { id: '2', name: 'Pizza Calabresa', category: 'Pizzas', price: 48.90, available: true },
-  { id: '3', name: 'Pizza Quatro Queijos', category: 'Pizzas', price: 52.90, available: false },
-  { id: '4', name: 'Hambúrguer Classic', category: 'Hambúrgueres', price: 32.90, available: true },
-  { id: '5', name: 'Hambúrguer Bacon', category: 'Hambúrgueres', price: 38.90, available: true },
-  { id: '6', name: 'Salada Caesar', category: 'Saladas', price: 28.90, available: true },
-  { id: '7', name: 'Refrigerante 350ml', category: 'Bebidas', price: 6.90, available: true },
-  { id: '8', name: 'Suco Natural', category: 'Bebidas', price: 12.90, available: false },
-];
+interface Category {
+  id: string;
+  name: string;
+}
 
-const categories = ['Todas', 'Pizzas', 'Hambúrgueres', 'Saladas', 'Bebidas'];
+interface Product {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category_id: string | null;
+  is_available: boolean | null;
+}
+
+interface PendingChange {
+  id: string;
+  field: string;
+  oldValue: any;
+  newValue: any;
+}
 
 export default function BulkEdit() {
+  const { restaurant } = useAuth();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [products, setProducts] = useState(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editingCell, setEditingCell] = useState<{id: string, field: string} | null>(null);
   const [editValue, setEditValue] = useState('');
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const fetchData = async () => {
+    if (!restaurant?.id) return;
+
+    try {
+      const [productsRes, categoriesRes] = await Promise.all([
+        supabase.from('products').select('*').order('name'),
+        supabase.from('categories').select('*').order('name'),
+      ]);
+
+      setProducts(productsRes.data || []);
+      setCategories(categoriesRes.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [restaurant?.id]);
+
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return 'Sem categoria';
+    const category = categories.find(c => c.id === categoryId);
+    return category?.name || 'Sem categoria';
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'Todas' || product.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory || 
+      (selectedCategory === 'none' && !product.category_id);
     return matchesSearch && matchesCategory;
   });
 
@@ -88,6 +146,16 @@ export default function BulkEdit() {
 
   const isSelected = (id: string) => selectedProducts.includes(id);
 
+  const addPendingChange = (id: string, field: string, oldValue: any, newValue: any) => {
+    setPendingChanges(prev => {
+      // Remove existing change for same id and field
+      const filtered = prev.filter(c => !(c.id === id && c.field === field));
+      // Don't add if value is same as original
+      if (oldValue === newValue) return filtered;
+      return [...filtered, { id, field, oldValue, newValue }];
+    });
+  };
+
   const startEditing = (id: string, field: string, currentValue: string | number) => {
     setEditingCell({ id, field });
     setEditValue(String(currentValue));
@@ -96,15 +164,23 @@ export default function BulkEdit() {
   const saveEdit = () => {
     if (!editingCell) return;
     
+    const product = products.find(p => p.id === editingCell.id);
+    if (!product) return;
+
+    const newValue = editingCell.field === 'price' ? parseFloat(editValue) : editValue;
+    const oldValue = product[editingCell.field as keyof Product];
+
+    // Update local state
     setProducts(prev => prev.map(p => {
       if (p.id === editingCell.id) {
-        return {
-          ...p,
-          [editingCell.field]: editingCell.field === 'price' ? parseFloat(editValue) : editValue
-        };
+        return { ...p, [editingCell.field]: newValue };
       }
       return p;
     }));
+
+    // Track change
+    addPendingChange(editingCell.id, editingCell.field, oldValue, newValue);
+
     setEditingCell(null);
     setEditValue('');
   };
@@ -118,7 +194,9 @@ export default function BulkEdit() {
     setProducts(prev => prev.map(p => {
       if (selectedProducts.includes(p.id)) {
         const multiplier = type === 'increase' ? 1 + percentage / 100 : 1 - percentage / 100;
-        return { ...p, price: Math.round(p.price * multiplier * 100) / 100 };
+        const newPrice = Math.round(p.price * multiplier * 100) / 100;
+        addPendingChange(p.id, 'price', p.price, newPrice);
+        return { ...p, price: newPrice };
       }
       return p;
     }));
@@ -127,20 +205,109 @@ export default function BulkEdit() {
   const bulkToggleAvailability = (available: boolean) => {
     setProducts(prev => prev.map(p => {
       if (selectedProducts.includes(p.id)) {
-        return { ...p, available };
+        addPendingChange(p.id, 'is_available', p.is_available, available);
+        return { ...p, is_available: available };
       }
       return p;
     }));
   };
 
-  const bulkChangeCategory = (category: string) => {
+  const bulkChangeCategory = (categoryId: string) => {
+    const newCategoryId = categoryId === 'none' ? null : categoryId;
     setProducts(prev => prev.map(p => {
       if (selectedProducts.includes(p.id)) {
-        return { ...p, category };
+        addPendingChange(p.id, 'category_id', p.category_id, newCategoryId);
+        return { ...p, category_id: newCategoryId };
       }
       return p;
     }));
   };
+
+  const saveAllChanges = async () => {
+    if (pendingChanges.length === 0) {
+      toast({ title: 'Nenhuma alteração para salvar' });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      // Group changes by product id
+      const changesByProduct: Record<string, Record<string, any>> = {};
+      pendingChanges.forEach(change => {
+        if (!changesByProduct[change.id]) {
+          changesByProduct[change.id] = {};
+        }
+        changesByProduct[change.id][change.field] = change.newValue;
+      });
+
+      // Execute all updates
+      const updates = Object.entries(changesByProduct).map(([id, changes]) => 
+        supabase.from('products').update(changes).eq('id', id)
+      );
+
+      await Promise.all(updates);
+
+      toast({ 
+        title: 'Alterações salvas!',
+        description: `${pendingChanges.length} alteração(ões) aplicada(s) com sucesso.`
+      });
+
+      setPendingChanges([]);
+      setSelectedProducts([]);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar',
+        description: error.message,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    setDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .in('id', selectedProducts);
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Produtos excluídos!',
+        description: `${selectedProducts.length} produto(s) excluído(s) com sucesso.`
+      });
+
+      setSelectedProducts([]);
+      setShowDeleteDialog(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: error.message,
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const hasChanges = pendingChanges.length > 0;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -151,9 +318,17 @@ export default function BulkEdit() {
             <h1 className="text-2xl font-bold text-foreground">Edição em Massa</h1>
             <p className="text-muted-foreground">Edite vários produtos de uma vez</p>
           </div>
-          <Button className="gap-2" disabled={selectedProducts.length === 0}>
-            <Save className="w-4 h-4" />
-            Salvar Alterações
+          <Button 
+            className="gap-2" 
+            disabled={!hasChanges || saving}
+            onClick={saveAllChanges}
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            Salvar Alterações {hasChanges && `(${pendingChanges.length})`}
           </Button>
         </div>
 
@@ -174,16 +349,48 @@ export default function BulkEdit() {
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Disponíveis</CardDescription>
-              <CardTitle className="text-2xl text-success">{products.filter(p => p.available).length}</CardTitle>
+              <CardTitle className="text-2xl text-success">{products.filter(p => p.is_available).length}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Indisponíveis</CardDescription>
-              <CardTitle className="text-2xl text-destructive">{products.filter(p => !p.available).length}</CardTitle>
+              <CardTitle className="text-2xl text-destructive">{products.filter(p => !p.is_available).length}</CardTitle>
             </CardHeader>
           </Card>
         </div>
+
+        {/* Pending Changes Banner */}
+        {hasChanges && (
+          <Card className="border-warning/50 bg-warning/10">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-warning-foreground">
+                  Você tem {pendingChanges.length} alteração(ões) não salva(s)
+                </span>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setPendingChanges([]);
+                      fetchData();
+                    }}
+                  >
+                    Descartar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={saveAllChanges}
+                    disabled={saving}
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Agora'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bulk Actions */}
         {selectedProducts.length > 0 && (
@@ -235,9 +442,13 @@ export default function BulkEdit() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    {categories.filter(c => c !== 'Todas').map(cat => (
-                      <DropdownMenuItem key={cat} onClick={() => bulkChangeCategory(cat)}>
-                        {cat}
+                    <DropdownMenuItem onClick={() => bulkChangeCategory('none')}>
+                      Sem categoria
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {categories.map(cat => (
+                      <DropdownMenuItem key={cat.id} onClick={() => bulkChangeCategory(cat.id)}>
+                        {cat.name}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -263,7 +474,12 @@ export default function BulkEdit() {
                   Tornar Indisponível
                 </Button>
 
-                <Button variant="destructive" size="sm" className="gap-2 ml-auto">
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="gap-2 ml-auto"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
                   <Trash2 className="w-4 h-4" />
                   Excluir
                 </Button>
@@ -290,8 +506,10 @@ export default function BulkEdit() {
                   <SelectValue placeholder="Categoria" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="none">Sem categoria</SelectItem>
                   {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -300,132 +518,158 @@ export default function BulkEdit() {
         </Card>
 
         {/* Products Table */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox 
-                      checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead className="text-right">Preço</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredProducts.map((product) => (
-                  <TableRow 
-                    key={product.id}
-                    className={isSelected(product.id) ? 'bg-primary/5' : ''}
-                  >
-                    <TableCell>
+        {products.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Package className="w-12 h-12 text-muted-foreground mb-4" />
+              <h3 className="font-semibold text-lg">Nenhum produto cadastrado</h3>
+              <p className="text-muted-foreground text-center mt-1">
+                Adicione produtos na página de Gestor de Cardápio
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
                       <Checkbox 
-                        checked={isSelected(product.id)}
-                        onCheckedChange={() => toggleProductSelection(product.id)}
+                        checked={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0}
+                        onCheckedChange={toggleSelectAll}
                       />
-                    </TableCell>
-                    <TableCell>
-                      {editingCell?.id === product.id && editingCell?.field === 'name' ? (
-                        <div className="flex items-center gap-2">
-                          <Input 
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="h-8"
-                            autoFocus
-                          />
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveEdit}>
-                            <Check className="w-4 h-4 text-success" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
-                            <X className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span 
-                          className="cursor-pointer hover:text-primary"
-                          onClick={() => startEditing(product.id, 'name', product.name)}
-                        >
-                          {product.name}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{product.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {editingCell?.id === product.id && editingCell?.field === 'price' ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <Input 
-                            type="number"
-                            step="0.01"
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            className="h-8 w-24 text-right"
-                            autoFocus
-                          />
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveEdit}>
-                            <Check className="w-4 h-4 text-success" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
-                            <X className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span 
-                          className="cursor-pointer hover:text-primary font-medium"
-                          onClick={() => startEditing(product.id, 'price', product.price)}
-                        >
-                          R$ {product.price.toFixed(2)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge 
-                        variant={product.available ? 'default' : 'destructive'}
-                        className={product.available ? 'bg-success hover:bg-success/80' : ''}
-                      >
-                        {product.available ? 'Disponível' : 'Indisponível'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => startEditing(product.id, 'name', product.name)}>
-                            <Edit3 className="w-4 h-4 mr-2" />
-                            Editar Nome
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => startEditing(product.id, 'price', product.price)}>
-                            <DollarSign className="w-4 h-4 mr-2" />
-                            Editar Preço
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Preço</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredProducts.map((product) => (
+                    <TableRow 
+                      key={product.id}
+                      className={isSelected(product.id) ? 'bg-primary/5' : ''}
+                    >
+                      <TableCell>
+                        <Checkbox 
+                          checked={isSelected(product.id)}
+                          onCheckedChange={() => toggleProductSelection(product.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {editingCell?.id === product.id && editingCell?.field === 'name' ? (
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="h-8"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit();
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
+                            />
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveEdit}>
+                              <Check className="w-4 h-4 text-success" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
+                              <X className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span 
+                            className="cursor-pointer hover:text-primary"
+                            onClick={() => startEditing(product.id, 'name', product.name)}
+                          >
+                            {product.name}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{getCategoryName(product.category_id)}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {editingCell?.id === product.id && editingCell?.field === 'price' ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Input 
+                              type="number"
+                              step="0.01"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="h-8 w-24 text-right"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit();
+                                if (e.key === 'Escape') cancelEdit();
+                              }}
+                            />
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={saveEdit}>
+                              <Check className="w-4 h-4 text-success" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={cancelEdit}>
+                              <X className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span 
+                            className="cursor-pointer hover:text-primary font-medium"
+                            onClick={() => startEditing(product.id, 'price', product.price)}
+                          >
+                            R$ {product.price.toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant={product.is_available ? 'default' : 'destructive'}
+                          className={product.is_available ? 'bg-success hover:bg-success/80' : ''}
+                        >
+                          {product.is_available ? 'Disponível' : 'Indisponível'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => startEditing(product.id, 'name', product.name)}>
+                              <Edit3 className="w-4 h-4 mr-2" />
+                              Editar Nome
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => startEditing(product.id, 'price', product.price)}>
+                              <DollarSign className="w-4 h-4 mr-2" />
+                              Editar Preço
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => {
+                                setSelectedProducts([product.id]);
+                                setShowDeleteDialog(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Empty State */}
-        {filteredProducts.length === 0 && (
+        {/* Empty State for filtered */}
+        {products.length > 0 && filteredProducts.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Edit3 className="w-12 h-12 text-muted-foreground mb-4" />
@@ -436,6 +680,29 @@ export default function BulkEdit() {
             </CardContent>
           </Card>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Você tem certeza que deseja excluir {selectedProducts.length} produto(s)? 
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={bulkDelete}
+                disabled={deleting}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Excluir'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
