@@ -26,6 +26,9 @@ import {
   Loader2,
   Receipt,
   Clock,
+  ChefHat,
+  CheckCircle2,
+  Utensils,
 } from 'lucide-react';
 
 interface Table {
@@ -181,6 +184,43 @@ export default function Tables() {
       closing: 'Fechando',
     };
     return labels[status];
+  };
+
+  const getOrderStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Pendente',
+      preparing: 'Em Preparo',
+      ready: 'Pronto',
+      delivered: 'Entregue',
+    };
+    return labels[status] || status;
+  };
+
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      toast({
+        title: status === 'preparing' ? 'Enviado para cozinha!' : 'Status atualizado!',
+        description: `Pedido marcado como "${getOrderStatusLabel(status)}"`,
+      });
+
+      // Refresh orders
+      if (selectedTable) {
+        await fetchTableOrders(selectedTable.id);
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar pedido',
+        description: error.message,
+      });
+    }
   };
 
   return (
@@ -352,7 +392,7 @@ export default function Tables() {
                               {formatTime(order.created_at)}
                             </div>
                             <span className={`status-badge ${order.status}`}>
-                              {order.status}
+                              {getOrderStatusLabel(order.status)}
                             </span>
                           </div>
                           {order.order_items?.map((item) => (
@@ -371,6 +411,42 @@ export default function Tables() {
                           <div className="flex justify-between font-semibold pt-2 border-t">
                             <span>Total</span>
                             <span>{formatCurrency(order.total)}</span>
+                          </div>
+
+                          {/* Order Action Buttons */}
+                          <div className="flex gap-2 pt-2">
+                            {order.status === 'pending' && (
+                              <Button
+                                size="sm"
+                                className="flex-1 gap-2"
+                                onClick={() => updateOrderStatus(order.id, 'preparing')}
+                              >
+                                <ChefHat className="w-4 h-4" />
+                                Enviar para Cozinha
+                              </Button>
+                            )}
+                            {order.status === 'preparing' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 gap-2 border-success text-success hover:bg-success hover:text-success-foreground"
+                                onClick={() => updateOrderStatus(order.id, 'ready')}
+                              >
+                                <Utensils className="w-4 h-4" />
+                                Marcar como Pronto
+                              </Button>
+                            )}
+                            {order.status === 'ready' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 gap-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                                onClick={() => updateOrderStatus(order.id, 'delivered')}
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Marcar como Entregue
+                              </Button>
+                            )}
                           </div>
                         </div>
                       ))}
