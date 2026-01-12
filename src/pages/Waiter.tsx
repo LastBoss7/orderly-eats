@@ -315,12 +315,12 @@ export default function Waiter() {
         </div>
       </div>
 
-      {/* Categories */}
-      <div className="px-4 py-2 bg-card border-b overflow-x-auto">
+      {/* Categories - Touch Friendly */}
+      <div className="px-4 py-3 bg-card border-b overflow-x-auto">
         <div className="flex gap-2">
           <Button
             variant={selectedCategory === null ? 'default' : 'outline'}
-            size="sm"
+            className="h-11 px-5 text-base"
             onClick={() => setSelectedCategory(null)}
           >
             Todos
@@ -329,7 +329,7 @@ export default function Waiter() {
             <Button
               key={category.id}
               variant={selectedCategory === category.id ? 'default' : 'outline'}
-              size="sm"
+              className="h-11 px-5 text-base whitespace-nowrap"
               onClick={() => setSelectedCategory(category.id)}
             >
               {category.name}
@@ -338,69 +338,100 @@ export default function Waiter() {
         </div>
       </div>
 
-      {/* Products */}
+      {/* Products - Large Touch-Friendly Buttons */}
       <ScrollArea className="flex-1 p-4">
-        <div className="grid grid-cols-2 gap-3">
-          {filteredProducts.map((product) => (
-            <button
-              key={product.id}
-              className="p-4 bg-card rounded-xl border text-left transition-all active:scale-95 hover:border-primary"
-              onClick={() => addToCart(product)}
-            >
-              <p className="font-medium text-sm line-clamp-2">{product.name}</p>
-              <p className="text-primary font-bold mt-1">
-                {formatCurrency(product.price)}
-              </p>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 gap-3">
+          {filteredProducts.map((product) => {
+            const cartItem = cart.find(item => item.product.id === product.id);
+            const quantity = cartItem?.quantity || 0;
+            
+            return (
+              <button
+                key={product.id}
+                className={`relative flex items-center justify-between p-5 bg-card rounded-2xl border-2 text-left transition-all active:scale-[0.98] ${
+                  quantity > 0 ? 'border-primary bg-primary/5' : 'border-border'
+                }`}
+                onClick={() => addToCart(product)}
+              >
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="font-semibold text-base line-clamp-2">{product.name}</p>
+                  <p className="text-primary font-bold text-lg mt-1">
+                    {formatCurrency(product.price)}
+                  </p>
+                </div>
+                
+                {/* Quick Add Indicator */}
+                <div className={`flex items-center justify-center w-14 h-14 rounded-xl transition-all ${
+                  quantity > 0 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {quantity > 0 ? (
+                    <span className="text-xl font-bold">{quantity}</span>
+                  ) : (
+                    <Plus className="w-6 h-6" />
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </ScrollArea>
 
-      {/* Cart Summary */}
+      {/* Cart Summary - Touch Friendly */}
       {cart.length > 0 && (
-        <div className="sticky bottom-0 bg-card border-t p-4 space-y-3 shadow-lg">
-          <ScrollArea className="max-h-32">
+        <div className="sticky bottom-0 bg-card border-t p-4 space-y-3 shadow-lg safe-area-inset-bottom">
+          <ScrollArea className="max-h-40">
             <div className="space-y-2">
               {cart.map((item) => (
                 <div
                   key={item.product.id}
-                  className="flex items-center justify-between bg-muted/50 rounded-lg p-2"
+                  className="flex items-center justify-between bg-muted/50 rounded-xl p-3"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-base font-medium truncate">
                       {item.product.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {formatCurrency(item.product.price)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-7 w-7"
-                      onClick={() => updateQuantity(item.product.id, -1)}
+                      className="h-11 w-11 rounded-xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateQuantity(item.product.id, -1);
+                      }}
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-5 h-5" />
                     </Button>
-                    <span className="w-6 text-center text-sm font-medium">
+                    <span className="w-8 text-center text-lg font-bold">
                       {item.quantity}
                     </span>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-7 w-7"
-                      onClick={() => updateQuantity(item.product.id, 1)}
+                      className="h-11 w-11 rounded-xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateQuantity(item.product.id, 1);
+                      }}
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-5 h-5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => removeFromCart(item.product.id)}
+                      className="h-11 w-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFromCart(item.product.id);
+                      }}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-5 h-5" />
                     </Button>
                   </div>
                 </div>
@@ -408,25 +439,24 @@ export default function Waiter() {
             </div>
           </ScrollArea>
 
-          <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center justify-between pt-3 border-t gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-lg font-bold text-primary">
+              <p className="text-xl font-bold text-primary">
                 {formatCurrency(cartTotal)}
               </p>
             </div>
             <Button
-              size="lg"
-              className="gap-2"
+              className="h-14 px-8 text-lg gap-3 rounded-xl flex-1 max-w-[200px]"
               disabled={submitting}
               onClick={handleSubmitOrder}
             >
               {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
-                  Enviar Pedido
+                  <Send className="w-5 h-5" />
+                  Enviar
                 </>
               )}
             </Button>
