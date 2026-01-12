@@ -290,6 +290,15 @@
   .nfc-badge {
     @apply inline-flex items-center justify-center px-2 py-1 bg-slate-800 text-white text-xs font-bold rounded;
   }
+
+  /* KDS Card styles */
+  .kds-card {
+    @apply transform transition-all duration-300;
+  }
+
+  .kds-card:hover {
+    @apply scale-[1.02];
+  }
 }
 
 @layer utilities {
