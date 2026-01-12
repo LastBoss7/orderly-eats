@@ -279,6 +279,53 @@ export type Database = {
           },
         ]
       }
+      print_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          items_count: number | null
+          order_id: string | null
+          order_number: string | null
+          printer_name: string | null
+          restaurant_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          items_count?: number | null
+          order_id?: string | null
+          order_number?: string | null
+          printer_name?: string | null
+          restaurant_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          items_count?: number | null
+          order_id?: string | null
+          order_number?: string | null
+          printer_name?: string | null
+          restaurant_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string | null
