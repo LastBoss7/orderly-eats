@@ -213,6 +213,22 @@
     @apply ml-auto bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center;
   }
 
+  .sidebar-menu-badge.animated {
+    @apply animate-pulse;
+    animation: badge-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes badge-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7);
+    }
+    50% {
+      transform: scale(1.1);
+      box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+    }
+  }
+
   /* POS Product Grid Item */
   .pos-product-card {
     @apply relative flex flex-col items-center justify-center p-4 bg-card rounded-xl border-2 border-transparent cursor-pointer transition-all duration-200;
