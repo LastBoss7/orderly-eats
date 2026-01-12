@@ -1,115 +1,115 @@
 """
-Restaurant Print Service - Windows Desktop App
-Monitors Supabase for new orders and prints to local thermal printer.
+Serviço de Impressão Local para Restaurante
+============================================
 
-INSTALAÇÃO:
-1. pip install requests python-escpos pywin32
-2. Configure as variáveis abaixo
-3. Execute: python print_service.py
-4. Para criar .exe: pip install pyinstaller && pyinstaller --onefile --noconsole print_service.py
+INSTALAÇÃO SIMPLES (2 passos):
+1. Instale Python: https://www.python.org/downloads/
+2. Execute no CMD:
+   pip install requests pywin32
+   python print_service.py
 
-CONFIGURAÇÃO DA IMPRESSORA:
-- Para impressoras USB: use a porta USB (ex: USB001)
-- Para impressoras de rede: use o IP e porta
-- Para impressoras Windows: use o nome compartilhado
+Para criar .exe (opcional):
+   pip install pyinstaller
+   pyinstaller --onefile print_service.py
 """
 
 import requests
 import time
-import json
 import sys
-import os
 from datetime import datetime
-from typing import Optional
 
-# ============ CONFIGURAÇÃO ============
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  CONFIGURAÇÃO - ALTERE APENAS O RESTAURANT_ID ABAIXO         ║
+# ╚══════════════════════════════════════════════════════════════╝
 SUPABASE_URL = "https://ueddnccouuevidwrcjaa.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlZGRuY2NvdXVldmlkd3JjamFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNjc1ODcsImV4cCI6MjA4Mzc0MzU4N30.tBeOzLyv4qcjb5wySPJWgCR7Fjzk0PEtLPxX9jp99ZI"
 
-# IMPORTANTE: Substitua pelo ID do seu restaurante
+# 👇 COLE AQUI O ID DO SEU RESTAURANTE (encontre no sistema)
 RESTAURANT_ID = "SEU_RESTAURANT_ID_AQUI"
 
-# Intervalo de verificação em segundos
-POLL_INTERVAL = 5
-
-# Nome da impressora no Windows (None para impressora padrão)
-PRINTER_NAME: Optional[str] = None
-
-# Largura do papel em caracteres (80mm = ~48 chars, 58mm = ~32 chars)
-PAPER_WIDTH = 48
-# ======================================
+POLL_INTERVAL = 5  # Segundos entre verificações
 
 
-def get_pending_orders():
-    """Busca pedidos pendentes de impressão."""
-    url = f"{SUPABASE_URL}/functions/v1/print-orders"
-    params = {
-        "restaurant_id": RESTAURANT_ID,
-        "action": "get"
-    }
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Content-Type": "application/json"
-    }
-    
+def get_default_printer():
+    """Detecta a impressora padrão do Windows automaticamente"""
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("orders", [])
-    except requests.RequestException as e:
-        print(f"[ERRO] Falha ao buscar pedidos: {e}")
+        import win32print
+        return win32print.GetDefaultPrinter()
+    except Exception:
+        return None
+
+
+def list_all_printers():
+    """Lista todas as impressoras instaladas no Windows"""
+    try:
+        import win32print
+        printers = []
+        flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
+        for printer in win32print.EnumPrinters(flags):
+            printers.append(printer[2])
+        return printers
+    except Exception:
         return []
 
 
-def mark_orders_printed(order_ids: list):
-    """Marca pedidos como impressos."""
-    url = f"{SUPABASE_URL}/functions/v1/print-orders"
-    params = {
-        "restaurant_id": RESTAURANT_ID,
-        "action": "mark-printed"
-    }
-    headers = {
-        "apikey": SUPABASE_ANON_KEY,
-        "Content-Type": "application/json"
-    }
-    body = {"order_ids": order_ids}
-    
+def get_pending_orders():
+    """Busca pedidos pendentes de impressão"""
     try:
-        response = requests.post(url, params=params, headers=headers, json=body, timeout=30)
-        response.raise_for_status()
-        return True
-    except requests.RequestException as e:
-        print(f"[ERRO] Falha ao marcar pedidos como impressos: {e}")
+        response = requests.get(
+            f"{SUPABASE_URL}/functions/v1/print-orders",
+            params={"action": "get", "restaurant_id": RESTAURANT_ID},
+            headers={"apikey": SUPABASE_ANON_KEY},
+            timeout=15
+        )
+        if response.status_code == 200:
+            return response.json().get("orders", [])
+        return []
+    except Exception as e:
+        print(f"   ⚠ Erro conexão: {e}")
+        return []
+
+
+def mark_orders_printed(order_ids):
+    """Marca pedidos como impressos no servidor"""
+    try:
+        response = requests.post(
+            f"{SUPABASE_URL}/functions/v1/print-orders",
+            params={"action": "mark-printed"},
+            json={"order_ids": order_ids},
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Content-Type": "application/json"
+            },
+            timeout=15
+        )
+        return response.status_code == 200
+    except Exception:
         return False
 
 
-def format_receipt(order: dict) -> str:
-    """Formata o pedido para impressão térmica."""
-    w = PAPER_WIDTH
+def format_receipt(order):
+    """Formata o pedido para impressão térmica (80mm = 48 chars)"""
+    w = 48
     lines = []
     
-    # Cabeçalho
     lines.append("=" * w)
-    lines.append(f"PEDIDO #{order['orderNumber']}".center(w))
+    lines.append("*** PEDIDO COZINHA ***".center(w))
     lines.append("=" * w)
     
-    # Data/Hora
-    created = datetime.fromisoformat(order['createdAt'].replace('Z', '+00:00'))
-    lines.append(created.strftime("%d/%m/%Y %H:%M").center(w))
-    lines.append("")
+    # Número do pedido
+    order_num = f"#{order.get('orderNumber', order.get('id', '')[:8].upper())}"
+    order_type = order.get('orderType', 'mesa').upper()
     
-    # Tipo do pedido
-    order_type = order.get('orderType', 'table')
-    if order_type == 'delivery':
-        lines.append("*** ENTREGA ***".center(w))
-    elif order_type == 'counter':
-        lines.append("*** BALCÃO ***".center(w))
-    else:
-        table_num = order.get('tableNumber')
-        if table_num:
-            lines.append(f"*** MESA {table_num} ***".center(w))
-    lines.append("")
+    type_labels = {
+        'DELIVERY': '🛵 ENTREGA',
+        'COUNTER': '🏪 BALCÃO', 
+        'TABLE': '🍽 MESA',
+        'MESA': '🍽 MESA'
+    }
+    type_text = type_labels.get(order_type, order_type)
+    
+    lines.append(f"{order_num}  |  {type_text}".center(w))
+    lines.append("-" * w)
     
     # Cliente
     if order.get('customerName'):
@@ -117,150 +117,170 @@ def format_receipt(order: dict) -> str:
     if order.get('deliveryPhone'):
         lines.append(f"Tel: {order['deliveryPhone']}")
     if order.get('deliveryAddress'):
-        lines.append(f"End: {order['deliveryAddress']}")
-    lines.append("-" * w)
+        addr = order['deliveryAddress']
+        # Quebra endereço longo
+        while len(addr) > w - 5:
+            lines.append(f"End: {addr[:w-5]}")
+            addr = "     " + addr[w-5:]
+        lines.append(f"End: {addr}")
     
-    # Itens
+    # Mesa
+    if order.get('tableNumber'):
+        lines.append(f"Mesa: {order['tableNumber']}")
+    
+    lines.append("")
     lines.append("ITENS:")
     lines.append("-" * w)
     
-    for item in order.get('items', []):
-        qty = item['quantity']
-        name = item['name'][:w-8]  # Truncar se muito longo
-        price = item.get('price', 0)
+    # Itens do pedido
+    items = order.get('items', order.get('order_items', []))
+    for item in items:
+        qty = item.get('quantity', 1)
+        name = item.get('name', item.get('product_name', 'Item'))
         
-        lines.append(f"{qty}x {name}")
-        if item.get('notes'):
-            lines.append(f"   -> {item['notes']}")
+        # Truncar nome se muito longo
+        if len(name) > w - 5:
+            name = name[:w-8] + "..."
+        
+        lines.append(f" {qty}x {name}")
+        
+        # Observações do item
+        notes = item.get('notes')
+        if notes:
+            lines.append(f"    → {notes}")
     
     lines.append("-" * w)
     
     # Observações gerais
     if order.get('notes'):
-        lines.append("OBS: " + order['notes'])
+        lines.append(f"OBS: {order['notes']}")
         lines.append("-" * w)
     
     # Total
     total = order.get('total', 0) or 0
-    delivery_fee = order.get('deliveryFee', 0) or 0
+    delivery_fee = order.get('deliveryFee', order.get('delivery_fee', 0)) or 0
     
     if delivery_fee > 0:
         lines.append(f"Taxa entrega: R$ {delivery_fee:.2f}".rjust(w))
-    lines.append(f"TOTAL: R$ {total:.2f}".rjust(w))
+    if total > 0:
+        lines.append(f"TOTAL: R$ {total:.2f}".rjust(w))
     
     lines.append("=" * w)
+    
+    # Horário
+    now = datetime.now().strftime("%H:%M - %d/%m/%Y")
+    lines.append(now.center(w))
+    
+    # Espaço para corte
     lines.append("")
     lines.append("")
-    lines.append("")  # Espaço para corte
+    lines.append("")
     
     return "\n".join(lines)
 
 
-def print_to_windows(text: str, printer_name: Optional[str] = None):
-    """Imprime usando a API do Windows."""
+def print_to_printer(text, printer_name):
+    """Imprime usando a impressora padrão do Windows (RAW mode)"""
     try:
         import win32print
-        import win32ui
-        from PIL import Image, ImageDraw, ImageFont
         
-        # Usar impressora padrão se não especificada
-        if printer_name is None:
-            printer_name = win32print.GetDefaultPrinter()
-        
-        # Criar documento de impressão
         hprinter = win32print.OpenPrinter(printer_name)
         try:
-            # Modo RAW para impressoras térmicas
-            job = win32print.StartDocPrinter(hprinter, 1, ("Pedido", None, "RAW"))
+            job = win32print.StartDocPrinter(hprinter, 1, ("Pedido Cozinha", None, "RAW"))
             try:
                 win32print.StartPagePrinter(hprinter)
-                # Enviar texto em bytes
-                win32print.WritePrinter(hprinter, text.encode('cp850'))
+                # Codificação CP850 funciona bem com impressoras térmicas
+                win32print.WritePrinter(hprinter, text.encode('cp850', errors='replace'))
                 win32print.EndPagePrinter(hprinter)
             finally:
                 win32print.EndDocPrinter(hprinter)
         finally:
             win32print.ClosePrinter(hprinter)
-        
-        return True
-    except ImportError:
-        print("[AVISO] win32print não disponível. Imprimindo no console:")
-        print(text)
         return True
     except Exception as e:
-        print(f"[ERRO] Falha na impressão: {e}")
+        print(f"   ❌ Erro impressão: {e}")
         return False
 
 
-def print_to_console(text: str):
-    """Fallback: imprime no console."""
-    print("\n" + "=" * 50)
-    print("SIMULAÇÃO DE IMPRESSÃO")
-    print("=" * 50)
-    print(text)
-    return True
+def show_header():
+    """Exibe cabeçalho do programa"""
+    print("\n")
+    print("╔" + "═" * 48 + "╗")
+    print("║" + " SERVIÇO DE IMPRESSÃO - RESTAURANTE ".center(48) + "║")
+    print("╚" + "═" * 48 + "╝")
 
 
 def main():
-    """Loop principal do serviço."""
-    print("=" * 50)
-    print("SERVIÇO DE IMPRESSÃO - RESTAURANTE")
-    print("=" * 50)
-    print(f"Supabase URL: {SUPABASE_URL}")
-    print(f"Restaurant ID: {RESTAURANT_ID}")
-    print(f"Intervalo de verificação: {POLL_INTERVAL}s")
-    print(f"Impressora: {PRINTER_NAME or 'Padrão do sistema'}")
-    print("=" * 50)
+    show_header()
     
+    # Verificar configuração
     if RESTAURANT_ID == "SEU_RESTAURANT_ID_AQUI":
-        print("\n[ERRO] Configure o RESTAURANT_ID antes de executar!")
-        print("Encontre seu ID no painel do restaurante.")
-        input("Pressione Enter para sair...")
-        sys.exit(1)
+        print("\n ⚠️  ATENÇÃO: Configure o RESTAURANT_ID no arquivo!")
+        print("    Abra print_service.py e altere a linha:")
+        print('    RESTAURANT_ID = "SEU_ID_AQUI"')
+        print("\n    Encontre o ID no sistema do restaurante.")
+        input("\n Pressione ENTER para sair...")
+        return
     
-    print("\nIniciando monitoramento de pedidos...")
-    print("Pressione Ctrl+C para encerrar.\n")
+    # Detectar impressora automaticamente
+    printer = get_default_printer()
+    
+    if not printer:
+        print("\n ❌ Nenhuma impressora padrão configurada no Windows!")
+        print("\n    Impressoras encontradas:")
+        printers = list_all_printers()
+        if printers:
+            for p in printers:
+                print(f"    • {p}")
+            print("\n    → Defina uma como padrão no Painel de Controle")
+        else:
+            print("    Nenhuma impressora instalada.")
+        input("\n Pressione ENTER para sair...")
+        return
+    
+    # Status
+    print(f"\n ✅ Impressora: {printer}")
+    print(f" 🏪 Restaurante: {RESTAURANT_ID[:8]}...")
+    print(f" ⏱️  Intervalo: {POLL_INTERVAL}s")
+    print("\n" + "─" * 50)
+    print(" Aguardando pedidos... (Ctrl+C para parar)")
+    print("─" * 50)
+    
+    orders_printed = 0
     
     while True:
         try:
             orders = get_pending_orders()
             
             if orders:
-                print(f"\n[{datetime.now().strftime('%H:%M:%S')}] {len(orders)} pedido(s) para imprimir")
-                
+                print(f"\n 🔔 {len(orders)} novo(s) pedido(s)!")
                 printed_ids = []
                 
                 for order in orders:
-                    print(f"  -> Imprimindo pedido #{order['orderNumber']}...")
+                    order_num = order.get('orderNumber', order.get('id', '')[:8])
+                    print(f"    Imprimindo #{order_num}...", end=" ", flush=True)
                     
                     receipt = format_receipt(order)
                     
-                    # Tentar imprimir no Windows, senão console
-                    try:
-                        success = print_to_windows(receipt, PRINTER_NAME)
-                    except:
-                        success = print_to_console(receipt)
-                    
-                    if success:
+                    if print_to_printer(receipt, printer):
                         printed_ids.append(order['id'])
-                        print(f"     ✓ Pedido #{order['orderNumber']} impresso!")
+                        orders_printed += 1
+                        print("✅")
                     else:
-                        print(f"     ✗ Falha ao imprimir #{order['orderNumber']}")
+                        print("❌")
                 
-                # Marcar como impressos
                 if printed_ids:
                     if mark_orders_printed(printed_ids):
-                        print(f"  -> {len(printed_ids)} pedido(s) marcados como impressos")
-                    else:
-                        print("  -> [AVISO] Não foi possível marcar pedidos como impressos")
+                        print(f"    → Marcados como impressos ({orders_printed} total)")
             
+            # Indicador de que está rodando (a cada 60s)
             time.sleep(POLL_INTERVAL)
             
         except KeyboardInterrupt:
-            print("\n\nEncerrando serviço...")
+            print(f"\n\n ✋ Serviço encerrado. {orders_printed} pedidos impressos.")
             break
         except Exception as e:
-            print(f"[ERRO] {e}")
+            print(f"\n ⚠️  Erro: {e}")
             time.sleep(POLL_INTERVAL)
 
 
