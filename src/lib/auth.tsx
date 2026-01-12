@@ -114,64 +114,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (authError) return { error: authError };
       if (!authData.user) return { error: new Error('Failed to create user') };
-      if (!authData.session) return { error: new Error('Failed to create session') };
 
-      // Wait for the session to be fully established
-      // Set the session explicitly to ensure auth.uid() works in RLS
-      await supabase.auth.setSession({
-        access_token: authData.session.access_token,
-        refresh_token: authData.session.refresh_token,
-      });
-
-      // Small delay to ensure session is propagated
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Create restaurant
+      // Generate slug
       const slug = restaurantName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      
-      const { data: restaurantData, error: restaurantError } = await supabase
-        .from('restaurants')
-        .insert({
-          name: restaurantName,
-          slug: `${slug}-${Date.now()}`,
-          cnpj: cnpj.replace(/\D/g, ''),
-        })
-        .select()
-        .single();
+      const uniqueSlug = `${slug}-${Date.now()}`;
+      const cnpjDigits = cnpj.replace(/\D/g, '');
 
-      if (restaurantError) {
-        console.error('Restaurant creation error:', restaurantError);
-        return { error: restaurantError };
-      }
-
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: authData.user.id,
-          restaurant_id: restaurantData.id,
-          full_name: fullName,
+      // Use the security definer function to create restaurant, profile, and role
+      // This bypasses RLS issues during signup
+      const { data: restaurantId, error: createError } = await supabase
+        .rpc('create_restaurant_with_profile', {
+          _user_id: authData.user.id,
+          _restaurant_name: restaurantName,
+          _restaurant_slug: uniqueSlug,
+          _cnpj: cnpjDigits,
+          _full_name: fullName,
         });
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        return { error: profileError };
+      if (createError) {
+        console.error('Signup creation error:', createError);
+        return { error: createError };
       }
 
-      // Create admin role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: authData.user.id,
-          role: 'admin',
-        });
-
-      if (roleError) {
-        console.error('Role creation error:', roleError);
+      // Fetch the user data after successful creation
+      if (authData.session) {
+        await fetchUserData(authData.user.id);
       }
-
-      // Refresh user data
-      await fetchUserData(authData.user.id);
 
       return { error: null };
     } catch (error) {
