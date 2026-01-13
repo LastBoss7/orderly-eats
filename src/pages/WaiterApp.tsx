@@ -473,20 +473,15 @@ export default function WaiterApp() {
 
   const handleSubmitOrder = async () => {
     if (orderMode === 'table' && (!selectedTable || cart.length === 0)) return;
+    if (orderMode === 'tab' && (!selectedTab || cart.length === 0)) return;
     if ((orderMode === 'delivery' || orderMode === 'takeaway') && cart.length === 0) return;
 
     setSubmitting(true);
 
     try {
-      if (orderMode === 'table' && selectedTable) {
-        // Update table status
-        await supabase
-          .from('tables')
-          .update({ status: 'occupied' })
-          .eq('id', selectedTable.id);
-      }
-
-      const autoPrint = shouldAutoPrint(orderMode === 'table' ? 'table' : 'delivery');
+      // Note: Table/Tab occupation is now handled automatically by database trigger
+      
+      const autoPrint = shouldAutoPrint(orderMode === 'table' || orderMode === 'tab' ? 'table' : 'delivery');
 
       // Build address string for delivery
       let fullAddress = '';
@@ -534,15 +529,16 @@ export default function WaiterApp() {
         .insert({
           restaurant_id: restaurant?.id,
           table_id: orderMode === 'table' ? selectedTable?.id : null,
-          order_type: orderMode,
+          tab_id: orderMode === 'tab' ? selectedTab?.id : null,
+          order_type: orderMode === 'tab' ? 'table' : orderMode, // Store 'tab' as 'table' type
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
           total: orderTotal,
           notes: orderNotes || null,
           customer_id: customerId,
-          customer_name: orderMode !== 'table' ? deliveryForm.customerName : null,
+          customer_name: orderMode === 'tab' ? selectedTab?.customer_name : (orderMode !== 'table' ? deliveryForm.customerName : null),
           delivery_address: orderMode === 'delivery' ? fullAddress : null,
-          delivery_phone: orderMode !== 'table' ? deliveryForm.customerPhone : null,
+          delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
           delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
         })
         .select()
@@ -568,19 +564,26 @@ export default function WaiterApp() {
 
       const successMessage = orderMode === 'table'
         ? `Pedido da Mesa ${selectedTable?.number} enviado!`
-        : orderMode === 'delivery'
-          ? `Pedido delivery para ${deliveryForm.customerName} enviado!`
-          : `Pedido para levar de ${deliveryForm.customerName} enviado!`;
+        : orderMode === 'tab'
+          ? `Pedido da Comanda #${selectedTab?.number} enviado!`
+          : orderMode === 'delivery'
+            ? `Pedido delivery para ${deliveryForm.customerName} enviado!`
+            : `Pedido para levar de ${deliveryForm.customerName} enviado!`;
 
       toast.success(successMessage);
 
-      // Refresh tables
-      const { data } = await supabase.from('tables').select('*').order('number');
-      setTables((data || []) as Table[]);
+      // Refresh tables and tabs
+      const [tablesRes, tabsRes] = await Promise.all([
+        supabase.from('tables').select('*').order('number'),
+        supabase.from('tabs').select('*').order('number'),
+      ]);
+      setTables((tablesRes.data || []) as Table[]);
+      setTabs((tabsRes.data || []) as Tab[]);
 
       // Go back to tables
       setView('tables');
       setSelectedTable(null);
+      setSelectedTab(null);
       setCart([]);
       setOrderNotes('');
       setDeliveryForm({
@@ -1249,8 +1252,12 @@ export default function WaiterApp() {
     );
   }
 
-  // Order View (New Order - Table)
+  // Order View (New Order - Table or Tab)
   if (view === 'order') {
+    const orderTitle = orderMode === 'tab' 
+      ? `Comanda #${selectedTab?.number}${selectedTab?.customer_name ? ` - ${selectedTab.customer_name}` : ''}`
+      : `Mesa ${selectedTable?.number}`;
+      
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
         <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
@@ -1259,12 +1266,12 @@ export default function WaiterApp() {
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/10"
-              onClick={() => { setView('tables'); setCart([]); }}
+              onClick={() => { setView('tables'); setCart([]); setSelectedTab(null); }}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-bold">Mesa {selectedTable?.number}</h1>
+              <h1 className="font-bold">{orderTitle}</h1>
               <p className="text-xs opacity-80">
                 {cart.length > 0 ? `${cart.length} itens no pedido` : 'Adicionar itens'}
               </p>
@@ -1530,101 +1537,144 @@ export default function WaiterApp() {
       {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === 'mesas' ? (
-          <div className="p-3 grid grid-cols-3 gap-2">
+          <div className="p-3 grid grid-cols-2 gap-3">
             {filteredTables.map((table) => {
               const readyOrder = getTableWithReadyOrder(table.id);
-              const bgColor = table.status === 'available' 
-                ? 'bg-[#2d5a87]' 
-                : table.status === 'occupied' 
-                  ? 'bg-[#2d5a87]' 
-                  : 'bg-orange-500';
               const hasReadyOrder = readyOrder !== undefined;
+              const isOccupied = table.status === 'occupied' || table.status === 'closing';
               
               return (
-                <button
+                <div
                   key={table.id}
-                  onClick={() => handleSelectTable(table)}
-                  className={`relative p-4 rounded-lg ${
-                    hasReadyOrder ? 'bg-orange-500' : bgColor
-                  } text-white min-h-[80px] flex flex-col items-start justify-between transition-all active:scale-95 shadow-sm`}
+                  className={`relative rounded-xl overflow-hidden shadow-sm ${
+                    hasReadyOrder ? 'ring-2 ring-orange-500' : ''
+                  }`}
                 >
-                  <span className="font-bold text-lg">Mesa {table.number}</span>
-                  {hasReadyOrder && (
-                    <Badge className="bg-white/20 text-white text-xs mt-1">
-                      Pronto
-                    </Badge>
-                  )}
-                  {table.status === 'occupied' && !hasReadyOrder && (
-                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-400" />
-                  )}
-                  {table.status === 'available' && (
-                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-green-400" />
-                  )}
-                  {table.status === 'closing' && (
-                    <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-yellow-400" />
-                  )}
-                </button>
+                  {/* Table Header */}
+                  <div 
+                    className={`p-4 ${
+                      table.status === 'available' ? 'bg-green-600' :
+                      table.status === 'closing' ? 'bg-yellow-500' : 'bg-red-500'
+                    } text-white`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xl">Mesa {table.number}</span>
+                      {hasReadyOrder && (
+                        <Badge className="bg-white/20 text-white text-xs">
+                          Pronto!
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-sm opacity-80">
+                      {table.status === 'available' ? 'Livre' : 
+                       table.status === 'closing' ? 'Fechando conta' : 'Ocupada'}
+                    </span>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="bg-white p-2 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleSelectTable(table)}
+                      className="flex flex-col items-center justify-center p-3 rounded-lg bg-blue-50 text-blue-700 active:bg-blue-100"
+                    >
+                      <Plus className="w-5 h-5 mb-1" />
+                      <span className="text-xs font-medium">Novo Pedido</span>
+                    </button>
+                    <button
+                      onClick={() => { setSelectedTable(table); setView('table-orders'); }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-lg ${
+                        isOccupied 
+                          ? 'bg-green-50 text-green-700 active:bg-green-100' 
+                          : 'bg-gray-50 text-gray-400'
+                      }`}
+                      disabled={!isOccupied}
+                    >
+                      <Receipt className="w-5 h-5 mb-1" />
+                      <span className="text-xs font-medium">
+                        {isOccupied ? 'Ver/Fechar' : 'Sem pedidos'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
         ) : (
-          <div className="p-3 space-y-2">
-            {activeOrders.length > 0 ? (
-              activeOrders.map((order) => (
-                <button
-                  key={order.id}
-                  onClick={() => { setSelectedOrder(order); setView('order-detail'); }}
-                  className="w-full bg-white rounded-xl shadow-sm p-4 text-left active:scale-[0.99] transition-transform"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-900">
-                          {order.order_type === 'table' 
-                            ? `Mesa ${order.tables?.number || '-'}`
-                            : order.customer_name || 'Pedido'}
-                        </span>
-                        <Badge className={`${
-                          order.status === 'ready' ? 'bg-green-500' :
-                          order.status === 'preparing' ? 'bg-orange-500' : 'bg-yellow-500'
-                        } text-white border-0`}>
-                          {getStatusLabel(order.status)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-500 flex items-center gap-2">
-                        {order.order_type !== 'table' && (
-                          <span className="inline-flex items-center gap-1">
-                            {order.order_type === 'delivery' ? <Bike className="w-3 h-3" /> : <Package className="w-3 h-3" />}
-                            {getOrderTypeLabel(order.order_type || 'table')}
-                            •
-                          </span>
+          <div className="p-3 space-y-3">
+            {/* Tabs Grid */}
+            {tabs.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {tabs.filter(tab => {
+                  if (!tableSearchTerm) return true;
+                  return tab.number.toString().includes(tableSearchTerm) ||
+                    tab.customer_name?.toLowerCase().includes(tableSearchTerm.toLowerCase());
+                }).map((tab) => {
+                  const isOccupied = tab.status === 'occupied' || tab.status === 'closing';
+                  
+                  return (
+                    <div
+                      key={tab.id}
+                      className="relative rounded-xl overflow-hidden shadow-sm"
+                    >
+                      {/* Tab Header */}
+                      <div 
+                        className={`p-4 ${
+                          tab.status === 'available' ? 'bg-green-600' :
+                          tab.status === 'closing' ? 'bg-yellow-500' : 'bg-red-500'
+                        } text-white`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xl">#{tab.number}</span>
+                        </div>
+                        {tab.customer_name && (
+                          <p className="text-sm flex items-center gap-1 mt-1">
+                            <User className="w-3 h-3" />
+                            {tab.customer_name}
+                          </p>
                         )}
-                        {formatTime(order.created_at)}
-                      </p>
-                    </div>
-                    <span className="text-lg font-bold text-[#1e3a5f]">
-                      {formatCurrency(order.total || 0)}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    {order.order_items?.slice(0, 3).map((item) => (
-                      <div key={item.id} className="flex items-center gap-2 text-sm">
-                        <span className="font-medium text-gray-700">{item.quantity}x</span>
-                        <span className="text-gray-500">{item.product_name}</span>
+                        <span className="text-xs opacity-80">
+                          {tab.status === 'available' ? 'Livre' : 
+                           tab.status === 'closing' ? 'Fechando' : 'Ocupada'}
+                        </span>
                       </div>
-                    ))}
-                    {(order.order_items?.length || 0) > 3 && (
-                      <p className="text-xs text-gray-400">
-                        +{(order.order_items?.length || 0) - 3} mais itens
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))
+                      
+                      {/* Action Buttons */}
+                      <div className="bg-white p-2 grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedTab(tab);
+                            setOrderMode('tab');
+                            setView('order');
+                          }}
+                          className="flex flex-col items-center justify-center p-3 rounded-lg bg-blue-50 text-blue-700 active:bg-blue-100"
+                        >
+                          <Plus className="w-5 h-5 mb-1" />
+                          <span className="text-xs font-medium">Novo Pedido</span>
+                        </button>
+                        <button
+                          onClick={() => { setSelectedTab(tab); setView('tab-orders'); }}
+                          className={`flex flex-col items-center justify-center p-3 rounded-lg ${
+                            isOccupied 
+                              ? 'bg-green-50 text-green-700 active:bg-green-100' 
+                              : 'bg-gray-50 text-gray-400'
+                          }`}
+                          disabled={!isOccupied}
+                        >
+                          <Receipt className="w-5 h-5 mb-1" />
+                          <span className="text-xs font-medium">
+                            {isOccupied ? 'Ver/Fechar' : 'Sem pedidos'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                 <ClipboardList className="w-16 h-16 mb-4 opacity-50" />
-                <p>Nenhuma comanda ativa</p>
+                <p>Nenhuma comanda cadastrada</p>
+                <p className="text-sm">Cadastre comandas no sistema</p>
               </div>
             )}
           </div>

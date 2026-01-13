@@ -253,13 +253,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
 
       if (itemsError) throw itemsError;
 
-      // Update table status to occupied if available
-      if (table.status === 'available') {
-        await supabase
-          .from('tables')
-          .update({ status: 'occupied' })
-          .eq('id', table.id);
-      }
+      // Note: Table occupation is now handled automatically by database trigger
 
       // Auto print if enabled
       if (shouldPrint) {
