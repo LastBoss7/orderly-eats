@@ -10,6 +10,7 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { usePrintLogs } from '@/hooks/usePrintLogs';
+import { useKeyboardShortcuts, SHORTCUT_DESCRIPTIONS } from '@/hooks/useKeyboardShortcuts';
 import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
@@ -72,7 +73,13 @@ import {
   Store,
   Power,
   PowerOff,
+  Keyboard,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface PrepTimeSettings {
   counter_min: number;
@@ -124,6 +131,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [newOrderInitialType, setNewOrderInitialType] = useState<'counter' | 'table' | 'delivery' | 'takeaway' | undefined>(undefined);
   const [showPrepTimeModal, setShowPrepTimeModal] = useState(false);
   const [showPrintSettingsModal, setShowPrintSettingsModal] = useState(false);
   const [showStoreControlModal, setShowStoreControlModal] = useState(false);
@@ -140,10 +148,21 @@ export default function Dashboard() {
     delivery_max: 80,
   });
 
+  // Keyboard shortcuts for quick order creation
+  const handleNewOrderShortcut = useCallback((type?: 'counter' | 'table' | 'delivery' | 'takeaway') => {
+    setNewOrderInitialType(type);
+    setShowNewOrderModal(true);
+  }, []);
+
   // Print settings hook
   const { settings: printSettings, updateSettings: updatePrintSettings, shouldAutoPrint } = usePrintSettings();
   // Print logs hook
   const { logPrint } = usePrintLogs();
+  // Keyboard shortcuts hook
+  useKeyboardShortcuts({
+    onNewOrder: handleNewOrderShortcut,
+    enabled: !showNewOrderModal && !showOrderDetailModal,
+  });
   // Order notifications hook
   const { 
     notifications, 
@@ -711,10 +730,32 @@ export default function Dashboard() {
             </div>
 
             {/* Actions */}
-            <Button className="top-action-btn" onClick={() => setShowNewOrderModal(true)}>
-              <Plus className="w-4 h-4" />
-              Novo pedido
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button className="top-action-btn" onClick={() => {
+                  setNewOrderInitialType(undefined);
+                  setShowNewOrderModal(true);
+                }}>
+                  <Plus className="w-4 h-4" />
+                  Novo pedido
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <div className="space-y-1">
+                  <p className="font-medium flex items-center gap-1">
+                    <Keyboard className="w-3 h-3" /> Atalhos de teclado
+                  </p>
+                  <div className="text-xs space-y-0.5">
+                    {SHORTCUT_DESCRIPTIONS.slice(0, 5).map((s, i) => (
+                      <div key={i} className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">{s.keys}</span>
+                        <span>{s.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
             
             {/* Sound toggle */}
             <Button 
@@ -1079,9 +1120,13 @@ export default function Dashboard() {
         {/* New Order Modal */}
         <NewOrderModal
           open={showNewOrderModal}
-          onOpenChange={setShowNewOrderModal}
+          onOpenChange={(open) => {
+            setShowNewOrderModal(open);
+            if (!open) setNewOrderInitialType(undefined);
+          }}
           onOrderCreated={fetchOrders}
           shouldAutoPrint={shouldAutoPrint}
+          initialOrderType={newOrderInitialType}
         />
 
         {/* Edit Prep Time Modal */}
