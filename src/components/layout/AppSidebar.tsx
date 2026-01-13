@@ -42,6 +42,7 @@ import {
   Image,
   Edit3,
   Printer,
+  Clock,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -60,6 +61,7 @@ const cardapioSubmenu = [
 
 const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck },
+  { title: 'Tempo de Preparo', url: '/prep-time-report', icon: Clock },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
