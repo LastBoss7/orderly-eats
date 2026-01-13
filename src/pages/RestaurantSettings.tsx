@@ -455,100 +455,214 @@ export default function RestaurantSettings() {
 
           {/* Configurações de Impressão */}
           <TabsContent value="impressao">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personalização das Impressões</CardTitle>
-                <CardDescription>
-                  Configure o que aparece nas comandas e cupons impressos
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Header personalizado */}
-                <div className="space-y-2">
-                  <Label htmlFor="header">Cabeçalho Personalizado</Label>
-                  <Textarea
-                    id="header"
-                    value={printSettings.receipt_header || ''}
-                    onChange={(e) => setPrintSettings(prev => ({ ...prev, receipt_header: e.target.value }))}
-                    placeholder="Texto que aparece no topo da impressão (ex: Bem-vindo ao nosso estabelecimento!)"
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Este texto aparecerá no início de todas as impressões
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Configurações */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Personalização das Impressões</CardTitle>
+                  <CardDescription>
+                    Configure o que aparece nas comandas e cupons impressos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Header personalizado */}
+                  <div className="space-y-2">
+                    <Label htmlFor="header">Cabeçalho Personalizado</Label>
+                    <Textarea
+                      id="header"
+                      value={printSettings.receipt_header || ''}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, receipt_header: e.target.value }))}
+                      placeholder="Texto que aparece no topo da impressão (ex: Bem-vindo ao nosso estabelecimento!)"
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Este texto aparecerá no início de todas as impressões
+                    </p>
+                  </div>
 
-                {/* Footer personalizado */}
-                <div className="space-y-2">
-                  <Label htmlFor="footer">Rodapé Personalizado</Label>
-                  <Textarea
-                    id="footer"
-                    value={printSettings.receipt_footer || ''}
-                    onChange={(e) => setPrintSettings(prev => ({ ...prev, receipt_footer: e.target.value }))}
-                    placeholder="Texto que aparece no final da impressão (ex: Obrigado pela preferência! Volte sempre!)"
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Este texto aparecerá no final de todas as impressões
-                  </p>
-                </div>
+                  {/* Footer personalizado */}
+                  <div className="space-y-2">
+                    <Label htmlFor="footer">Rodapé Personalizado</Label>
+                    <Textarea
+                      id="footer"
+                      value={printSettings.receipt_footer || ''}
+                      onChange={(e) => setPrintSettings(prev => ({ ...prev, receipt_footer: e.target.value }))}
+                      placeholder="Texto que aparece no final da impressão (ex: Obrigado pela preferência! Volte sempre!)"
+                      rows={3}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Este texto aparecerá no final de todas as impressões
+                    </p>
+                  </div>
 
-                <Separator />
+                  <Separator />
 
-                {/* Switches para mostrar/ocultar informações */}
-                <div className="space-y-4">
-                  <Label className="text-base font-medium">Informações a exibir nas impressões</Label>
-                  
+                  {/* Switches para mostrar/ocultar informações */}
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Mostrar Endereço</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Exibir o endereço do estabelecimento nas impressões
-                        </p>
+                    <Label className="text-base font-medium">Informações a exibir nas impressões</Label>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Mostrar Endereço</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Exibir o endereço do estabelecimento
+                          </p>
+                        </div>
+                        <Switch
+                          checked={printSettings.show_address_on_receipt}
+                          onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_address_on_receipt: checked }))}
+                        />
                       </div>
-                      <Switch
-                        checked={printSettings.show_address_on_receipt}
-                        onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_address_on_receipt: checked }))}
-                      />
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Mostrar Telefone</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Exibir o telefone do estabelecimento nas impressões
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Mostrar Telefone</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Exibir o telefone do estabelecimento
+                          </p>
+                        </div>
+                        <Switch
+                          checked={printSettings.show_phone_on_receipt}
+                          onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_phone_on_receipt: checked }))}
+                        />
                       </div>
-                      <Switch
-                        checked={printSettings.show_phone_on_receipt}
-                        onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_phone_on_receipt: checked }))}
-                      />
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Mostrar CNPJ</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Exibir o CNPJ do estabelecimento nas impressões
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Mostrar CNPJ</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Exibir o CNPJ do estabelecimento
+                          </p>
+                        </div>
+                        <Switch
+                          checked={printSettings.show_cnpj_on_receipt}
+                          onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_cnpj_on_receipt: checked }))}
+                        />
                       </div>
-                      <Switch
-                        checked={printSettings.show_cnpj_on_receipt}
-                        onCheckedChange={(checked) => setPrintSettings(prev => ({ ...prev, show_cnpj_on_receipt: checked }))}
-                      />
                     </div>
                   </div>
-                </div>
 
-                <div className="flex justify-end">
-                  <Button onClick={handleSavePrintSettings} disabled={saving} className="gap-2">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Salvar Configurações
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex justify-end">
+                    <Button onClick={handleSavePrintSettings} disabled={saving} className="gap-2">
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Salvar Configurações
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Preview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Printer className="w-5 h-5" />
+                    Preview da Impressão
+                  </CardTitle>
+                  <CardDescription>
+                    Visualize como ficará a impressão com as configurações atuais
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-white border-2 border-dashed rounded-lg p-4 font-mono text-xs text-black max-w-[300px] mx-auto shadow-inner">
+                    {/* Receipt Paper Effect */}
+                    <div className="space-y-2">
+                      {/* Logo placeholder */}
+                      {restaurantData?.logo_url && (
+                        <div className="flex justify-center pb-2">
+                          <img 
+                            src={restaurantData.logo_url} 
+                            alt="Logo" 
+                            className="w-16 h-16 object-contain"
+                          />
+                        </div>
+                      )}
+
+                      {/* Restaurant Name */}
+                      <div className="text-center font-bold text-sm border-b border-dashed pb-2">
+                        {restaurantData?.name || 'Nome do Estabelecimento'}
+                      </div>
+
+                      {/* Custom Header */}
+                      {printSettings.receipt_header && (
+                        <div className="text-center text-[10px] italic border-b border-dashed pb-2 whitespace-pre-wrap">
+                          {printSettings.receipt_header}
+                        </div>
+                      )}
+
+                      {/* Address, Phone, CNPJ */}
+                      <div className="text-center text-[10px] space-y-0.5 border-b border-dashed pb-2">
+                        {printSettings.show_address_on_receipt && (
+                          <div>{restaurantData?.address || 'Endereço não informado'}</div>
+                        )}
+                        {printSettings.show_phone_on_receipt && (
+                          <div>Tel: {restaurantData?.phone || '(00) 00000-0000'}</div>
+                        )}
+                        {printSettings.show_cnpj_on_receipt && (
+                          <div>CNPJ: {restaurantData?.cnpj || '00.000.000/0000-00'}</div>
+                        )}
+                      </div>
+
+                      {/* Order Info Sample */}
+                      <div className="border-b border-dashed pb-2">
+                        <div className="flex justify-between font-bold">
+                          <span>PEDIDO #001</span>
+                          <span>BALCÃO</span>
+                        </div>
+                        <div className="text-[10px] text-gray-600">
+                          {new Date().toLocaleString('pt-BR')}
+                        </div>
+                      </div>
+
+                      {/* Items Sample */}
+                      <div className="space-y-1 border-b border-dashed pb-2">
+                        <div className="flex justify-between">
+                          <span>2x X-Burguer</span>
+                          <span>R$ 35,00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>1x Batata Frita</span>
+                          <span>R$ 12,00</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>2x Refrigerante</span>
+                          <span>R$ 10,00</span>
+                        </div>
+                      </div>
+
+                      {/* Total */}
+                      <div className="border-b border-dashed pb-2">
+                        <div className="flex justify-between font-bold">
+                          <span>TOTAL</span>
+                          <span>R$ 57,00</span>
+                        </div>
+                        <div className="flex justify-between text-[10px]">
+                          <span>Pagamento</span>
+                          <span>PIX</span>
+                        </div>
+                      </div>
+
+                      {/* Custom Footer */}
+                      {printSettings.receipt_footer && (
+                        <div className="text-center text-[10px] italic pt-1 whitespace-pre-wrap">
+                          {printSettings.receipt_footer}
+                        </div>
+                      )}
+
+                      {/* Default footer if no custom */}
+                      {!printSettings.receipt_footer && (
+                        <div className="text-center text-[10px] pt-1">
+                          Obrigado pela preferência!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-4">
+                    Este é um exemplo de como a impressão aparecerá. O conteúdo real pode variar.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
