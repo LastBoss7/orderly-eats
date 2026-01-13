@@ -19,7 +19,7 @@ pip install requests pywin32 pyinstaller --quiet
 
 REM Compila o executável
 echo [2/3] Compilando executavel...
-pyinstaller --onefile --name "ImpressoraPedidos" --icon=printer.ico --console print_service.py
+python -m PyInstaller --onefile --name "ImpressoraPedidos" --console print_service.py
 
 REM Move para pasta de distribuição
 echo [3/3] Preparando distribuicao...
