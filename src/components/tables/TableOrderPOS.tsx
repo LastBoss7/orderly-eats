@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
+import { useAutoPrint } from '@/hooks/useAutoPrint';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -20,6 +21,7 @@ import {
   Send,
   Package,
   MessageSquare,
+  Printer,
 } from 'lucide-react';
 
 interface Category {
@@ -60,6 +62,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
   const { restaurant } = useAuth();
   const { toast } = useToast();
   const { shouldAutoPrint } = usePrintSettings();
+  const { autoPrintTableOrder } = useAutoPrint();
   const searchInputRef = useRef<HTMLInputElement>(null);
   
   const [categories, setCategories] = useState<Category[]>([]);
@@ -215,7 +218,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
     setSubmitting(true);
 
     try {
-      const autoPrint = shouldAutoPrint('table');
+      const shouldPrint = shouldAutoPrint('table');
       
       // Create order
       const { data: order, error: orderError } = await supabase
@@ -225,7 +228,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
           table_id: table.id,
           order_type: 'table',
           status: 'pending',
-          print_status: autoPrint ? 'pending' : 'disabled',
+          print_status: shouldPrint ? 'pending' : 'disabled',
           total: cartTotal,
         })
         .select()
@@ -258,9 +261,30 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
           .eq('id', table.id);
       }
 
+      // Auto print if enabled
+      if (shouldPrint) {
+        const printItems = cart.map(item => ({
+          product_name: item.product.name,
+          quantity: item.quantity,
+          product_price: item.product.price,
+          notes: item.notes || null,
+        }));
+
+        await autoPrintTableOrder(
+          order.id,
+          table.number,
+          printItems,
+          cartTotal,
+          null,
+          null
+        );
+      }
+
       toast({
         title: 'Pedido enviado!',
-        description: `Pedido da Mesa ${table.number} enviado para a cozinha.`,
+        description: shouldPrint 
+          ? `Pedido da Mesa ${table.number} enviado para a cozinha e impressão.`
+          : `Pedido da Mesa ${table.number} enviado para a cozinha.`,
       });
 
       // Clear cart and notify parent
