@@ -70,12 +70,20 @@ interface Product {
   description: string | null;
   category_id: string | null;
   is_available: boolean;
+  has_sizes?: boolean | null;
+  price_small?: number | null;
+  price_medium?: number | null;
+  price_large?: number | null;
 }
+
+type ProductSize = 'small' | 'medium' | 'large';
 
 interface CartItem {
   product: Product;
   quantity: number;
   notes: string;
+  size?: ProductSize | null;
+  unitPrice: number;
 }
 
 interface Order {
@@ -156,6 +164,9 @@ export default function WaiterApp() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderNotes, setOrderNotes] = useState('');
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
+  
+  // Size selection modal
+  const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
   
   // Delivery states
   const [orderMode, setOrderMode] = useState<OrderMode>('table');
@@ -408,25 +419,60 @@ export default function WaiterApp() {
     setView('delivery-order');
   };
 
-  const addToCart = (product: Product) => {
+  const getProductPrice = (product: Product, size: ProductSize | null): number => {
+    if (!product.has_sizes || !size) {
+      return product.price;
+    }
+    switch (size) {
+      case 'small': return product.price_small ?? product.price;
+      case 'medium': return product.price_medium ?? product.price;
+      case 'large': return product.price_large ?? product.price;
+      default: return product.price;
+    }
+  };
+
+  const getSizeLabel = (size: ProductSize | null | undefined): string => {
+    switch (size) {
+      case 'small': return 'P';
+      case 'medium': return 'M';
+      case 'large': return 'G';
+      default: return '';
+    }
+  };
+
+  const handleProductClick = (product: Product) => {
+    if (product.has_sizes) {
+      setSizeModalProduct(product);
+    } else {
+      addToCartWithSize(product, null);
+    }
+  };
+
+  const addToCartWithSize = (product: Product, size: ProductSize | null) => {
+    const unitPrice = getProductPrice(product, size);
+    const cartKey = size ? `${product.id}-${size}` : product.id;
+    
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => 
+        item.product.id === product.id && item.size === size
+      );
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id
+          item.product.id === product.id && item.size === size
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, notes: '' }];
+      return [...prev, { product, quantity: 1, notes: '', size, unitPrice }];
     });
+    setSizeModalProduct(null);
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateQuantity = (productId: string, size: ProductSize | null | undefined, delta: number) => {
     setCart(prev => {
       return prev
         .map(item => {
-          if (item.product.id === productId) {
+          if (item.product.id === productId && item.size === size) {
             const newQuantity = item.quantity + delta;
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
@@ -436,18 +482,20 @@ export default function WaiterApp() {
     });
   };
 
-  const updateItemNotes = (productId: string, notes: string) => {
+  const updateItemNotes = (productId: string, size: ProductSize | null | undefined, notes: string) => {
     setCart(prev => prev.map(item =>
-      item.product.id === productId ? { ...item, notes } : item
+      item.product.id === productId && item.size === size ? { ...item, notes } : item
     ));
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, size: ProductSize | null | undefined) => {
+    setCart(prev => prev.filter(item => 
+      !(item.product.id === productId && item.size === size)
+    ));
   };
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 
@@ -550,10 +598,13 @@ export default function WaiterApp() {
         restaurant_id: restaurant?.id,
         order_id: order.id,
         product_id: item.product.id,
-        product_name: item.product.name,
-        product_price: item.product.price,
+        product_name: item.size 
+          ? `${item.product.name} (${getSizeLabel(item.size)})`
+          : item.product.name,
+        product_price: item.unitPrice,
         quantity: item.quantity,
         notes: item.notes || null,
+        product_size: item.size || null,
       }));
 
       const { error: itemsError } = await supabase
@@ -1105,31 +1156,43 @@ export default function WaiterApp() {
         <ScrollArea className="flex-1">
           <div className="p-3 grid gap-2">
             {filteredProducts.map((product) => {
-              const cartItem = cart.find(item => item.product.id === product.id);
-              const quantity = cartItem?.quantity || 0;
+              const productCartItems = cart.filter(item => item.product.id === product.id);
+              const totalQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0);
               
               return (
                 <button
                   key={product.id}
                   className={`relative flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left transition-all active:scale-[0.99] ${
-                    quantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
+                    totalQuantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
                   }`}
-                  onClick={() => addToCart(product)}
+                  onClick={() => handleProductClick(product)}
                 >
                   <div className="flex-1 min-w-0 pr-3">
-                    <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                      {product.has_sizes && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">P/M/G</span>
+                      )}
+                    </div>
                     <p className="text-[#2d5a87] font-bold">
-                      {formatCurrency(product.price)}
+                      {product.has_sizes 
+                        ? `A partir de ${formatCurrency(Math.min(
+                            product.price_small ?? Infinity,
+                            product.price_medium ?? Infinity,
+                            product.price_large ?? Infinity
+                          ))}`
+                        : formatCurrency(product.price)
+                      }
                     </p>
                   </div>
                   
                   <div className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all ${
-                    quantity > 0 
+                    totalQuantity > 0 
                       ? 'bg-[#2d5a87] text-white' 
                       : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {quantity > 0 ? (
-                      <span className="text-lg font-bold">{quantity}</span>
+                    {totalQuantity > 0 ? (
+                      <span className="text-lg font-bold">{totalQuantity}</span>
                     ) : (
                       <Plus className="w-5 h-5" />
                     )}
@@ -1145,63 +1208,74 @@ export default function WaiterApp() {
           <div className="sticky bottom-0 bg-white border-t shadow-lg">
             <ScrollArea className="max-h-48 p-3">
               <div className="space-y-2">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="bg-gray-50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-gray-900">{item.product.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {formatCurrency(item.product.price)} cada
-                        </p>
+                {cart.map((item, index) => {
+                  const cartItemKey = `${item.product.id}-${item.size || 'default'}-${index}`;
+                  const editKey = `${item.product.id}-${item.size || 'default'}`;
+                  return (
+                    <div key={cartItemKey} className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-gray-900">
+                            {item.product.name}
+                            {item.size && (
+                              <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {getSizeLabel(item.size)}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {formatCurrency(item.unitPrice)} cada
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, -1); }}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <span className="w-8 text-center font-bold">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, 1); }}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-red-500"
+                            onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id, item.size); }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, -1); }}
+                      {editingItemNotes === editKey ? (
+                        <Input
+                          placeholder="Observações do item..."
+                          value={item.notes}
+                          onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
+                          onBlur={() => setEditingItemNotes(null)}
+                          autoFocus
+                          className="h-9 text-sm"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setEditingItemNotes(editKey)}
+                          className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
                         >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                        <span className="w-8 text-center font-bold">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, 1); }}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-red-500"
-                          onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id); }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                          <MessageSquare className="w-3 h-3" />
+                          {item.notes || 'Adicionar observação'}
+                        </button>
+                      )}
                     </div>
-                    {editingItemNotes === item.product.id ? (
-                      <Input
-                        placeholder="Observações do item..."
-                        value={item.notes}
-                        onChange={(e) => updateItemNotes(item.product.id, e.target.value)}
-                        onBlur={() => setEditingItemNotes(null)}
-                        autoFocus
-                        className="h-9 text-sm"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setEditingItemNotes(item.product.id)}
-                        className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {item.notes || 'Adicionar observação'}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
 
@@ -1322,31 +1396,43 @@ export default function WaiterApp() {
         <ScrollArea className="flex-1">
           <div className="p-3 grid gap-2">
             {filteredProducts.map((product) => {
-              const cartItem = cart.find(item => item.product.id === product.id);
-              const quantity = cartItem?.quantity || 0;
+              const productCartItems = cart.filter(item => item.product.id === product.id);
+              const totalQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0);
               
               return (
                 <button
                   key={product.id}
                   className={`relative flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left transition-all active:scale-[0.99] ${
-                    quantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
+                    totalQuantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
                   }`}
-                  onClick={() => addToCart(product)}
+                  onClick={() => handleProductClick(product)}
                 >
                   <div className="flex-1 min-w-0 pr-3">
-                    <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                      {product.has_sizes && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">P/M/G</span>
+                      )}
+                    </div>
                     <p className="text-[#2d5a87] font-bold">
-                      {formatCurrency(product.price)}
+                      {product.has_sizes 
+                        ? `A partir de ${formatCurrency(Math.min(
+                            product.price_small ?? Infinity,
+                            product.price_medium ?? Infinity,
+                            product.price_large ?? Infinity
+                          ))}`
+                        : formatCurrency(product.price)
+                      }
                     </p>
                   </div>
                   
                   <div className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all ${
-                    quantity > 0 
+                    totalQuantity > 0 
                       ? 'bg-[#2d5a87] text-white' 
                       : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {quantity > 0 ? (
-                      <span className="text-lg font-bold">{quantity}</span>
+                    {totalQuantity > 0 ? (
+                      <span className="text-lg font-bold">{totalQuantity}</span>
                     ) : (
                       <Plus className="w-5 h-5" />
                     )}
@@ -1362,63 +1448,74 @@ export default function WaiterApp() {
           <div className="sticky bottom-0 bg-white border-t shadow-lg">
             <ScrollArea className="max-h-48 p-3">
               <div className="space-y-2">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="bg-gray-50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-gray-900">{item.product.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {formatCurrency(item.product.price)} cada
-                        </p>
+                {cart.map((item, index) => {
+                  const cartItemKey = `${item.product.id}-${item.size || 'default'}-${index}`;
+                  const editKey = `${item.product.id}-${item.size || 'default'}`;
+                  return (
+                    <div key={cartItemKey} className="bg-gray-50 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-gray-900">
+                            {item.product.name}
+                            {item.size && (
+                              <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {getSizeLabel(item.size)}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {formatCurrency(item.unitPrice)} cada
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, -1); }}
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                          <span className="w-8 text-center font-bold">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, 1); }}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-red-500"
+                            onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id, item.size); }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, -1); }}
+                      {editingItemNotes === editKey ? (
+                        <Input
+                          placeholder="Observações do item..."
+                          value={item.notes}
+                          onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
+                          onBlur={() => setEditingItemNotes(null)}
+                          autoFocus
+                          className="h-9 text-sm"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setEditingItemNotes(editKey)}
+                          className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
                         >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                        <span className="w-8 text-center font-bold">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, 1); }}
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-red-500"
-                          onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id); }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                          <MessageSquare className="w-3 h-3" />
+                          {item.notes || 'Adicionar observação'}
+                        </button>
+                      )}
                     </div>
-                    {editingItemNotes === item.product.id ? (
-                      <Input
-                        placeholder="Observações do item..."
-                        value={item.notes}
-                        onChange={(e) => updateItemNotes(item.product.id, e.target.value)}
-                        onBlur={() => setEditingItemNotes(null)}
-                        autoFocus
-                        className="h-9 text-sm"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setEditingItemNotes(item.product.id)}
-                        className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {item.notes || 'Adicionar observação'}
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
 
@@ -1700,6 +1797,55 @@ export default function WaiterApp() {
           </Button>
         </div>
       </div>
+
+      {/* Size Selection Modal */}
+      {sizeModalProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-lg font-bold text-gray-900">Escolha o tamanho</h3>
+            <p className="text-sm text-gray-600">{sizeModalProduct.name}</p>
+            <div className="space-y-2">
+              {sizeModalProduct.price_small != null && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-between h-14 text-left"
+                  onClick={() => addToCartWithSize(sizeModalProduct, 'small')}
+                >
+                  <span className="font-medium">Pequeno (P)</span>
+                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_small)}</span>
+                </Button>
+              )}
+              {sizeModalProduct.price_medium != null && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-between h-14 text-left"
+                  onClick={() => addToCartWithSize(sizeModalProduct, 'medium')}
+                >
+                  <span className="font-medium">Médio (M)</span>
+                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_medium)}</span>
+                </Button>
+              )}
+              {sizeModalProduct.price_large != null && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-between h-14 text-left"
+                  onClick={() => addToCartWithSize(sizeModalProduct, 'large')}
+                >
+                  <span className="font-medium">Grande (G)</span>
+                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_large)}</span>
+                </Button>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setSizeModalProduct(null)}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

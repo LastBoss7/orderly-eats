@@ -145,6 +145,7 @@ export type Database = {
           product_id: string | null
           product_name: string
           product_price: number
+          product_size: string | null
           quantity: number
           restaurant_id: string
         }
@@ -156,6 +157,7 @@ export type Database = {
           product_id?: string | null
           product_name: string
           product_price: number
+          product_size?: string | null
           quantity?: number
           restaurant_id: string
         }
@@ -167,6 +169,7 @@ export type Database = {
           product_id?: string | null
           product_name?: string
           product_price?: number
+          product_size?: string | null
           quantity?: number
           restaurant_id?: string
         }
@@ -386,11 +389,15 @@ export type Database = {
           category_id: string | null
           created_at: string
           description: string | null
+          has_sizes: boolean | null
           id: string
           image_url: string | null
           is_available: boolean | null
           name: string
           price: number
+          price_large: number | null
+          price_medium: number | null
+          price_small: number | null
           restaurant_id: string
           updated_at: string
         }
@@ -398,11 +405,15 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          has_sizes?: boolean | null
           id?: string
           image_url?: string | null
           is_available?: boolean | null
           name: string
           price?: number
+          price_large?: number | null
+          price_medium?: number | null
+          price_small?: number | null
           restaurant_id: string
           updated_at?: string
         }
@@ -410,11 +421,15 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           description?: string | null
+          has_sizes?: boolean | null
           id?: string
           image_url?: string | null
           is_available?: boolean | null
           name?: string
           price?: number
+          price_large?: number | null
+          price_medium?: number | null
+          price_small?: number | null
           restaurant_id?: string
           updated_at?: string
         }
