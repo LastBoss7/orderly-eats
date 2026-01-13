@@ -14,6 +14,7 @@ import MenuImages from "./pages/MenuImages";
 import BulkEdit from "./pages/BulkEdit";
 import Deliveries from "./pages/Deliveries";
 import Waiter from "./pages/Waiter";
+import WaiterApp from "./pages/WaiterApp";
 import Kitchen from "./pages/Kitchen";
 import SalonSettings from "./pages/SalonSettings";
 import SalonData from "./pages/salon/SalonData";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/bulk-edit" element={<BulkEdit />} />
             <Route path="/deliveries" element={<Deliveries />} />
             <Route path="/waiter" element={<Waiter />} />
+            <Route path="/waiter-app" element={<WaiterApp />} />
             <Route path="/kitchen" element={<Kitchen />} />
             <Route path="/salon-settings" element={<SalonSettings />} />
             <Route path="/salon-settings/dados" element={<SalonData />} />
