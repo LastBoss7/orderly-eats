@@ -43,6 +43,10 @@ interface Product {
   price: number;
   category_id: string | null;
   is_available: boolean;
+  has_sizes: boolean | null;
+  price_small: number | null;
+  price_medium: number | null;
+  price_large: number | null;
 }
 
 export default function Products() {
@@ -61,6 +65,10 @@ export default function Products() {
   const [price, setPrice] = useState('');
   const [categoryId, setCategoryId] = useState<string>('');
   const [isAvailable, setIsAvailable] = useState(true);
+  const [hasSizes, setHasSizes] = useState(false);
+  const [priceSmall, setPriceSmall] = useState('');
+  const [priceMedium, setPriceMedium] = useState('');
+  const [priceLarge, setPriceLarge] = useState('');
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
@@ -90,6 +98,10 @@ export default function Products() {
     setPrice('');
     setCategoryId('');
     setIsAvailable(true);
+    setHasSizes(false);
+    setPriceSmall('');
+    setPriceMedium('');
+    setPriceLarge('');
     setEditingProduct(null);
   };
 
@@ -100,17 +112,42 @@ export default function Products() {
     setPrice(product.price.toString());
     setCategoryId(product.category_id || '');
     setIsAvailable(product.is_available);
+    setHasSizes(product.has_sizes || false);
+    setPriceSmall(product.price_small?.toString() || '');
+    setPriceMedium(product.price_medium?.toString() || '');
+    setPriceLarge(product.price_large?.toString() || '');
     setShowDialog(true);
   };
 
   const handleSave = async () => {
-    if (!name || !price) {
+    if (!name) {
       toast({
         variant: 'destructive',
-        title: 'Campos obrigatórios',
-        description: 'Preencha o nome e preço do produto.',
+        title: 'Campo obrigatório',
+        description: 'Preencha o nome do produto.',
       });
       return;
+    }
+
+    // Validate prices based on hasSizes
+    if (hasSizes) {
+      if (!priceSmall && !priceMedium && !priceLarge) {
+        toast({
+          variant: 'destructive',
+          title: 'Preços obrigatórios',
+          description: 'Defina pelo menos um preço de tamanho.',
+        });
+        return;
+      }
+    } else {
+      if (!price) {
+        toast({
+          variant: 'destructive',
+          title: 'Campo obrigatório',
+          description: 'Preencha o preço do produto.',
+        });
+        return;
+      }
     }
 
     setSaving(true);
@@ -120,9 +157,13 @@ export default function Products() {
         restaurant_id: restaurant?.id,
         name,
         description: description || null,
-        price: parseFloat(price),
+        price: hasSizes ? 0 : parseFloat(price),
         category_id: categoryId || null,
         is_available: isAvailable,
+        has_sizes: hasSizes,
+        price_small: hasSizes && priceSmall ? parseFloat(priceSmall) : null,
+        price_medium: hasSizes && priceMedium ? parseFloat(priceMedium) : null,
+        price_large: hasSizes && priceLarge ? parseFloat(priceLarge) : null,
       };
 
       if (editingProduct) {
@@ -231,16 +272,73 @@ export default function Products() {
                     onChange={(e) => setDescription(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Preço *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                {/* Size Variation Toggle */}
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label className="font-medium">Variação de tamanho</Label>
+                    <p className="text-xs text-muted-foreground">
+                      P, M, G com preços diferentes
+                    </p>
+                  </div>
+                  <Switch
+                    checked={hasSizes}
+                    onCheckedChange={setHasSizes}
                   />
                 </div>
+
+                {/* Price Section */}
+                {hasSizes ? (
+                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+                    <Label className="font-medium">Preços por tamanho</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Pequeno (P)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={priceSmall}
+                          onChange={(e) => setPriceSmall(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Médio (M)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={priceMedium}
+                          onChange={(e) => setPriceMedium(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Grande (G)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={priceLarge}
+                          onChange={(e) => setPriceLarge(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Deixe em branco os tamanhos que não deseja oferecer
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Preço *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>Categoria</Label>
                   <Select value={categoryId || "none"} onValueChange={(val) => setCategoryId(val === "none" ? "" : val)}>
@@ -308,9 +406,34 @@ export default function Products() {
               <TableBody>
                 {products.map((product) => (
                   <TableRow key={product.id}>
-                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {product.name}
+                        {product.has_sizes && (
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                            P/M/G
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{getCategoryName(product.category_id)}</TableCell>
-                    <TableCell>{formatCurrency(product.price)}</TableCell>
+                    <TableCell>
+                      {product.has_sizes ? (
+                        <div className="text-xs space-y-0.5">
+                          {product.price_small != null && (
+                            <div>P: {formatCurrency(product.price_small)}</div>
+                          )}
+                          {product.price_medium != null && (
+                            <div>M: {formatCurrency(product.price_medium)}</div>
+                          )}
+                          {product.price_large != null && (
+                            <div>G: {formatCurrency(product.price_large)}</div>
+                          )}
+                        </div>
+                      ) : (
+                        formatCurrency(product.price)
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Switch
                         checked={product.is_available}
