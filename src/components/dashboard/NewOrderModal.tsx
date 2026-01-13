@@ -279,8 +279,16 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
 
   // Handle phone change with debounce
   useEffect(() => {
+    const phoneDigits = customerPhone.replace(/\D/g, '');
+    
+    // Reset customer found state when phone changes
+    if (phoneDigits.length < 10) {
+      setCustomerFound(false);
+      setCustomerId(null);
+    }
+    
     const timer = setTimeout(() => {
-      if (customerPhone.replace(/\D/g, '').length >= 10) {
+      if (phoneDigits.length >= 10) {
         searchCustomerByPhone(customerPhone);
       }
     }, 500);
