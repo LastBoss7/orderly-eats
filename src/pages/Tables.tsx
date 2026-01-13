@@ -22,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CloseTableModal } from '@/components/tables/CloseTableModal';
+import { TableOrderPOS } from '@/components/tables/TableOrderPOS';
 import { 
   Plus, 
   Users, 
@@ -32,6 +33,7 @@ import {
   CheckCircle2,
   Utensils,
   DollarSign,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface Table {
@@ -70,6 +72,8 @@ export default function Tables() {
   const [adding, setAdding] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [allTableOrders, setAllTableOrders] = useState<Order[]>([]);
+  const [showOrderPOS, setShowOrderPOS] = useState(false);
+  const [orderPOSTable, setOrderPOSTable] = useState<Table | null>(null);
 
   const fetchTables = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -164,6 +168,20 @@ export default function Tables() {
 
   const handleTableClosed = () => {
     setSelectedTable(null);
+    fetchTables();
+  };
+
+  const handleOpenOrderPOS = (table: Table) => {
+    setOrderPOSTable(table);
+    setShowOrderPOS(true);
+    setSelectedTable(null);
+  };
+
+  const handleOrderCreated = async () => {
+    if (orderPOSTable) {
+      const orders = await fetchTableOrders(orderPOSTable.id);
+      setTableOrders(orders);
+    }
     fetchTables();
   };
 
@@ -445,6 +463,15 @@ export default function Tables() {
                 </div>
               </div>
 
+              {/* New Order Button */}
+              <Button
+                className="w-full gap-2 h-14 text-base font-semibold bg-success hover:bg-success/90 shadow-lg"
+                onClick={() => selectedTable && handleOpenOrderPOS(selectedTable)}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                Lançar Pedido
+              </Button>
+
               {/* Close Table Button */}
               {tableOrders.length > 0 && (
                 <Button
@@ -565,6 +592,20 @@ export default function Tables() {
           orders={allTableOrders}
           onTableClosed={handleTableClosed}
         />
+
+        {/* Order POS Full Screen */}
+        {showOrderPOS && orderPOSTable && (
+          <div className="fixed inset-0 z-50 bg-background">
+            <TableOrderPOS
+              table={orderPOSTable}
+              onClose={() => {
+                setShowOrderPOS(false);
+                setOrderPOSTable(null);
+              }}
+              onOrderCreated={handleOrderCreated}
+            />
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

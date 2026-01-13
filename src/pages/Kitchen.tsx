@@ -292,6 +292,22 @@ export default function Kitchen() {
   return (
     <DashboardLayout>
       <div className="h-full flex flex-col bg-muted/30">
+        {/* Coming Soon Banner */}
+        <div className="bg-gradient-to-r from-warning/20 via-warning/10 to-warning/20 border-b border-warning/30 px-4 py-3">
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-warning"></span>
+              </span>
+              <span className="text-sm font-semibold text-warning">EM DESENVOLVIMENTO</span>
+            </div>
+            <span className="text-sm text-muted-foreground">
+              O KDS (Kitchen Display System) está em fase de desenvolvimento e será lançado em breve com novos recursos!
+            </span>
+          </div>
+        </div>
+
         {/* Top Bar */}
         <div className="bg-card border-b px-4 py-3">
           <div className="flex items-center justify-between">
@@ -302,7 +318,12 @@ export default function Kitchen() {
                   <ChefHat className="w-6 h-6 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">Cozinha (KDS)</h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold text-foreground">Cozinha (KDS)</h1>
+                    <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/30 text-xs">
+                      Em breve
+                    </Badge>
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {orders.length} pedido{orders.length !== 1 ? 's' : ''} em andamento
                   </p>
