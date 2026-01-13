@@ -4,9 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -14,14 +12,30 @@ import {
   Copy,
   CheckCircle2,
   Printer,
-  Settings,
   FileText,
-  Monitor,
-  Wifi,
   AlertCircle,
   Upload,
   Loader2,
+  Plus,
+  MoreVertical,
+  XCircle,
+  AlertTriangle,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+// Tipo para impressora (simulado por enquanto)
+interface PrinterDevice {
+  id: string;
+  name: string;
+  model: string;
+  status: 'connected' | 'disconnected';
+  linkedCommands: string[];
+}
 
 export default function Printers() {
   const { profile, restaurant } = useAuth();
@@ -29,6 +43,18 @@ export default function Printers() {
   const [uploading, setUploading] = useState(false);
   const [fileExists, setFileExists] = useState(false);
   const [checkingFile, setCheckingFile] = useState(true);
+  const [activeTab, setActiveTab] = useState<'printers' | 'templates'>('printers');
+
+  // Impressoras simuladas (no futuro, virão do banco de dados)
+  const [printers] = useState<PrinterDevice[]>([
+    {
+      id: '1',
+      name: 'Cozinha',
+      model: 'Impressora Padrão',
+      status: 'disconnected',
+      linkedCommands: ['Pedidos de cozinha', 'Retirada', 'Entrega'],
+    },
+  ]);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -139,288 +165,259 @@ LARGURA_PAPEL = 48
     toast.success('Arquivo config.ini baixado!');
   };
 
+  const handleTestPrint = (printerId: string) => {
+    toast.info('Enviando impressão de teste...');
+    // Futuro: implementar teste de impressão real
+    setTimeout(() => {
+      toast.success('Teste enviado! Verifique sua impressora.');
+    }, 1000);
+  };
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Printer className="w-7 h-7" />
-            Impressora de Pedidos
-          </h1>
-          <p className="text-muted-foreground">
-            Configure a impressão automática de pedidos no seu computador
-          </p>
+      <div className="p-6">
+        {/* Breadcrumb */}
+        <div className="text-sm text-muted-foreground mb-4">
+          <span>Início</span>
+          <span className="mx-2">›</span>
+          <span>Configurações</span>
+          <span className="mx-2">›</span>
+          <span className="text-primary font-medium">Impressora</span>
+          <span className="mx-2">›</span>
+          <span className="text-foreground">Lista de Impressoras</span>
         </div>
 
-        {/* Status Card */}
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-full bg-primary/20">
-                <Wifi className="w-6 h-6 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Status da Conexão</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Restaurante: <span className="font-medium text-foreground">{restaurant?.name}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  ID: {profile?.restaurant_id?.slice(0, 8)}...
-                </p>
-              </div>
-              <Badge className="bg-success/20 text-success">
-                <CheckCircle2 className="w-3 h-3 mr-1" />
-                Pronto
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex gap-6">
+          {/* Sidebar Navigation */}
+          <div className="w-64 flex-shrink-0">
+            <nav className="space-y-1">
+              <button
+                onClick={() => setActiveTab('printers')}
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'printers'
+                    ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                1. Lista de Impressoras
+              </button>
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
+                  activeTab === 'templates'
+                    ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                2. Modelos de Impressão
+              </button>
+            </nav>
+          </div>
 
-        {/* Admin Upload Section */}
-        {!fileExists && !checkingFile && (
-          <Card className="border-warning/50 bg-warning/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-warning">
-                <Upload className="w-5 h-5" />
-                Ação Necessária: Upload do Executável
-              </CardTitle>
-              <CardDescription>
-                O arquivo ImpressoraPedidos.zip ainda não foi enviado. Faça o upload para que seus clientes possam baixar.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <Input
-                  type="file"
-                  accept=".zip"
-                  onChange={handleUploadExecutable}
-                  disabled={uploading}
-                  className="flex-1"
-                />
-                {uploading && (
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          {/* Main Content */}
+          <div className="flex-1 max-w-3xl">
+            {activeTab === 'printers' && (
+              <div className="space-y-6">
+                <h1 className="text-2xl font-bold text-foreground">1. Lista de Impressoras</h1>
+
+                {/* Upload Section for Admin */}
+                {!fileExists && !checkingFile && (
+                  <Card className="border-orange-500/50 bg-orange-500/5">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-4">
+                        <AlertTriangle className="w-6 h-6 text-orange-500" />
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">Programa não disponível</p>
+                          <p className="text-sm text-muted-foreground">Faça upload do executável para seus clientes baixarem</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept=".zip"
+                            onChange={handleUploadExecutable}
+                            disabled={uploading}
+                            className="w-auto"
+                            id="upload-exec"
+                          />
+                          {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Envie o arquivo ImpressoraPedidos.zip compilado do Python
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
-        {fileExists && (
-          <Card className="border-green-500/50 bg-green-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-6 h-6 text-green-500" />
-                <div>
-                  <p className="font-medium text-foreground">Executável disponível para download</p>
-                  <p className="text-sm text-muted-foreground">Os clientes podem baixar o programa normalmente</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                {/* Download Section */}
+                {fileExists && (
+                  <Card className="border-primary/30">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-full bg-primary/10">
+                          <Download className="w-6 h-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">Programa de Impressão</p>
+                          <p className="text-sm text-muted-foreground">
+                            Baixe e instale no computador conectado à impressora
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button asChild>
+                            <a href={executableUrl} download>
+                              <Download className="w-4 h-4 mr-2" />
+                              Baixar Programa
+                            </a>
+                          </Button>
+                          <Button variant="outline" onClick={handleDownloadConfig}>
+                            <FileText className="w-4 h-4 mr-2" />
+                            Baixar config.ini
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-        {/* Main Content */}
-        <Tabs defaultValue="setup" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="setup">Instalação</TabsTrigger>
-            <TabsTrigger value="config">Configuração</TabsTrigger>
-          </TabsList>
+                {/* Printers List */}
+                {printers.map((printer) => (
+                  <Card key={printer.id} className="relative">
+                    <CardContent className="pt-6">
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Impressora</p>
+                          <h3 className="text-lg font-semibold text-foreground">{printer.name}</h3>
+                          <p className="text-sm text-muted-foreground">{printer.model}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={printer.status === 'connected' ? 'default' : 'destructive'}
+                            className={printer.status === 'connected' 
+                              ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' 
+                              : 'bg-red-500/20 text-red-600 hover:bg-red-500/30'
+                            }
+                          >
+                            {printer.status === 'connected' ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Conectada
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Desconectada
+                              </>
+                            )}
+                          </Badge>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleTestPrint(printer.id)}
+                          >
+                            <Printer className="w-4 h-4 mr-1" />
+                            Testar
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>Editar</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Remover</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
 
-          <TabsContent value="setup" className="space-y-4">
-            {/* Step 1 - Download */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                    1
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Baixar o Programa</CardTitle>
-                    <CardDescription>Baixe o programa de impressão para Windows</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button className="flex-1" size="lg" asChild>
-                    <a href={executableUrl} download>
-                      <Download className="w-5 h-5 mr-2" />
-                      Baixar ImpressoraPedidos.zip
-                    </a>
-                  </Button>
-                </div>
-                <div className="text-sm text-muted-foreground flex items-start gap-2">
-                  <Monitor className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>Compatível com Windows 10/11. Não requer instalação.</span>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Warning Box */}
+                      <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="text-foreground">
+                            Verifique se a impressora <strong>{printer.model}</strong> está conectada neste dispositivo
+                          </p>
+                          <p className="text-primary mt-1">
+                            Você só pode editar as configurações e testar a impressora no dispositivo em que ela foi configurada.
+                          </p>
+                        </div>
+                      </div>
 
-            {/* Step 2 - Extract */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                    2
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Extrair e Configurar</CardTitle>
-                    <CardDescription>Extraia o ZIP e baixe sua configuração</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                  <li>Extraia o arquivo <code className="bg-muted px-1 py-0.5 rounded">ImpressoraPedidos.zip</code> em uma pasta</li>
-                  <li>Clique no botão abaixo para baixar o arquivo de configuração</li>
-                  <li>Coloque o <code className="bg-muted px-1 py-0.5 rounded">config.ini</code> na mesma pasta do programa</li>
-                </ol>
-                
-                <Button variant="outline" size="lg" className="w-full" onClick={handleDownloadConfig}>
-                  <FileText className="w-5 h-5 mr-2" />
-                  Baixar config.ini
-                </Button>
-              </CardContent>
-            </Card>
+                      {/* Linked Commands */}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">Comandas vinculadas</p>
+                        <p className="text-sm text-foreground">
+                          {printer.linkedCommands.join(', ')}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
 
-            {/* Step 3 - Run */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                    3
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Executar</CardTitle>
-                    <CardDescription>Abra o programa e comece a imprimir</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                  <li>Dê duplo clique em <code className="bg-muted px-1 py-0.5 rounded">ImpressoraPedidos.exe</code></li>
-                  <li>O programa abrirá uma janela mostrando que está aguardando pedidos</li>
-                  <li>Deixe a janela aberta enquanto trabalha - os pedidos serão impressos automaticamente!</li>
-                </ol>
+                {/* Add Printer CTA */}
+                <Card className="border-dashed">
+                  <CardContent className="py-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-foreground font-medium">Tem outra impressora para usar?</p>
+                      <Button variant="outline" className="text-primary border-primary hover:bg-primary/10">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar impressora
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-                  <div className="text-sm">
-                    <p className="font-medium text-warning">Dica:</p>
-                    <p className="text-muted-foreground">
-                      Crie um atalho na Área de Trabalho para abrir rapidamente. 
-                      Para iniciar com o Windows, coloque o atalho na pasta "Inicialização".
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="config" className="space-y-4">
-            {/* Config Preview */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="w-5 h-5" />
-                      Sua Configuração
+                {/* Config Preview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Sua Configuração (config.ini)
                     </CardTitle>
                     <CardDescription>
-                      Arquivo config.ini já preenchido com seus dados
+                      Arquivo pré-configurado para {restaurant?.name}
                     </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleCopyConfig}>
-                      {copied ? (
-                        <CheckCircle2 className="w-4 h-4 mr-1 text-success" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-1" />
-                      )}
-                      {copied ? 'Copiado!' : 'Copiar'}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleDownloadConfig}>
-                      <Download className="w-4 h-4 mr-1" />
-                      Baixar
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <pre className="p-4 rounded-lg bg-muted text-sm font-mono overflow-x-auto whitespace-pre-wrap">
-                  {configContent}
-                </pre>
-              </CardContent>
-            </Card>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2 mb-4">
+                      <Button variant="outline" size="sm" onClick={handleCopyConfig}>
+                        {copied ? (
+                          <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4 mr-1" />
+                        )}
+                        {copied ? 'Copiado!' : 'Copiar'}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleDownloadConfig}>
+                        <Download className="w-4 h-4 mr-1" />
+                        Baixar arquivo
+                      </Button>
+                    </div>
+                    <pre className="p-4 rounded-lg bg-muted text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                      {configContent}
+                    </pre>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
-            {/* Advanced Config */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Configurações Avançadas</CardTitle>
-                <CardDescription>Personalize conforme sua necessidade</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Nome da Impressora</Label>
-                    <Input 
-                      placeholder="Deixe vazio para usar a padrão" 
-                      disabled
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Edite diretamente no config.ini se precisar
+            {activeTab === 'templates' && (
+              <div className="space-y-6">
+                <h1 className="text-2xl font-bold text-foreground">2. Modelos de Impressão</h1>
+                
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Printer className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">Em breve</h3>
+                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                      Aqui você poderá personalizar o layout dos cupons impressos, escolher quais informações aparecem e definir o tamanho do papel.
                     </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Intervalo de Verificação</Label>
-                    <Input 
-                      type="number" 
-                      value="5" 
-                      disabled
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Tempo em segundos entre cada verificação
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Troubleshooting */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Problemas Comuns</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm">
-                  <div className="p-3 rounded-lg bg-muted">
-                    <p className="font-medium">❌ "Windows SmartScreen bloqueou"</p>
-                    <p className="text-muted-foreground mt-1">
-                      Clique em "Mais informações" e depois "Executar assim mesmo"
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted">
-                    <p className="font-medium">❌ "Nenhuma impressora encontrada"</p>
-                    <p className="text-muted-foreground mt-1">
-                      Verifique se a impressora está instalada no Windows e definida como padrão
-                    </p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted">
-                    <p className="font-medium">❌ "Erro de conexão"</p>
-                    <p className="text-muted-foreground mt-1">
-                      Verifique sua conexão com a internet e se o config.ini está correto
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );
