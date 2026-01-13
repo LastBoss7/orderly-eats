@@ -214,6 +214,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated }: NewOrderMo
           table_id: orderType === 'table' ? selectedTable : null,
           order_type: orderType,
           status: 'pending',
+          print_status: 'pending', // Impressão automática
           total: cartTotal,
           notes: notes || null,
         })

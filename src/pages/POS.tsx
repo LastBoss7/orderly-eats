@@ -199,6 +199,7 @@ export default function POS() {
           customer_name: customerName || null,
           order_type: 'counter',
           status: 'pending',
+          print_status: 'pending', // Impressão automática
           total: cartTotal,
           notes: `Pagamento: ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
         })
