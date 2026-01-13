@@ -321,10 +321,6 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
             <Plus className="w-4 h-4" />
             Criar comanda
           </Button>
-          <Button className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo pedido
-          </Button>
         </div>
       </div>
 
