@@ -92,6 +92,7 @@ interface Order {
   delivery_phone: string | null;
   delivery_fee: number | null;
   created_by: string | null;
+  order_number: number | null;
   order_items?: {
     id: string;
     product_name: string;
@@ -291,6 +292,13 @@ export default function Dashboard() {
     });
   };
 
+  const getOrderDisplayNumber = (order: Order) => {
+    if (order.order_number) {
+      return `#${order.order_number}`;
+    }
+    return `#${order.id.slice(0, 4).toUpperCase()}`;
+  };
+
   const isDelayed = (order: Order) => {
     const created = new Date(order.created_at);
     const now = new Date();
@@ -488,7 +496,7 @@ export default function Dashboard() {
         <div className="order-card-header pr-8">
           <div className="order-number">
             {getOrderTypeIcon(order.order_type)}
-            <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
+            <span>Pedido {getOrderDisplayNumber(order)}</span>
           </div>
           <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
             <Clock className="w-3 h-3" />
@@ -589,7 +597,7 @@ export default function Dashboard() {
         <div className="order-card-header">
           <div className="order-number">
             {getOrderTypeIcon(order.order_type)}
-            <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
+            <span>Pedido {getOrderDisplayNumber(order)}</span>
           </div>
           <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
             <Clock className="w-3 h-3" />
@@ -876,7 +884,7 @@ export default function Dashboard() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {selectedOrder && getOrderTypeIcon(selectedOrder.order_type)}
-                Pedido #{selectedOrder?.id.slice(0, 4).toUpperCase()}
+                Pedido {selectedOrder && getOrderDisplayNumber(selectedOrder)}
               </DialogTitle>
               <DialogDescription>
                 {selectedOrder && formatDateTime(selectedOrder.created_at)}
@@ -1006,7 +1014,7 @@ export default function Dashboard() {
             <AlertDialogHeader>
               <AlertDialogTitle>Cancelar Pedido</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja cancelar o pedido #{orderToCancel?.id.slice(0, 4).toUpperCase()}? 
+                Tem certeza que deseja cancelar o pedido {orderToCancel && getOrderDisplayNumber(orderToCancel)}? 
                 Esta ação não pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>

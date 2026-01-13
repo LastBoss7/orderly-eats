@@ -211,6 +211,7 @@ export type Database = {
           delivery_phone: string | null
           id: string
           notes: string | null
+          order_number: number | null
           order_type: string | null
           payment_method: string | null
           print_count: number | null
@@ -239,6 +240,7 @@ export type Database = {
           delivery_phone?: string | null
           id?: string
           notes?: string | null
+          order_number?: number | null
           order_type?: string | null
           payment_method?: string | null
           print_count?: number | null
@@ -267,6 +269,7 @@ export type Database = {
           delivery_phone?: string | null
           id?: string
           notes?: string | null
+          order_number?: number | null
           order_type?: string | null
           payment_method?: string | null
           print_count?: number | null
