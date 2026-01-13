@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Store, Power, PowerOff, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchDailyReportData, printDailyReport } from './PrintDailyReport';
+import { useSaveClosing } from '@/hooks/useSaveClosing';
 
 interface StoreControlModalProps {
   open: boolean;
@@ -29,6 +30,7 @@ export function StoreControlModal({
 }: StoreControlModalProps) {
   const { restaurant } = useAuth();
   const [loading, setLoading] = useState(false);
+  const { saveClosing } = useSaveClosing();
 
   const handleToggleStore = async () => {
     if (!restaurant?.id) return;
@@ -44,7 +46,7 @@ export function StoreControlModal({
         .eq('restaurant_id', restaurant.id)
         .maybeSingle();
 
-      // If closing the store, print the daily report first
+      // If closing the store, print the daily report first and save to history
       if (!newIsOpen && existingSettings) {
         // Fetch and print daily report
         const reportData = await fetchDailyReportData(
@@ -54,6 +56,16 @@ export function StoreControlModal({
         );
         
         printDailyReport(reportData);
+
+        // Save closing to history
+        await saveClosing({
+          totalRevenue: reportData.totalRevenue,
+          totalOrders: reportData.totalOrders,
+          averageTicket: reportData.averageTicket,
+          cancelledOrders: reportData.cancelledOrders,
+          paymentBreakdown: reportData.paymentBreakdown,
+          orderTypeBreakdown: reportData.orderTypeBreakdown,
+        });
       }
       
       // Prepare update data
