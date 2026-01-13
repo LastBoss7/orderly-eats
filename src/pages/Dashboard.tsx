@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
+import { usePrintLogs } from '@/hooks/usePrintLogs';
 import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
@@ -141,6 +142,8 @@ export default function Dashboard() {
 
   // Print settings hook
   const { settings: printSettings, updateSettings: updatePrintSettings, shouldAutoPrint } = usePrintSettings();
+  // Print logs hook
+  const { logPrint } = usePrintLogs();
   // Order notifications hook
   const { 
     notifications, 
@@ -1009,6 +1012,8 @@ export default function Dashboard() {
                   restaurantName={restaurant?.name}
                   onPrint={async () => {
                     const newCount = (selectedOrder.print_count || 0) + 1;
+                    const isReprint = (selectedOrder.print_count || 0) > 0;
+                    
                     await supabase
                       .from('orders')
                       .update({ 
@@ -1016,6 +1021,16 @@ export default function Dashboard() {
                         printed_at: new Date().toISOString()
                       })
                       .eq('id', selectedOrder.id);
+                    
+                    // Log the print action
+                    await logPrint({
+                      orderId: selectedOrder.id,
+                      orderNumber: selectedOrder.order_number,
+                      printerName: 'Navegador',
+                      itemsCount: selectedOrder.order_items?.length || 0,
+                      status: 'success',
+                      eventType: isReprint ? 'reprint' : 'print',
+                    });
                     
                     // Update local state
                     setSelectedOrder(prev => prev ? { ...prev, print_count: newCount } : null);
