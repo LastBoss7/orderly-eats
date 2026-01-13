@@ -13,6 +13,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Table,
   TableBody,
   TableCell,
@@ -33,14 +39,17 @@ import {
 import { 
   Clock, 
   TrendingUp, 
-  TrendingDown, 
   AlertTriangle, 
   CheckCircle,
   Loader2,
   ArrowLeft,
   Calendar,
+  Download,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useReportExport } from '@/hooks/useReportExport';
 
 interface ProductPrepTime {
   product_name: string;
@@ -58,12 +67,51 @@ interface DailyStats {
 
 export default function PrepTimeReport() {
   const { restaurant } = useAuth();
+  const { exportToExcel, exportToPDF } = useReportExport();
   const [loading, setLoading] = useState(true);
   const [productStats, setProductStats] = useState<ProductPrepTime[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [period, setPeriod] = useState<'7' | '30' | '90'>('7');
   const [overallAvg, setOverallAvg] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
+
+  const handleExport = (format: 'excel' | 'pdf') => {
+    const periodLabel = period === '7' ? '7 dias' : period === '30' ? '30 dias' : '90 dias';
+    
+    const options = {
+      title: 'Relatório de Tempo de Preparo',
+      subtitle: `Período: Últimos ${periodLabel} | Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+      filename: `tempo-preparo-${new Date().toISOString().split('T')[0]}`,
+      columns: [
+        { header: 'Produto', key: 'product_name', width: 30 },
+        { header: 'Pedidos', key: 'total_orders', width: 12 },
+        { header: 'Tempo Médio', key: 'avg_time', width: 15 },
+        { header: 'Mínimo', key: 'min_time', width: 12 },
+        { header: 'Máximo', key: 'max_time', width: 12 },
+        { header: 'Status', key: 'status', width: 12 },
+      ],
+      data: productStats.map(p => ({
+        product_name: p.product_name,
+        total_orders: p.total_orders,
+        avg_time: formatTime(p.avg_prep_time_minutes),
+        min_time: formatTime(p.min_prep_time_minutes),
+        max_time: formatTime(p.max_prep_time_minutes),
+        status: p.avg_prep_time_minutes <= 15 ? 'Rápido' : p.avg_prep_time_minutes <= 30 ? 'Normal' : 'Lento',
+      })),
+      summaryData: [
+        { label: 'Tempo Médio Geral', value: formatTime(overallAvg) },
+        { label: 'Pedidos Analisados', value: String(totalOrders) },
+        { label: 'Mais Rápido', value: productStats.length > 0 ? formatTime(Math.min(...productStats.map(p => p.avg_prep_time_minutes))) : '-' },
+        { label: 'Mais Lento', value: productStats.length > 0 ? formatTime(Math.max(...productStats.map(p => p.avg_prep_time_minutes))) : '-' },
+      ],
+    };
+
+    if (format === 'excel') {
+      exportToExcel(options);
+    } else {
+      exportToPDF(options);
+    }
+  };
 
   useEffect(() => {
     fetchStats();
@@ -231,17 +279,38 @@ export default function PrepTimeReport() {
               </p>
             </div>
           </div>
-          <Select value={period} onValueChange={(v) => setPeriod(v as '7' | '30' | '90')}>
-            <SelectTrigger className="w-40">
-              <Calendar className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="90">Últimos 90 dias</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={period} onValueChange={(v) => setPeriod(v as '7' | '30' | '90')}>
+              <SelectTrigger className="w-40">
+                <Calendar className="w-4 h-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('excel')} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Exportar Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('pdf')} className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {loading ? (

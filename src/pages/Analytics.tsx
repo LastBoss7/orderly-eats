@@ -5,11 +5,17 @@ import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { 
   TrendingUp, 
-  TrendingDown, 
   DollarSign, 
   ShoppingCart, 
   Users, 
@@ -19,10 +25,14 @@ import {
   Truck,
   Store,
   BarChart3,
-  Target
+  Target,
+  Download,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval, parseISO, getHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useReportExport } from '@/hooks/useReportExport';
 
 type Order = {
   id: string;
@@ -47,6 +57,7 @@ const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(142 76% 36%
 
 const Analytics = () => {
   const { restaurant } = useAuth();
+  const { exportToExcel, exportToPDF } = useReportExport();
   const [period, setPeriod] = useState('7');
 
   const startDate = useMemo(() => {
@@ -188,6 +199,41 @@ const Analytics = () => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const handleExport = (format: 'excel' | 'pdf') => {
+    const periodLabel = period === '7' ? '7 dias' : period === '14' ? '14 dias' : period === '30' ? '30 dias' : period === '60' ? '60 dias' : '90 dias';
+    
+    const options = {
+      title: 'Relatório de Desempenho',
+      subtitle: `Período: Últimos ${periodLabel} | Gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+      filename: `desempenho-${new Date().toISOString().split('T')[0]}`,
+      columns: [
+        { header: 'Produto', key: 'name', width: 30 },
+        { header: 'Quantidade', key: 'quantity', width: 15 },
+        { header: 'Faturamento', key: 'revenue', width: 18 },
+      ],
+      data: topProducts.map(p => ({
+        name: p.name,
+        quantity: p.quantity,
+        revenue: formatCurrency(p.revenue),
+      })),
+      summaryData: [
+        { label: 'Faturamento Total', value: formatCurrency(metrics.totalRevenue) },
+        { label: 'Total de Pedidos', value: String(metrics.totalOrders) },
+        { label: 'Ticket Médio', value: formatCurrency(metrics.avgTicket) },
+        { label: 'Itens Vendidos', value: String(metrics.totalItems) },
+        { label: 'Pedidos Mesa', value: String(metrics.tableOrders) },
+        { label: 'Pedidos Balcão', value: String(metrics.counterOrders) },
+        { label: 'Pedidos Delivery', value: String(metrics.deliveryOrders) },
+      ],
+    };
+
+    if (format === 'excel') {
+      exportToExcel(options);
+    } else {
+      exportToPDF(options);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -202,18 +248,39 @@ const Analytics = () => {
               Acompanhe as métricas do seu restaurante
             </p>
           </div>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="14">Últimos 14 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="60">Últimos 60 dias</SelectItem>
-              <SelectItem value="90">Últimos 90 dias</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">Últimos 7 dias</SelectItem>
+                <SelectItem value="14">Últimos 14 dias</SelectItem>
+                <SelectItem value="30">Últimos 30 dias</SelectItem>
+                <SelectItem value="60">Últimos 60 dias</SelectItem>
+                <SelectItem value="90">Últimos 90 dias</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Download className="w-4 h-4" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleExport('excel')} className="gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Exportar Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('pdf')} className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Exportar PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {isLoading ? (
