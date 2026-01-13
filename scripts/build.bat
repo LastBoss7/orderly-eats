@@ -15,17 +15,31 @@ if errorlevel 1 (
 
 REM Instala dependências
 echo [1/3] Instalando dependencias...
-pip install requests pywin32 pyinstaller --quiet
+python -m pip install requests pywin32 pyinstaller --quiet
 
 REM Compila o executável
 echo [2/3] Compilando executavel...
 python -m PyInstaller --onefile --name "ImpressoraPedidos" --console print_service.py
 
+REM Verifica se o executável foi criado
+if not exist "dist\ImpressoraPedidos.exe" (
+    echo.
+    echo [ERRO] Falha na compilacao! O executavel nao foi criado.
+    echo Verifique se o PyInstaller foi instalado corretamente.
+    echo.
+    echo Tente executar manualmente:
+    echo   python -m pip install pyinstaller
+    echo   python -m PyInstaller --onefile --name "ImpressoraPedidos" --console print_service.py
+    echo.
+    pause
+    exit /b 1
+)
+
 REM Move para pasta de distribuição
 echo [3/3] Preparando distribuicao...
 if not exist "dist\distribuicao" mkdir "dist\distribuicao"
 copy "dist\ImpressoraPedidos.exe" "dist\distribuicao\" >nul
-copy "config.ini.example" "dist\distribuicao\config.ini.example" >nul
+copy "config.ini.example" "dist\distribuicao\" >nul
 copy "LEIA-ME.txt" "dist\distribuicao\" >nul
 
 REM Cria o ZIP
