@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impressora de Pedidos</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 100%;
+      padding: 20px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .header-text h1 {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .header-text p {
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Status Card */
+    .status-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.disconnected { background: #ef4444; }
+    .status-dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .stat-item {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #6366f1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      background: white;
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 13px;
+      color: #666;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: #6366f1;
+      color: white;
+    }
+
+    .tab:hover:not(.active) {
+      background: #f3f4f6;
+    }
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Log Panel */
+    .log-panel {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 16px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      color: #a0a0a0;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .log-entry.success { color: #22c55e; }
+    .log-entry.error { color: #ef4444; }
+    .log-entry.info { color: #3b82f6; }
+
+    .log-time {
+      color: #666;
+    }
+
+    /* Config Form */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .form-input, .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-primary {
+      background: #6366f1;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #5558e3;
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-success {
+      background: #22c55e;
+      color: white;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Checkbox */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #6366f1;
+    }
+
+    .checkbox-group label {
+      font-size: 13px;
+    }
+
+    /* Card */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Message */
+    .message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .message.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .message.error {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .message.warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-icon">🖨️</div>
+      <div class="header-text">
+        <h1>Impressora de Pedidos</h1>
+        <p id="restaurantName">Carregando...</p>
+      </div>
+    </div>
+
+    <!-- Status Card -->
+    <div class="status-card">
+      <div class="status-header">
+        <div class="status-indicator">
+          <div id="statusDot" class="status-dot disconnected"></div>
+          <span id="statusText">Desconectado</span>
+        </div>
+        <button class="btn btn-secondary" onclick="reconnect()">
+          🔄 Reconectar
+        </button>
+      </div>
+      <div class="stats">
+        <div class="stat-item">
+          <div id="printedCount" class="stat-value">0</div>
+          <div class="stat-label">Pedidos Impressos</div>
+        </div>
+        <div class="stat-item">
+          <div id="printerStatus" class="stat-value">-</div>
+          <div class="stat-label">Impressora</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" data-tab="monitor">📋 Monitor</button>
+      <button class="tab" data-tab="config">⚙️ Configurações</button>
+    </div>
+
+    <!-- Monitor Tab -->
+    <div id="monitor" class="tab-content active">
+      <div class="card">
+        <div class="card-title">📝 Registro de Atividades</div>
+        <div id="logPanel" class="log-panel">
+          <div class="log-entry info">Aguardando conexão...</div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-secondary" style="flex:1" onclick="testPrint()">
+          🖨️ Imprimir Teste
+        </button>
+        <button class="btn btn-primary" style="flex:1" onclick="clearLogs()">
+          🗑️ Limpar Log
+        </button>
+      </div>
+    </div>
+
+    <!-- Config Tab -->
+    <div id="config" class="tab-content">
+      <div class="card">
+        <div class="card-title">🔗 Conexão com o Sistema</div>
+        
+        <div class="form-group">
+          <label class="form-label">URL do Backend</label>
+          <input type="text" id="supabaseUrl" class="form-input" placeholder="https://xxx.supabase.co">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chave de API</label>
+          <input type="password" id="supabaseKey" class="form-input" placeholder="eyJhbGciOiJIUzI...">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ID do Restaurante</label>
+          <input type="text" id="restaurantId" class="form-input" placeholder="uuid-do-restaurante">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🖨️ Impressora</div>
+        
+        <div class="form-group">
+          <label class="form-label">Impressora</label>
+          <select id="printerName" class="form-select">
+            <option value="">Padrão do Sistema</option>
+          </select>
+          <p class="form-hint">Deixe em branco para usar a impressora padrão</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Largura do Papel (caracteres)</label>
+          <select id="paperWidth" class="form-select">
+            <option value="32">32 (58mm compacto)</option>
+            <option value="42">42 (80mm)</option>
+            <option value="48" selected>48 (58mm)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Intervalo de Verificação (segundos)</label>
+          <input type="number" id="checkInterval" class="form-input" value="5" min="1" max="60">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚙️ Opções</div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="minimizeToTray" checked>
+          <label for="minimizeToTray">Minimizar para bandeja ao fechar</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="autoStart">
+          <label for="autoStart">Iniciar com o Windows</label>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" onclick="saveConfig()">
+        💾 Salvar Configurações
+      </button>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

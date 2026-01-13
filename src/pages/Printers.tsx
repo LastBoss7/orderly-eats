@@ -24,6 +24,9 @@ import {
   AlertTriangle,
   Trash2,
   Pencil,
+  Monitor,
+  ExternalLink,
+  Github,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -72,7 +75,8 @@ export default function Printers() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   
-  const executableUrl = `${supabaseUrl}/storage/v1/object/public/printer-downloads/ImpressoraPedidos.zip`;
+  // URL do GitHub releases (será configurado após build)
+  const electronAppUrl = `${supabaseUrl}/storage/v1/object/public/printer-downloads/ImpressoraPedidos-Setup.exe`;
 
   const configContent = `[GERAL]
 # Configuração gerada automaticamente - NÃO EDITAR
@@ -277,62 +281,107 @@ LARGURA_PAPEL = 48
               <div className="space-y-6">
                 <h1 className="text-2xl font-bold text-foreground">1. Lista de Impressoras</h1>
 
-                {/* Upload Section for Admin */}
-                {!fileExists && !checkingFile && (
-                  <Card className="border-orange-500/50 bg-orange-500/5">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-4">
-                        <AlertTriangle className="w-6 h-6 text-orange-500" />
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">Programa não disponível</p>
-                          <p className="text-sm text-muted-foreground">Faça upload do executável para seus clientes baixarem</p>
+                {/* App Download Section */}
+                <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 rounded-full bg-primary/20">
+                        <Monitor className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-1">Aplicativo de Impressão Desktop</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Baixe e instale o aplicativo no computador conectado à impressora térmica.
+                          Funciona no Windows, macOS e Linux.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            <span>Impressão automática</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            <span>Minimiza na bandeja</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            <span>Interface amigável</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="file"
-                            accept=".zip"
-                            onChange={handleUploadExecutable}
-                            disabled={uploading}
-                            className="w-auto"
-                            id="upload-exec"
-                          />
-                          {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+
+                        <div className="flex flex-wrap gap-2">
+                          {fileExists ? (
+                            <Button asChild>
+                              <a href={electronAppUrl} download>
+                                <Download className="w-4 h-4 mr-2" />
+                                Baixar para Windows
+                              </a>
+                            </Button>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="file"
+                                accept=".exe,.zip"
+                                onChange={handleUploadExecutable}
+                                disabled={uploading}
+                                className="w-auto"
+                                id="upload-exec"
+                              />
+                              {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                {/* Download Section */}
-                {fileExists && (
-                  <Card className="border-primary/30">
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-full bg-primary/10">
-                          <Download className="w-6 h-6 text-primary" />
+                {/* Quick Setup Guide */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">🚀 Instalação Rápida</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                          1
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">Programa de Impressão</p>
+                        <div>
+                          <p className="font-medium">Baixe o aplicativo</p>
                           <p className="text-sm text-muted-foreground">
-                            Baixe e instale no computador conectado à impressora
+                            Clique em "Baixar para Windows" acima
                           </p>
                         </div>
-                        <div className="flex gap-2">
-                          <Button asChild>
-                            <a href={executableUrl} download>
-                              <Download className="w-4 h-4 mr-2" />
-                              Baixar Programa
-                            </a>
-                          </Button>
-                          <Button variant="outline" onClick={handleDownloadConfig}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Baixar config.ini
-                          </Button>
+                      </div>
+                      
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                          2
+                        </div>
+                        <div>
+                          <p className="font-medium">Instale e abra</p>
+                          <p className="text-sm text-muted-foreground">
+                            Execute o instalador e siga as instruções
+                          </p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
+                          3
+                        </div>
+                        <div>
+                          <p className="font-medium">Configure com seus dados</p>
+                          <p className="text-sm text-muted-foreground">
+                            Use as credenciais abaixo para conectar ao sistema
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Loading State */}
                 {loadingPrinters && (
