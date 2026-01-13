@@ -604,7 +604,7 @@ export default function Deliveries() {
       pending: 'Pendente',
       preparing: 'Preparando',
       ready: 'Pronto',
-      delivering: 'Em entrega',
+      out_for_delivery: 'Em entrega',
       delivered: 'Entregue',
       cancelled: 'Cancelado',
     };
@@ -614,10 +614,10 @@ export default function Deliveries() {
   const getStatusColor = (status: string | null) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-500',
-      preparing: 'bg-blue-500',
-      ready: 'bg-purple-500',
-      delivering: 'bg-orange-500',
-      delivered: 'bg-success',
+      preparing: 'bg-orange-500',
+      ready: 'bg-green-500',
+      out_for_delivery: 'bg-blue-500',
+      delivered: 'bg-gray-500',
       cancelled: 'bg-destructive',
     };
     return colors[status || 'pending'] || 'bg-muted';
@@ -638,7 +638,7 @@ export default function Deliveries() {
 
   const pendingOrders = orders.filter(o => o.status === 'pending');
   const preparingOrders = orders.filter(o => o.status === 'preparing' || o.status === 'ready');
-  const deliveringOrders = orders.filter(o => o.status === 'delivering');
+  const deliveringOrders = orders.filter(o => o.status === 'out_for_delivery');
 
   if (loading) {
     return (
@@ -1041,12 +1041,12 @@ export default function Deliveries() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="pending">Pendente</SelectItem>
-                              <SelectItem value="preparing">Preparando</SelectItem>
-                              <SelectItem value="ready">Pronto</SelectItem>
-                              <SelectItem value="delivering">Em entrega</SelectItem>
-                              <SelectItem value="delivered">Entregue</SelectItem>
-                              <SelectItem value="cancelled">Cancelado</SelectItem>
+                              <SelectItem value="pending">⏳ Pendente</SelectItem>
+                              <SelectItem value="preparing">🔥 Preparando</SelectItem>
+                              <SelectItem value="ready">✅ Pronto</SelectItem>
+                              <SelectItem value="out_for_delivery">🚚 Em entrega</SelectItem>
+                              <SelectItem value="delivered">📦 Entregue</SelectItem>
+                              <SelectItem value="cancelled">❌ Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
                           {/* Driver selector */}
