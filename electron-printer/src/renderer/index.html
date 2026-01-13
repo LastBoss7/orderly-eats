@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Impressora de Pedidos</title>
+  <title>Impressora BareRest</title>
   <style>
     * {
       margin: 0;
@@ -13,76 +13,175 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      background: #f5f5f5;
-      color: #333;
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .container {
-      max-width: 100%;
-      padding: 20px;
+    /* Menu Bar */
+    .menu-bar {
+      display: flex;
+      gap: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 13px;
     }
 
-    /* Header */
-    .header {
+    .menu-item {
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .menu-item:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .menu-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: white;
+      color: #333;
+      border-radius: 8px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      min-width: 200px;
+      overflow: hidden;
+      z-index: 100;
+    }
+
+    .menu-item.active .menu-dropdown {
+      display: block;
+    }
+
+    .menu-dropdown-item {
+      padding: 10px 16px;
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .menu-dropdown-item:hover {
+      background: #f3f4f6;
+    }
+
+    .menu-dropdown-item.danger:hover {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #e5e7eb;
+      margin: 4px 0;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      text-align: center;
+    }
+
+    /* Logo */
+    .logo-container {
       margin-bottom: 20px;
     }
 
-    .header-icon {
-      width: 48px;
-      height: 48px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      border-radius: 12px;
+    .logo {
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      margin: 0 auto 20px;
+      backdrop-filter: blur(10px);
     }
 
-    .header-text h1 {
-      font-size: 18px;
-      font-weight: 600;
+    .logo svg {
+      width: 70px;
+      height: 70px;
+      fill: white;
     }
 
-    .header-text p {
-      font-size: 12px;
-      color: #666;
+    .app-name {
+      font-size: 42px;
+      font-weight: 300;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
     }
 
-    /* Status Card */
-    .status-card {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    .app-subtitle {
+      font-size: 14px;
+      opacity: 0.8;
     }
 
-    .status-header {
+    /* Status Bar */
+    .status-bar {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 16px 24px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      gap: 16px;
+      backdrop-filter: blur(10px);
     }
 
-    .status-indicator {
+    .status-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .status-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+
+    .status-info {
+      flex: 1;
+    }
+
+    .status-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.7;
+    }
+
+    .status-value {
+      font-size: 16px;
+      font-weight: 500;
       display: flex;
       align-items: center;
       gap: 8px;
-      font-weight: 500;
     }
 
     .status-dot {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
+      display: inline-block;
     }
 
-    .status-dot.connected { background: #22c55e; }
-    .status-dot.disconnected { background: #ef4444; }
+    .status-dot.connected { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .status-dot.disconnected { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
     .status-dot.connecting { background: #f59e0b; animation: pulse 1s infinite; }
 
     @keyframes pulse {
@@ -90,88 +189,264 @@
       50% { opacity: 0.5; }
     }
 
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
+    .status-count {
+      font-size: 24px;
+      font-weight: 700;
+      margin-left: auto;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 10px;
+    }
+
+    .status-count-label {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      color: #333;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+      color: white;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .modal-body {
+      padding: 24px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      background: #f9fafb;
+      display: flex;
+      justify-content: flex-end;
       gap: 12px;
     }
 
-    .stat-item {
-      background: #f9fafb;
-      border-radius: 8px;
-      padding: 12px;
-      text-align: center;
+    /* Form Elements */
+    .form-group {
+      margin-bottom: 20px;
     }
 
-    .stat-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #6366f1;
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
     }
 
-    .stat-label {
-      font-size: 11px;
-      color: #666;
-      margin-top: 2px;
-    }
-
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 16px;
+    .form-input, .form-select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 14px;
       background: white;
-      border-radius: 12px;
-      padding: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .tab {
-      flex: 1;
-      padding: 10px 6px;
-      border: none;
-      background: transparent;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 12px;
-      color: #666;
       transition: all 0.2s;
     }
 
-    .tab.active {
-      background: #6366f1;
+    .form-input:focus, .form-select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .form-hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
       color: white;
     }
 
-    .tab:hover:not(.active) {
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: #6b7280;
+    }
+
+    .btn-ghost:hover {
       background: #f3f4f6;
     }
 
-    /* Tab Content */
-    .tab-content {
-      display: none;
+    /* Checkbox */
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: #f9fafb;
+      border-radius: 10px;
+      margin-bottom: 12px;
     }
 
-    .tab-content.active {
-      display: block;
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: #3b82f6;
+    }
+
+    .checkbox-group label {
+      font-size: 14px;
+      color: #374151;
     }
 
     /* Log Panel */
+    .log-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 900;
+    }
+
+    .log-overlay.active {
+      display: block;
+    }
+
     .log-panel {
-      background: #1e1e1e;
-      border-radius: 12px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 300px;
+      background: #1a1a1a;
       padding: 16px;
-      height: 200px;
       overflow-y: auto;
       font-family: 'Consolas', 'Monaco', monospace;
       font-size: 12px;
       color: #a0a0a0;
+      z-index: 901;
+    }
+
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #333;
+    }
+
+    .log-header h3 {
+      color: white;
+      font-size: 14px;
+    }
+
+    .log-close {
+      background: #333;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .log-close:hover {
+      background: #444;
     }
 
     .log-entry {
       margin-bottom: 4px;
-      line-height: 1.4;
+      line-height: 1.5;
     }
 
     .log-entry.success { color: #22c55e; }
@@ -179,759 +454,228 @@
     .log-entry.info { color: #3b82f6; }
 
     .log-time {
-      color: #666;
+      color: #555;
     }
 
-    /* Config Form */
-    .form-group {
-      margin-bottom: 16px;
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .form-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: #333;
-    }
-
-    .form-input, .form-select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      font-size: 14px;
+    .toast {
       background: white;
-      transition: border-color 0.2s;
+      color: #333;
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+      max-width: 350px;
     }
 
-    .form-input:focus, .form-select:focus {
-      outline: none;
-      border-color: #6366f1;
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
 
-    .form-hint {
-      font-size: 11px;
-      color: #666;
-      margin-top: 4px;
-    }
-
-    /* Buttons */
-    .btn {
-      padding: 10px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
+    .toast-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-primary {
-      background: #6366f1;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #5558e3;
-    }
-
-    .btn-secondary {
-      background: #f3f4f6;
-      color: #333;
-    }
-
-    .btn-secondary:hover {
-      background: #e5e7eb;
-    }
-
-    .btn-success {
-      background: #22c55e;
-      color: white;
-    }
-
-    .btn-block {
-      width: 100%;
-    }
-
-    .btn-group {
-      display: flex;
-      gap: 8px;
-    }
-
-    .btn-sm {
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-
-    /* Checkbox */
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .checkbox-group input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      accent-color: #6366f1;
-    }
-
-    .checkbox-group label {
-      font-size: 13px;
-    }
-
-    /* Card */
-    .card {
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Receipt Preview */
-    .preview-container {
-      display: flex;
-      gap: 16px;
-    }
-
-    .preview-settings {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .preview-panel {
-      width: 280px;
       flex-shrink: 0;
     }
 
-    .receipt-preview {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 16px;
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      line-height: 1.4;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 500px;
-      overflow-y: auto;
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
-    }
+    .toast-icon.success { background: #dcfce7; color: #16a34a; }
+    .toast-icon.error { background: #fef2f2; color: #dc2626; }
+    .toast-icon.info { background: #dbeafe; color: #2563eb; }
 
-    .receipt-preview.paper-58mm {
-      width: 220px;
-    }
-
-    .receipt-preview.paper-80mm {
-      width: 280px;
-    }
-
-    .receipt-header {
-      text-align: center;
-      border-bottom: 1px dashed #ccc;
-      padding-bottom: 8px;
-      margin-bottom: 8px;
-    }
-
-    .receipt-logo {
-      max-width: 120px;
-      max-height: 60px;
-      margin: 0 auto 8px;
-      display: block;
-    }
-
-    .receipt-restaurant-name {
-      font-weight: bold;
+    .toast-message {
       font-size: 14px;
-    }
-
-    .receipt-divider {
-      border-top: 1px dashed #999;
-      margin: 8px 0;
-    }
-
-    .receipt-divider-double {
-      border-top: 2px solid #333;
-      margin: 8px 0;
-    }
-
-    .receipt-section-title {
-      font-weight: bold;
-      margin: 8px 0 4px;
-    }
-
-    .receipt-item {
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .receipt-total {
-      font-weight: bold;
-      font-size: 13px;
-    }
-
-    .receipt-footer {
-      text-align: center;
-      margin-top: 12px;
-      font-size: 10px;
-      color: #666;
-    }
-
-    /* Section toggles */
-    .section-toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      background: #f9fafb;
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-
-    .section-toggle-label {
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .toggle-switch {
-      position: relative;
-      width: 44px;
-      height: 24px;
-    }
-
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: 0.3s;
-      border-radius: 24px;
-    }
-
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: 0.3s;
-      border-radius: 50%;
-    }
-
-    input:checked + .toggle-slider {
-      background-color: #6366f1;
-    }
-
-    input:checked + .toggle-slider:before {
-      transform: translateX(20px);
-    }
-
-    /* Color picker */
-    .color-input-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .color-input {
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      padding: 0;
-    }
-
-    /* Font size slider */
-    .range-input {
-      width: 100%;
-      accent-color: #6366f1;
-    }
-
-    .range-value {
-      display: inline-block;
-      min-width: 40px;
-      text-align: center;
       font-weight: 500;
     }
 
     /* Scrollbar */
     ::-webkit-scrollbar {
-      width: 6px;
+      width: 8px;
     }
 
     ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 3px;
+      background: transparent;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: #a1a1a1;
-    }
-
-    /* File input styling */
-    .file-input-wrapper {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-    }
-
-    .file-input-wrapper input[type=file] {
-      position: absolute;
-      left: 0;
-      top: 0;
-      opacity: 0;
-      cursor: pointer;
-      width: 100%;
-      height: 100%;
-    }
-
-    .logo-preview {
-      max-width: 150px;
-      max-height: 80px;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 8px;
-      margin-top: 8px;
-    }
-
-    .logo-placeholder {
-      width: 150px;
-      height: 60px;
-      border: 2px dashed #e5e7eb;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #999;
-      font-size: 12px;
-      margin-top: 8px;
+      background: rgba(255, 255, 255, 0.5);
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-icon">🖨️</div>
-      <div class="header-text">
-        <h1>Impressora de Pedidos</h1>
-        <p id="restaurantName">Carregando...</p>
-      </div>
-    </div>
-
-    <!-- Status Card -->
-    <div class="status-card">
-      <div class="status-header">
-        <div class="status-indicator">
-          <div id="statusDot" class="status-dot disconnected"></div>
-          <span id="statusText">Desconectado</span>
+  <!-- Menu Bar -->
+  <div class="menu-bar">
+    <div class="menu-item" id="menuOpcoes">
+      Opções
+      <div class="menu-dropdown">
+        <div class="menu-dropdown-item" id="btnConfigurar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Configurações
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="reconnect()">
-          🔄 Reconectar
-        </button>
-      </div>
-      <div class="stats">
-        <div class="stat-item">
-          <div id="printedCount" class="stat-value">0</div>
-          <div class="stat-label">Pedidos Impressos</div>
+        <div class="menu-dropdown-item" id="btnTestPrint">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Testar Impressão
         </div>
-        <div class="stat-item">
-          <div id="printerStatus" class="stat-value">-</div>
-          <div class="stat-label">Impressora</div>
+        <div class="menu-divider"></div>
+        <div class="menu-dropdown-item" id="btnReconnect">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          Reconectar
         </div>
-      </div>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab active" data-tab="monitor">📋 Monitor</button>
-      <button class="tab" data-tab="layout">🎨 Layout</button>
-      <button class="tab" data-tab="config">⚙️ Config</button>
-    </div>
-
-    <!-- Monitor Tab -->
-    <div id="monitor" class="tab-content active">
-      <div class="card">
-        <div class="card-title">📝 Registro de Atividades</div>
-        <div id="logPanel" class="log-panel">
-          <div class="log-entry info">Aguardando conexão...</div>
-        </div>
-      </div>
-
-      <div class="btn-group">
-        <button class="btn btn-secondary" style="flex:1" onclick="testPrint()">
-          🖨️ Imprimir Teste
-        </button>
-        <button class="btn btn-primary" style="flex:1" onclick="clearLogs()">
-          🗑️ Limpar Log
-        </button>
-      </div>
-    </div>
-
-    <!-- Layout Tab -->
-    <div id="layout" class="tab-content">
-      <div class="preview-container">
-        <!-- Settings -->
-        <div class="preview-settings">
-          <!-- Paper Settings -->
-          <div class="card">
-            <div class="card-title">📄 Papel</div>
-            
-            <div class="form-group">
-              <label class="form-label">Tamanho do Papel</label>
-              <select id="layoutPaperSize" class="form-select" onchange="updatePreview()">
-                <option value="58mm">58mm (Padrão)</option>
-                <option value="80mm">80mm (Largo)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Largura (caracteres): <span id="layoutWidthValue" class="range-value">48</span></label>
-              <input type="range" id="layoutWidth" class="range-input" min="32" max="64" value="48" onchange="updatePreview(); document.getElementById('layoutWidthValue').textContent = this.value">
-            </div>
-          </div>
-
-          <!-- Logo Settings -->
-          <div class="card">
-            <div class="card-title">🏪 Logotipo</div>
-            
-            <div class="section-toggle">
-              <span class="section-toggle-label">Mostrar Logo</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showLogo" onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Imagem do Logo</label>
-              <div class="file-input-wrapper">
-                <button class="btn btn-secondary btn-sm">📁 Escolher Imagem</button>
-                <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
-              </div>
-              <div id="logoPreviewContainer">
-                <div class="logo-placeholder">Sem logo</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Header Settings -->
-          <div class="card">
-            <div class="card-title">📋 Cabeçalho</div>
-            
-            <div class="section-toggle">
-              <span class="section-toggle-label">Nome do Restaurante</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showRestaurantName" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Endereço</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showAddress" onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Telefone</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showPhone" onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">CNPJ</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showCnpj" onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Título do Cupom</label>
-              <input type="text" id="receiptTitle" class="form-input" value="*** PEDIDO ***" onchange="updatePreview()">
-            </div>
-          </div>
-
-          <!-- Order Info Settings -->
-          <div class="card">
-            <div class="card-title">🍽️ Informações do Pedido</div>
-            
-            <div class="section-toggle">
-              <span class="section-toggle-label">Número do Pedido</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showOrderNumber" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Tipo do Pedido</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showOrderType" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Mesa (se aplicável)</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showTable" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Preços dos Itens</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showItemPrices" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Observações dos Itens</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showItemNotes" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Customer Info Settings -->
-          <div class="card">
-            <div class="card-title">👤 Informações do Cliente</div>
-            
-            <div class="section-toggle">
-              <span class="section-toggle-label">Nome do Cliente</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showCustomerName" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Telefone do Cliente</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showCustomerPhone" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Endereço de Entrega</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showDeliveryAddress" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Footer Settings -->
-          <div class="card">
-            <div class="card-title">📝 Rodapé</div>
-            
-            <div class="section-toggle">
-              <span class="section-toggle-label">Data e Hora</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showDateTime" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Totais</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showTotals" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Taxa de Entrega</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="showDeliveryFee" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Mensagem do Rodapé</label>
-              <input type="text" id="footerMessage" class="form-input" value="Obrigado pela preferência!" onchange="updatePreview()">
-            </div>
-          </div>
-
-          <!-- Font Settings -->
-          <div class="card">
-            <div class="card-title">🔤 Fonte</div>
-            
-            <div class="form-group">
-              <label class="form-label">Tamanho da Fonte: <span id="fontSizeValue" class="range-value">12</span>px</label>
-              <input type="range" id="fontSize" class="range-input" min="8" max="16" value="12" onchange="updatePreview(); document.getElementById('fontSizeValue').textContent = this.value">
-            </div>
-
-            <div class="section-toggle">
-              <span class="section-toggle-label">Negrito no Total</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="boldTotal" checked onchange="updatePreview()">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <button class="btn btn-primary btn-block" onclick="saveLayout()">
-            💾 Salvar Layout
-          </button>
-        </div>
-
-        <!-- Live Preview -->
-        <div class="preview-panel">
-          <div class="card" style="position: sticky; top: 20px;">
-            <div class="card-title">👁️ Preview do Cupom</div>
-            <div id="receiptPreview" class="receipt-preview paper-58mm">
-              <!-- Preview será gerado via JS -->
-            </div>
-            <button class="btn btn-secondary btn-block" style="margin-top: 12px" onclick="testPrintLayout()">
-              🖨️ Imprimir Preview
-            </button>
-          </div>
+        <div class="menu-divider"></div>
+        <div class="menu-dropdown-item danger" id="btnQuit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Sair do Aplicativo
         </div>
       </div>
     </div>
+    <div class="menu-item" id="menuAjuda">
+      Ajuda
+      <div class="menu-dropdown">
+        <div class="menu-dropdown-item" id="btnLogs">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Ver Logs
+        </div>
+        <div class="menu-dropdown-item" id="btnAbout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          Sobre
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <!-- Config Tab -->
-    <div id="config" class="tab-content">
-      <div class="card">
-        <div class="card-title">🔗 Conexão com o Sistema</div>
-        
+  <!-- Main Content -->
+  <div class="main-content">
+    <div class="logo-container">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 9V2h12v7"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+          <circle cx="18" cy="12" r="1" fill="white"/>
+        </svg>
+      </div>
+      <h1 class="app-name">BareRest</h1>
+      <p class="app-subtitle">Impressora de Pedidos</p>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div class="status-icon">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 9V2h12v7"/>
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+      </svg>
+    </div>
+    <div class="status-info">
+      <div class="status-label">Serviço de Impressão</div>
+      <div class="status-value">
+        <span class="status-dot disconnected" id="statusDot"></span>
+        <span id="statusText">Desconectado</span>
+      </div>
+    </div>
+    <div>
+      <div class="status-count" id="printedCount">0</div>
+      <div class="status-count-label">pedidos impressos</div>
+    </div>
+  </div>
+
+  <!-- Configuration Modal -->
+  <div class="modal-overlay" id="configModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">⚙️ Configurações</h2>
+        <button class="modal-close" onclick="closeModal('configModal')">&times;</button>
+      </div>
+      <div class="modal-body">
         <div class="form-group">
           <label class="form-label">URL do Backend</label>
-          <input type="text" id="supabaseUrl" class="form-input" placeholder="https://xxx.supabase.co">
+          <input type="text" class="form-input" id="supabaseUrl" placeholder="https://seu-projeto.supabase.co">
+          <p class="form-hint">URL fornecida pelo sistema BareRest</p>
         </div>
 
         <div class="form-group">
           <label class="form-label">Chave de API</label>
-          <input type="password" id="supabaseKey" class="form-input" placeholder="eyJhbGciOiJIUzI...">
+          <input type="password" class="form-input" id="supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIsInR...">
         </div>
 
         <div class="form-group">
           <label class="form-label">ID do Restaurante</label>
-          <input type="text" id="restaurantId" class="form-input" placeholder="uuid-do-restaurante">
+          <input type="text" class="form-input" id="restaurantId" placeholder="uuid-do-restaurante">
         </div>
-      </div>
 
-      <div class="card">
-        <div class="card-title">🖨️ Impressora</div>
-        
-        <div class="section-toggle">
-          <span class="section-toggle-label">Usar ESC/POS (USB direto)</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="useEscPos" onchange="togglePrinterMode()">
-            <span class="toggle-slider"></span>
-          </label>
+        <div class="form-group">
+          <label class="form-label">Impressora</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="printerName" style="flex: 1;"></select>
+            <button class="btn btn-ghost" onclick="refreshPrinters()" title="Atualizar lista">🔄</button>
+          </div>
         </div>
-        <p class="form-hint" style="margin-bottom: 12px;">
-          ESC/POS oferece melhor qualidade, fontes variadas e corte automático. Requer conexão USB direta.
-        </p>
 
-        <!-- System Printer Selection -->
-        <div id="systemPrinterSection">
+        <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Impressora do Sistema</label>
-            <select id="printerName" class="form-select">
-              <option value="">Padrão do Sistema</option>
-            </select>
-            <div class="btn-group" style="margin-top: 8px;">
-              <button class="btn btn-secondary btn-sm" onclick="refreshSystemPrinters()">
-                🔄 Atualizar Lista
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="testPrint()">
-                🖨️ Teste Rápido
-              </button>
-            </div>
-            <p class="form-hint" style="margin-top: 8px;">Usa o driver de impressora do Windows/Mac</p>
+            <label class="form-label">Intervalo (seg)</label>
+            <input type="number" class="form-input" id="checkInterval" value="5" min="1" max="60">
           </div>
-        </div>
-
-        <!-- USB Printer Selection -->
-        <div id="usbPrinterSection" style="display: none;">
           <div class="form-group">
-            <label class="form-label">Impressora USB (ESC/POS)</label>
-            <select id="usbPrinterSelect" class="form-select">
-              <option value="">Selecione uma impressora USB...</option>
-            </select>
-            <div class="btn-group" style="margin-top: 8px;">
-              <button class="btn btn-secondary btn-sm" onclick="refreshUSBPrinters()">
-                🔄 Atualizar Lista
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="testUSBConnection()">
-                🔌 Testar Conexão
-              </button>
-            </div>
-          </div>
-
-          <div id="usbStatus" class="message" style="display: none;"></div>
-
-          <!-- Supported Printers Info -->
-          <div style="background: #f0f9ff; border-radius: 8px; padding: 12px; margin-top: 12px;">
-            <p style="font-size: 12px; font-weight: 500; margin-bottom: 8px;">📋 Impressoras Compatíveis:</p>
-            <ul style="font-size: 11px; color: #666; margin: 0; padding-left: 16px;">
-              <li>Epson TM-T20, TM-T88</li>
-              <li>Elgin i7, i9</li>
-              <li>Bematech MP-4200</li>
-              <li>Star Micronics</li>
-              <li>Qualquer impressora ESC/POS</li>
-            </ul>
+            <label class="form-label">Status</label>
+            <input type="text" class="form-input" id="printerStatus" value="--" readonly style="background: #f9fafb;">
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 16px;">
-          <label class="form-label">Intervalo de Verificação (segundos)</label>
-          <input type="number" id="checkInterval" class="form-input" value="5" min="1" max="60">
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">⚙️ Opções</div>
-        
         <div class="checkbox-group">
           <input type="checkbox" id="minimizeToTray" checked>
           <label for="minimizeToTray">Minimizar para bandeja ao fechar</label>
@@ -944,25 +688,63 @@
 
         <div class="checkbox-group">
           <input type="checkbox" id="soundNotification" checked>
-          <label for="soundNotification">Som ao imprimir pedido</label>
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="autoCut" checked>
-          <label for="autoCut">Corte automático após impressão (ESC/POS)</label>
-        </div>
-
-        <div class="checkbox-group">
-          <input type="checkbox" id="openDrawer">
-          <label for="openDrawer">Abrir gaveta ao imprimir (ESC/POS)</label>
+          <label for="soundNotification">Notificação sonora ao imprimir</label>
         </div>
       </div>
-
-      <button class="btn btn-primary btn-block" onclick="saveConfig()">
-        💾 Salvar Configurações
-      </button>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('configModal')">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveConfig()">💾 Salvar</button>
+      </div>
     </div>
   </div>
+
+  <!-- About Modal -->
+  <div class="modal-overlay" id="aboutModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">ℹ️ Sobre</h2>
+        <button class="modal-close" onclick="closeModal('aboutModal')">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div class="logo" style="margin: 0 auto 20px;">
+          <svg viewBox="0 0 24 24" fill="#3b82f6" width="60" height="60">
+            <path d="M6 9V2h12v7"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+        </div>
+        <h3 style="font-size: 24px; margin-bottom: 8px; color: #333;">BareRest Printer</h3>
+        <p style="color: #666; margin-bottom: 24px;">Versão 1.0.0</p>
+        <p style="color: #666; line-height: 1.6;">
+          Aplicativo de impressão automática de pedidos para restaurantes.
+          Conecta-se ao sistema BareRest e imprime pedidos automaticamente
+          em sua impressora térmica.
+        </p>
+        <p style="color: #999; font-size: 12px; margin-top: 24px;">
+          © 2024 BareRest - Todos os direitos reservados
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeModal('aboutModal')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Panel -->
+  <div class="log-overlay" id="logOverlay">
+    <div class="log-panel">
+      <div class="log-header">
+        <h3>📋 Logs de Atividade</h3>
+        <button class="log-close" onclick="closeLog()">Fechar</button>
+      </div>
+      <div id="logContent">
+        <div class="log-entry info">[Início] Aplicativo iniciado</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <script src="renderer.js"></script>
 </body>

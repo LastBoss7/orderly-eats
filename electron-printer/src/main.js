@@ -34,8 +34,8 @@ const defaultLayout = {
 // Configuração persistente
 const store = new Store({
   defaults: {
-    supabaseUrl: '',
-    supabaseKey: '',
+    supabaseUrl: 'https://ueddnccouuevidwrcjaa.supabase.co',
+    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlZGRuY2NvdXVldmlkd3JjamFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxNjc1ODcsImV4cCI6MjA4Mzc0MzU4N30.tBeOzLyv4qcjb5wySPJWgCR7Fjzk0PEtLPxX9jp99ZI',
     restaurantId: '',
     printerName: '',
     checkInterval: 5,
@@ -70,11 +70,14 @@ app.on('second-instance', () => {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
-    minWidth: 800,
-    minHeight: 600,
+    width: 420,
+    height: 500,
+    minWidth: 400,
+    minHeight: 450,
+    maxWidth: 500,
+    maxHeight: 600,
     resizable: true,
+    frame: true,
     icon: path.join(__dirname, '../assets/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -82,6 +85,9 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  // Remove menu bar
+  mainWindow.setMenuBarVisibility(false);
 
   mainWindow.loadFile(path.join(__dirname, 'renderer/index.html'));
 
@@ -445,6 +451,11 @@ ipcMain.handle('get-stats', () => {
 
 ipcMain.handle('reconnect', async () => {
   return await initializeSupabase();
+});
+
+ipcMain.handle('app-quit', () => {
+  app.isQuitting = true;
+  app.quit();
 });
 
 // App Events
