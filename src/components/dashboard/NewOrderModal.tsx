@@ -153,6 +153,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [cashReceived, setCashReceived] = useState<string>('');
 
   useEffect(() => {
     if (open) {
@@ -213,6 +214,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setDineInType('table');
     setSelectedCategory(null);
     setPaymentMethod(null);
+    setCashReceived('');
   };
 
   // Format phone number
@@ -498,6 +500,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
 
   const orderTotal = cartTotal + (orderType === 'delivery' ? deliveryFee : 0);
 
+  // Calculate change for cash payments
+  const cashReceivedValue = parseFloat(cashReceived) || 0;
+  const changeAmount = paymentMethod === 'cash' && cashReceivedValue > orderTotal 
+    ? cashReceivedValue - orderTotal 
+    : 0;
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -664,6 +672,8 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           notes: notes || null,
           order_number: newOrderNumber,
           payment_method: paymentMethod,
+          cash_received: paymentMethod === 'cash' && cashReceivedValue > 0 ? cashReceivedValue : null,
+          change_given: paymentMethod === 'cash' && changeAmount > 0 ? changeAmount : null,
         })
         .select()
         .single();
@@ -1103,7 +1113,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                         variant={paymentMethod === method.id ? 'default' : 'outline'}
                         size="sm"
                         className="flex flex-col items-center gap-1 h-auto py-2"
-                        onClick={() => setPaymentMethod(method.id)}
+                        onClick={() => {
+                          setPaymentMethod(method.id);
+                          if (method.id !== 'cash') {
+                            setCashReceived('');
+                          }
+                        }}
                       >
                         {method.icon}
                         <span className="text-xs">{method.label}</span>
@@ -1111,6 +1126,53 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                     ))}
                   </div>
                 </div>
+
+                {/* Cash Change Calculator */}
+                {paymentMethod === 'cash' && (
+                  <div className="space-y-3 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-2">
+                      <Banknote className="w-4 h-4 text-amber-600" />
+                      <Label className="text-amber-800 dark:text-amber-200">Troco para quanto?</Label>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0,00"
+                        value={cashReceived}
+                        onChange={(e) => setCashReceived(e.target.value)}
+                        className="pl-10 bg-background"
+                      />
+                    </div>
+                    {cashReceivedValue > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Troco:</span>
+                        <span className={`font-bold ${changeAmount >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {changeAmount >= 0 
+                            ? formatCurrency(changeAmount)
+                            : `Faltam ${formatCurrency(orderTotal - cashReceivedValue)}`
+                          }
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {[50, 100, 150, 200].map((value) => (
+                        <Button
+                          key={value}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setCashReceived(value.toString())}
+                        >
+                          R$ {value}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Observações</Label>
