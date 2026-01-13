@@ -160,6 +160,7 @@ export default function Waiter() {
           table_id: selectedTable.id,
           order_type: 'table',
           status: 'pending',
+          print_status: 'pending', // Impressão automática
           total: cartTotal,
         })
         .select()
