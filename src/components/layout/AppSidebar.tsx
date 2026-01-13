@@ -43,6 +43,7 @@ import {
   Edit3,
   Printer,
   Clock,
+  History,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -61,6 +62,7 @@ const cardapioSubmenu = [
 
 const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck },
+  { title: 'Histórico Vendas', url: '/tab-history', icon: History },
   { title: 'Tempo de Preparo', url: '/prep-time-report', icon: Clock },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },

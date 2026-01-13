@@ -199,6 +199,9 @@ export type Database = {
       }
       orders: {
         Row: {
+          cash_received: number | null
+          change_given: number | null
+          closed_at: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
@@ -209,11 +212,14 @@ export type Database = {
           id: string
           notes: string | null
           order_type: string | null
+          payment_method: string | null
           print_count: number | null
           print_status: string | null
           printed_at: string | null
           ready_at: string | null
           restaurant_id: string
+          split_mode: string | null
+          split_people: number | null
           status: string | null
           tab_id: string | null
           table_id: string | null
@@ -221,6 +227,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cash_received?: number | null
+          change_given?: number | null
+          closed_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -231,11 +240,14 @@ export type Database = {
           id?: string
           notes?: string | null
           order_type?: string | null
+          payment_method?: string | null
           print_count?: number | null
           print_status?: string | null
           printed_at?: string | null
           ready_at?: string | null
           restaurant_id: string
+          split_mode?: string | null
+          split_people?: number | null
           status?: string | null
           tab_id?: string | null
           table_id?: string | null
@@ -243,6 +255,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cash_received?: number | null
+          change_given?: number | null
+          closed_at?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -253,11 +268,14 @@ export type Database = {
           id?: string
           notes?: string | null
           order_type?: string | null
+          payment_method?: string | null
           print_count?: number | null
           print_status?: string | null
           printed_at?: string | null
           ready_at?: string | null
           restaurant_id?: string
+          split_mode?: string | null
+          split_people?: number | null
           status?: string | null
           tab_id?: string | null
           table_id?: string | null
