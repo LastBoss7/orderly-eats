@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { usePrinters, Printer } from '@/hooks/usePrinters';
+import { PrinterModal } from '@/components/printers/PrinterModal';
 import {
   Download,
   Copy,
   CheckCircle2,
-  Printer,
+  Printer as PrinterIcon,
   FileText,
   AlertCircle,
   Upload,
@@ -20,49 +22,58 @@ import {
   MoreVertical,
   XCircle,
   AlertTriangle,
+  Trash2,
+  Pencil,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-// Tipo para impressora (simulado por enquanto)
-interface PrinterDevice {
-  id: string;
-  name: string;
-  model: string;
-  status: 'connected' | 'disconnected';
-  linkedCommands: string[];
-}
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  counter: 'Pedidos de balcão',
+  table: 'Pedidos de mesa',
+  delivery: 'Pedidos de entrega',
+};
 
 export default function Printers() {
   const { profile, restaurant } = useAuth();
+  const { printers, loading: loadingPrinters, addPrinter, updatePrinter, deletePrinter } = usePrinters();
+  
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileExists, setFileExists] = useState(false);
   const [checkingFile, setCheckingFile] = useState(true);
   const [activeTab, setActiveTab] = useState<'printers' | 'templates'>('printers');
-
-  // Impressoras simuladas (no futuro, virão do banco de dados)
-  const [printers] = useState<PrinterDevice[]>([
-    {
-      id: '1',
-      name: 'Cozinha',
-      model: 'Impressora Padrão',
-      status: 'disconnected',
-      linkedCommands: ['Pedidos de cozinha', 'Retirada', 'Entrega'],
-    },
-  ]);
+  
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
+  const [saving, setSaving] = useState(false);
+  
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [printerToDelete, setPrinterToDelete] = useState<Printer | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   
-  // URL do executável no bucket de storage
   const executableUrl = `${supabaseUrl}/storage/v1/object/public/printer-downloads/ImpressoraPedidos.zip`;
 
-  // Gera o conteúdo do config.ini com os dados do restaurante
   const configContent = `[GERAL]
 # Configuração gerada automaticamente - NÃO EDITAR
 SUPABASE_URL = ${supabaseUrl}
@@ -83,7 +94,6 @@ INTERVALO = 5
 LARGURA_PAPEL = 48
 `;
 
-  // Verificar se o arquivo já existe no bucket
   useEffect(() => {
     const checkFileExists = async () => {
       try {
@@ -116,12 +126,10 @@ LARGURA_PAPEL = 48
 
     setUploading(true);
     try {
-      // Remove arquivo existente se houver
       await supabase.storage
         .from('printer-downloads')
         .remove(['ImpressoraPedidos.zip']);
 
-      // Upload do novo arquivo
       const { error } = await supabase.storage
         .from('printer-downloads')
         .upload('ImpressoraPedidos.zip', file, {
@@ -167,10 +175,59 @@ LARGURA_PAPEL = 48
 
   const handleTestPrint = (printerId: string) => {
     toast.info('Enviando impressão de teste...');
-    // Futuro: implementar teste de impressão real
     setTimeout(() => {
       toast.success('Teste enviado! Verifique sua impressora.');
     }, 1000);
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingPrinter(null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEditModal = (printer: Printer) => {
+    setEditingPrinter(printer);
+    setModalOpen(true);
+  };
+
+  const handleSavePrinter = async (data: {
+    name: string;
+    model: string;
+    printer_name: string;
+    paper_width: number;
+    linked_order_types: string[];
+    is_active: boolean;
+  }) => {
+    setSaving(true);
+    try {
+      if (editingPrinter) {
+        await updatePrinter(editingPrinter.id, data);
+      } else {
+        await addPrinter(data);
+      }
+      setModalOpen(false);
+      setEditingPrinter(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!printerToDelete) return;
+    
+    setDeleting(true);
+    try {
+      await deletePrinter(printerToDelete.id);
+      setDeleteDialogOpen(false);
+      setPrinterToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleOpenDeleteDialog = (printer: Printer) => {
+    setPrinterToDelete(printer);
+    setDeleteDialogOpen(true);
   };
 
   return (
@@ -277,6 +334,32 @@ LARGURA_PAPEL = 48
                   </Card>
                 )}
 
+                {/* Loading State */}
+                {loadingPrinters && (
+                  <Card>
+                    <CardContent className="py-12 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Empty State */}
+                {!loadingPrinters && printers.length === 0 && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-12 text-center">
+                      <PrinterIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="font-semibold text-foreground mb-2">Nenhuma impressora configurada</h3>
+                      <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
+                        Adicione uma impressora para começar a imprimir pedidos automaticamente.
+                      </p>
+                      <Button onClick={handleOpenAddModal}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar impressora
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Printers List */}
                 {printers.map((printer) => (
                   <Card key={printer.id} className="relative">
@@ -286,7 +369,7 @@ LARGURA_PAPEL = 48
                         <div>
                           <p className="text-sm text-muted-foreground">Impressora</p>
                           <h3 className="text-lg font-semibold text-foreground">{printer.name}</h3>
-                          <p className="text-sm text-muted-foreground">{printer.model}</p>
+                          <p className="text-sm text-muted-foreground">{printer.model || 'Modelo não especificado'}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge 
@@ -308,12 +391,15 @@ LARGURA_PAPEL = 48
                               </>
                             )}
                           </Badge>
+                          {!printer.is_active && (
+                            <Badge variant="secondary">Inativa</Badge>
+                          )}
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleTestPrint(printer.id)}
                           >
-                            <Printer className="w-4 h-4 mr-1" />
+                            <PrinterIcon className="w-4 h-4 mr-1" />
                             Testar
                           </Button>
                           <DropdownMenu>
@@ -323,8 +409,18 @@ LARGURA_PAPEL = 48
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>Editar</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Remover</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenEditModal(printer)}>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleOpenDeleteDialog(printer)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Remover
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -335,7 +431,7 @@ LARGURA_PAPEL = 48
                         <AlertCircle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         <div className="text-sm">
                           <p className="text-foreground">
-                            Verifique se a impressora <strong>{printer.model}</strong> está conectada neste dispositivo
+                            Verifique se a impressora <strong>{printer.printer_name || 'padrão'}</strong> está conectada neste dispositivo
                           </p>
                           <p className="text-primary mt-1">
                             Você só pode editar as configurações e testar a impressora no dispositivo em que ela foi configurada.
@@ -347,7 +443,9 @@ LARGURA_PAPEL = 48
                       <div>
                         <p className="text-sm font-medium text-muted-foreground mb-2">Comandas vinculadas</p>
                         <p className="text-sm text-foreground">
-                          {printer.linkedCommands.join(', ')}
+                          {printer.linked_order_types
+                            ?.map((type) => ORDER_TYPE_LABELS[type] || type)
+                            .join(', ') || 'Nenhum tipo vinculado'}
                         </p>
                       </div>
                     </CardContent>
@@ -355,17 +453,23 @@ LARGURA_PAPEL = 48
                 ))}
 
                 {/* Add Printer CTA */}
-                <Card className="border-dashed">
-                  <CardContent className="py-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-foreground font-medium">Tem outra impressora para usar?</p>
-                      <Button variant="outline" className="text-primary border-primary hover:bg-primary/10">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Adicionar impressora
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                {printers.length > 0 && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-6">
+                      <div className="flex items-center justify-between">
+                        <p className="text-foreground font-medium">Tem outra impressora para usar?</p>
+                        <Button 
+                          variant="outline" 
+                          className="text-primary border-primary hover:bg-primary/10"
+                          onClick={handleOpenAddModal}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Adicionar impressora
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Config Preview */}
                 <Card>
@@ -407,7 +511,7 @@ LARGURA_PAPEL = 48
                 
                 <Card>
                   <CardContent className="py-12 text-center">
-                    <Printer className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <PrinterIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="font-semibold text-foreground mb-2">Em breve</h3>
                     <p className="text-muted-foreground text-sm max-w-md mx-auto">
                       Aqui você poderá personalizar o layout dos cupons impressos, escolher quais informações aparecem e definir o tamanho do papel.
@@ -419,6 +523,39 @@ LARGURA_PAPEL = 48
           </div>
         </div>
       </div>
+
+      {/* Printer Modal */}
+      <PrinterModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        printer={editingPrinter}
+        onSave={handleSavePrinter}
+        loading={saving}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover impressora?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover a impressora "{printerToDelete?.name}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
