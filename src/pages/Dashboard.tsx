@@ -12,6 +12,7 @@ import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
+import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import {
   Dialog,
   DialogContent,
@@ -118,6 +119,7 @@ export default function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showMoveToTableModal, setShowMoveToTableModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
@@ -930,8 +932,17 @@ export default function Dashboard() {
                 }}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                Cancelar Pedido
+                Cancelar
               </Button>
+              {selectedOrder?.order_type === 'counter' && !selectedOrder?.table_id && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMoveToTableModal(true)}
+                >
+                  <UtensilsCrossed className="w-4 h-4 mr-2" />
+                  Mover para Mesa
+                </Button>
+              )}
               <Button onClick={() => setShowOrderDetailModal(false)}>
                 Fechar
               </Button>
@@ -983,6 +994,18 @@ export default function Dashboard() {
           onOpenChange={setShowPrintSettingsModal}
           settings={printSettings}
           onSave={updatePrintSettings}
+        />
+
+        {/* Move to Table Modal */}
+        <MoveToTableModal
+          open={showMoveToTableModal}
+          onOpenChange={setShowMoveToTableModal}
+          order={selectedOrder}
+          onOrderMoved={() => {
+            fetchOrders();
+            setShowOrderDetailModal(false);
+            setSelectedOrder(null);
+          }}
         />
       </div>
     </DashboardLayout>

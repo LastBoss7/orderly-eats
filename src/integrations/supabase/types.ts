@@ -211,6 +211,7 @@ export type Database = {
           printed_at: string | null
           restaurant_id: string
           status: string | null
+          tab_id: string | null
           table_id: string | null
           total: number | null
           updated_at: string
@@ -231,6 +232,7 @@ export type Database = {
           printed_at?: string | null
           restaurant_id: string
           status?: string | null
+          tab_id?: string | null
           table_id?: string | null
           total?: number | null
           updated_at?: string
@@ -251,6 +253,7 @@ export type Database = {
           printed_at?: string | null
           restaurant_id?: string
           status?: string | null
+          tab_id?: string | null
           table_id?: string | null
           total?: number | null
           updated_at?: string
@@ -268,6 +271,13 @@ export type Database = {
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
             referencedColumns: ["id"]
           },
           {
@@ -632,6 +642,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "tables_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tabs: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          id: string
+          number: number
+          restaurant_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          number: number
+          restaurant_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          number?: number
+          restaurant_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tabs_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"

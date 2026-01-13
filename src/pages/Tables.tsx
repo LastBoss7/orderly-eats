@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CloseTableModal } from '@/components/tables/CloseTableModal';
 import { TableOrderPOS } from '@/components/tables/TableOrderPOS';
+import { TabsGrid } from '@/components/tabs/TabsGrid';
 import { 
   Plus, 
   Users, 
@@ -34,6 +36,8 @@ import {
   Utensils,
   DollarSign,
   ShoppingCart,
+  LayoutGrid,
+  Hash,
 } from 'lucide-react';
 
 interface Table {
@@ -74,6 +78,8 @@ export default function Tables() {
   const [allTableOrders, setAllTableOrders] = useState<Order[]>([]);
   const [showOrderPOS, setShowOrderPOS] = useState(false);
   const [orderPOSTable, setOrderPOSTable] = useState<Table | null>(null);
+  const [activeTab, setActiveTab] = useState('mesas');
+  const [tabOrderPOS, setTabOrderPOS] = useState<{ id: string; number: number } | null>(null);
 
   const fetchTables = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -301,119 +307,146 @@ export default function Tables() {
     <DashboardLayout>
       <div className="page-container animate-fade-in">
         {/* Header */}
-        <div className="page-header">
+        <div className="page-header mb-4">
           <div>
-            <h1 className="page-title">Mesas</h1>
+            <h1 className="page-title">Salão</h1>
             <p className="page-description">
-              Gerencie as mesas do seu estabelecimento
+              Gerencie mesas e comandas do seu estabelecimento
             </p>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="gap-2 shadow-lg shadow-primary/25">
-                <Plus className="w-5 h-5" />
-                Nova Mesa
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-xl">Adicionar Mesa</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-5 pt-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Número da Mesa</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 1"
-                    value={newTableNumber}
-                    onChange={(e) => setNewTableNumber(e.target.value)}
-                    className="h-12"
-                  />
+          
+          {/* Legend */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-success" />
+              <span className="text-xs text-muted-foreground">Livre</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-destructive" />
+              <span className="text-xs text-muted-foreground">Ocupada</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-warning" />
+              <span className="text-xs text-muted-foreground">Fechando conta</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="mesas" className="gap-2">
+              <LayoutGrid className="w-4 h-4" />
+              Mesas
+            </TabsTrigger>
+            <TabsTrigger value="comandas" className="gap-2">
+              <Hash className="w-4 h-4" />
+              Comandas
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="mesas" className="mt-0">
+            {/* Add Table Button */}
+            <div className="flex justify-end mb-6">
+              <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+                <DialogTrigger asChild>
+                  <Button size="lg" className="gap-2 shadow-lg shadow-primary/25">
+                    <Plus className="w-5 h-5" />
+                    Nova Mesa
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Adicionar Mesa</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-5 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Número da Mesa</Label>
+                      <Input
+                        type="number"
+                        placeholder="Ex: 1"
+                        value={newTableNumber}
+                        onChange={(e) => setNewTableNumber(e.target.value)}
+                        className="h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Capacidade (lugares)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Ex: 4"
+                        value={newTableCapacity}
+                        onChange={(e) => setNewTableCapacity(e.target.value)}
+                        className="h-12"
+                      />
+                    </div>
+                    <Button
+                      className="w-full h-12 text-base font-semibold"
+                      onClick={handleAddTable}
+                      disabled={adding || !newTableNumber}
+                    >
+                      {adding ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        'Adicionar Mesa'
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Tables Grid */}
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center space-y-4">
+                  <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+                  <p className="text-muted-foreground">Carregando mesas...</p>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Capacidade (lugares)</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 4"
-                    value={newTableCapacity}
-                    onChange={(e) => setNewTableCapacity(e.target.value)}
-                    className="h-12"
-                  />
+              </div>
+            ) : tables.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Users className="w-10 h-10 text-muted-foreground" />
                 </div>
-                <Button
-                  className="w-full h-12 text-base font-semibold"
-                  onClick={handleAddTable}
-                  disabled={adding || !newTableNumber}
-                >
-                  {adding ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    'Adicionar Mesa'
-                  )}
+                <p className="text-xl font-semibold text-foreground mb-2">Nenhuma mesa cadastrada</p>
+                <p className="text-muted-foreground mb-4">Comece adicionando sua primeira mesa</p>
+                <Button onClick={() => setShowAddDialog(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Adicionar Mesa
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-6 mb-8 p-4 bg-card rounded-2xl border">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-success to-success/80 shadow-sm" />
-            <span className="text-sm font-medium text-foreground">Livre</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-destructive to-destructive/80 shadow-sm" />
-            <span className="text-sm font-medium text-foreground">Ocupada</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-warning to-warning/80 shadow-sm" />
-            <span className="text-sm font-medium text-foreground">Fechando Conta</span>
-          </div>
-          <div className="ml-auto text-sm text-muted-foreground">
-            {tables.length} {tables.length === 1 ? 'mesa' : 'mesas'} cadastradas
-          </div>
-        </div>
-
-        {/* Tables Grid */}
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center space-y-4">
-              <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-              <p className="text-muted-foreground">Carregando mesas...</p>
-            </div>
-          </div>
-        ) : tables.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Users className="w-10 h-10 text-muted-foreground" />
-            </div>
-            <p className="text-xl font-semibold text-foreground mb-2">Nenhuma mesa cadastrada</p>
-            <p className="text-muted-foreground mb-4">Comece adicionando sua primeira mesa</p>
-            <Button onClick={() => setShowAddDialog(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Adicionar Mesa
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">{tables.map((table) => (
-              <div
-                key={table.id}
-                className={`table-card ${table.status}`}
-                onClick={() => handleTableClick(table)}
-              >
-                <span className="text-4xl font-extrabold mb-2">{table.number}</span>
-                <span className="text-sm font-medium opacity-90">
-                  {getStatusLabel(table.status)}
-                </span>
-                <div className="flex items-center gap-1.5 mt-3 text-xs opacity-80">
-                  <Users className="w-4 h-4" />
-                  <span>{table.capacity} lugares</span>
-                </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+                {tables.map((table) => (
+                  <div
+                    key={table.id}
+                    className={`table-card ${table.status}`}
+                    onClick={() => handleTableClick(table)}
+                  >
+                    <span className="text-4xl font-extrabold mb-2">{table.number}</span>
+                    <span className="text-sm font-medium opacity-90">
+                      {getStatusLabel(table.status)}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-3 text-xs opacity-80">
+                      <Users className="w-4 h-4" />
+                      <span>{table.capacity} lugares</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="comandas" className="mt-0">
+            <TabsGrid 
+              onOpenOrderPOS={(tab) => {
+                setTabOrderPOS({ id: tab.id, number: tab.number });
+                setShowOrderPOS(true);
+              }} 
+            />
+          </TabsContent>
+        </Tabs>
 
         {/* Table Detail Sheet */}
         <Sheet open={!!selectedTable} onOpenChange={() => setSelectedTable(null)}>
