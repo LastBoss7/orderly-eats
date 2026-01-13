@@ -131,6 +131,8 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerFound, setCustomerFound] = useState(false);
   const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   
   // Address data
   const [cep, setCep] = useState('');
@@ -188,6 +190,8 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setCustomerPhone('');
     setCustomerId(null);
     setCustomerFound(false);
+    setCustomerSuggestions([]);
+    setShowSuggestions(false);
     setCep('');
     setAddress('');
     setAddressNumber('');
@@ -277,6 +281,88 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     }
   }, [restaurant?.id, deliveryFees, toast]);
 
+  // Search customers for autocomplete (partial match on phone or name)
+  const searchCustomersForAutocomplete = useCallback(async (searchValue: string) => {
+    if (!restaurant?.id) return;
+    
+    const phoneDigits = searchValue.replace(/\D/g, '');
+    
+    // Only search if we have at least 3 characters
+    if (phoneDigits.length < 3 && searchValue.replace(/\D/g, '').length === searchValue.length) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    if (searchValue.length < 2) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setSearchingCustomer(true);
+    try {
+      let query = supabase
+        .from('customers')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .limit(5);
+
+      // Search by phone digits or name
+      if (phoneDigits.length >= 3) {
+        query = query.ilike('phone', `%${phoneDigits}%`);
+      } else {
+        query = query.ilike('name', `%${searchValue}%`);
+      }
+
+      const { data: customers } = await query;
+
+      if (customers && customers.length > 0) {
+        setCustomerSuggestions(customers);
+        setShowSuggestions(true);
+      } else {
+        setCustomerSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Error searching customers:', error);
+    } finally {
+      setSearchingCustomer(false);
+    }
+  }, [restaurant?.id]);
+
+  // Select customer from suggestions
+  const selectCustomer = (customer: Customer) => {
+    setCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerPhone(formatPhone(customer.phone));
+    setCustomerFound(true);
+    setShowSuggestions(false);
+    setCustomerSuggestions([]);
+
+    // Fill address if available
+    if (customer.cep) setCep(formatCep(customer.cep));
+    if (customer.address) setAddress(customer.address);
+    if (customer.number) setAddressNumber(customer.number);
+    if (customer.complement) setComplement(customer.complement);
+    if (customer.neighborhood) setNeighborhood(customer.neighborhood);
+    if (customer.city) setCity(customer.city);
+    if (customer.state) setState(customer.state);
+
+    // Check delivery fee for neighborhood
+    if (customer.neighborhood) {
+      const fee = deliveryFees.find(f => 
+        f.neighborhood.toLowerCase() === customer.neighborhood?.toLowerCase()
+      );
+      if (fee) setDeliveryFee(fee.fee);
+    }
+
+    toast({
+      title: 'Cliente selecionado!',
+      description: `${customer.name} - dados carregados.`,
+    });
+  };
+
   // Handle phone change with debounce
   useEffect(() => {
     const phoneDigits = customerPhone.replace(/\D/g, '');
@@ -290,11 +376,13 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     const timer = setTimeout(() => {
       if (phoneDigits.length >= 10) {
         searchCustomerByPhone(customerPhone);
+      } else if (phoneDigits.length >= 3) {
+        searchCustomersForAutocomplete(customerPhone);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
-  }, [customerPhone, searchCustomerByPhone]);
+  }, [customerPhone, searchCustomerByPhone, searchCustomersForAutocomplete]);
 
   // Fetch address from CEP
   const fetchAddressFromCep = async (cepValue: string) => {
@@ -716,19 +804,63 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                   <div className="space-y-2">
                     <Label>Telefone *</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
                       <Input
                         placeholder="(00) 00000-0000"
                         value={customerPhone}
-                        onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
+                        onChange={(e) => {
+                          setCustomerPhone(formatPhone(e.target.value));
+                          if (customerFound) {
+                            setCustomerFound(false);
+                            setCustomerId(null);
+                          }
+                        }}
+                        onFocus={() => {
+                          if (customerSuggestions.length > 0) {
+                            setShowSuggestions(true);
+                          }
+                        }}
+                        onBlur={() => {
+                          // Delay to allow click on suggestion
+                          setTimeout(() => setShowSuggestions(false), 200);
+                        }}
                         className="pl-10 pr-10"
                         maxLength={15}
                       />
-                      {searchingCustomer && (
+                      {searchingCustomer && !customerFound && (
                         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
                       )}
                       {customerFound && (
                         <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                      )}
+                      
+                      {/* Customer suggestions dropdown */}
+                      {showSuggestions && customerSuggestions.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto">
+                          {customerSuggestions.map((customer) => (
+                            <div
+                              key={customer.id}
+                              className="px-3 py-2 cursor-pointer hover:bg-accent transition-colors border-b last:border-b-0"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectCustomer(customer);
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm">{customer.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatPhone(customer.phone)}
+                                </span>
+                              </div>
+                              {customer.neighborhood && (
+                                <span className="text-xs text-muted-foreground">
+                                  {customer.neighborhood}
+                                  {customer.city && ` - ${customer.city}`}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                     {customerFound && (
