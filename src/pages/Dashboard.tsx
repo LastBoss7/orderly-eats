@@ -133,6 +133,7 @@ interface Table {
 interface DeliveryDriver {
   id: string;
   name: string;
+  phone: string | null;
 }
 
 type FilterType = 'all' | 'delivery' | 'counter';
@@ -310,7 +311,7 @@ export default function Dashboard() {
     if (!restaurant?.id) return;
     const { data } = await supabase
       .from('delivery_drivers')
-      .select('id, name')
+      .select('id, name, phone')
       .eq('restaurant_id', restaurant.id)
       .eq('status', 'active');
     if (data) setDrivers(data);
@@ -320,6 +321,18 @@ export default function Dashboard() {
     if (!driverId) return null;
     const driver = drivers.find(d => d.id === driverId);
     return driver?.name;
+  };
+
+  const getDriverPhone = (driverId: string | null) => {
+    if (!driverId) return null;
+    const driver = drivers.find(d => d.id === driverId);
+    return driver?.phone;
+  };
+
+  const formatWhatsAppLink = (phone: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const phoneWithCountry = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    return `https://wa.me/${phoneWithCountry}`;
   };
 
   const getTableNumber = (tableId: string | null) => {
@@ -671,6 +684,20 @@ export default function Dashboard() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            
+            {/* WhatsApp button for assigned driver */}
+            {order.driver_id && getDriverPhone(order.driver_id) && (
+              <a
+                href={formatWhatsAppLink(getDriverPhone(order.driver_id)!)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 flex items-center gap-2 text-xs text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1.5 rounded-md transition-colors"
+              >
+                <Phone className="w-3 h-3" />
+                <span>{getDriverPhone(order.driver_id)}</span>
+              </a>
+            )}
           </div>
         )}
 
