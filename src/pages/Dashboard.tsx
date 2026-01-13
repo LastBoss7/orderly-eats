@@ -455,6 +455,22 @@ export default function Dashboard() {
     }
   };
 
+  const updateOrderDriver = async (orderId: string, driverId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ driver_id: driverId })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      toast.success('Motoboy atribuído com sucesso!');
+      fetchOrders();
+    } catch (error) {
+      console.error('Error updating driver:', error);
+      toast.error('Erro ao atribuir motoboy');
+    }
+  };
+
   // Handle drag start
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -601,11 +617,60 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Driver info for delivery orders */}
-        {order.order_type === 'delivery' && order.driver_id && (
-          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
-            <Bike className="w-4 h-4" />
-            <span className="font-medium">{getDriverName(order.driver_id)}</span>
+        {/* Driver selector for delivery orders */}
+        {order.order_type === 'delivery' && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`w-full justify-between text-xs ${
+                    order.driver_id 
+                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                      : 'border-dashed'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Bike className="w-3 h-3" />
+                    {order.driver_id ? getDriverName(order.driver_id) : 'Selecionar motoboy'}
+                  </span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[180px]">
+                {drivers.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    Nenhum motoboy cadastrado
+                  </DropdownMenuItem>
+                ) : (
+                  <>
+                    {drivers.map((driver) => (
+                      <DropdownMenuItem
+                        key={driver.id}
+                        onClick={() => updateOrderDriver(order.id, driver.id)}
+                        className={order.driver_id === driver.id ? 'bg-accent' : ''}
+                      >
+                        <Bike className="w-4 h-4 mr-2" />
+                        {driver.name}
+                      </DropdownMenuItem>
+                    ))}
+                    {order.driver_id && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => updateOrderDriver(order.id, null)}
+                          className="text-destructive"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Remover motoboy
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
 
