@@ -115,6 +115,7 @@ interface Order {
   print_count: number | null;
   printed_at: string | null;
   payment_method: string | null;
+  driver_id: string | null;
   order_items?: {
     id: string;
     product_name: string;
@@ -129,12 +130,18 @@ interface Table {
   number: number;
 }
 
+interface DeliveryDriver {
+  id: string;
+  name: string;
+}
+
 type FilterType = 'all' | 'delivery' | 'counter';
 
 export default function Dashboard() {
   const { restaurant } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [autoAccept, setAutoAccept] = useState(true);
@@ -218,6 +225,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchOrders();
     fetchTables();
+    fetchDrivers();
   }, [restaurant?.id]);
 
   // Subscribe to realtime order updates
@@ -296,6 +304,22 @@ export default function Dashboard() {
   const fetchTables = async () => {
     const { data } = await supabase.from('tables').select('id, number');
     if (data) setTables(data);
+  };
+
+  const fetchDrivers = async () => {
+    if (!restaurant?.id) return;
+    const { data } = await supabase
+      .from('delivery_drivers')
+      .select('id, name')
+      .eq('restaurant_id', restaurant.id)
+      .eq('status', 'active');
+    if (data) setDrivers(data);
+  };
+
+  const getDriverName = (driverId: string | null) => {
+    if (!driverId) return null;
+    const driver = drivers.find(d => d.id === driverId);
+    return driver?.name;
   };
 
   const getTableNumber = (tableId: string | null) => {
@@ -574,6 +598,14 @@ export default function Dashboard() {
               {getOrderTypeIcon(order.order_type)}
               <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
             </Badge>
+          </div>
+        )}
+
+        {/* Driver info for delivery orders */}
+        {order.order_type === 'delivery' && order.driver_id && (
+          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+            <Bike className="w-4 h-4" />
+            <span className="font-medium">{getDriverName(order.driver_id)}</span>
           </div>
         )}
 
