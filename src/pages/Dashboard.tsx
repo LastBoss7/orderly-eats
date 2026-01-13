@@ -8,8 +8,10 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
+import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
+import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import {
   DndContext,
   DragEndEvent,
@@ -81,12 +83,16 @@ export default function Dashboard() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showPrepTimeModal, setShowPrepTimeModal] = useState(false);
+  const [showPrintSettingsModal, setShowPrintSettingsModal] = useState(false);
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
     delivery_min: 25,
     delivery_max: 80,
   });
+
+  // Print settings hook
+  const { settings: printSettings, updateSettings: updatePrintSettings, shouldAutoPrint } = usePrintSettings();
   // Order notifications hook
   const { 
     notifications, 
@@ -507,7 +513,12 @@ export default function Dashboard() {
               )}
             </Button>
             
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => setShowPrintSettingsModal(true)}
+              title="Configurações de impressão"
+            >
               <Printer className="w-5 h-5" />
             </Button>
             <Button variant="ghost" size="icon">
@@ -645,6 +656,7 @@ export default function Dashboard() {
           open={showNewOrderModal}
           onOpenChange={setShowNewOrderModal}
           onOrderCreated={fetchOrders}
+          shouldAutoPrint={shouldAutoPrint}
         />
 
         {/* Edit Prep Time Modal */}
@@ -653,6 +665,14 @@ export default function Dashboard() {
           onOpenChange={setShowPrepTimeModal}
           initialValues={prepTimes}
           onSave={setPrepTimes}
+        />
+
+        {/* Print Settings Modal */}
+        <PrintSettingsModal
+          open={showPrintSettingsModal}
+          onOpenChange={setShowPrintSettingsModal}
+          settings={printSettings}
+          onSave={updatePrintSettings}
         />
       </div>
     </DashboardLayout>

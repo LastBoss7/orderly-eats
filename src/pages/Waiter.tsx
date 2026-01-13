@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { 
   ArrowLeft,
   Search, 
@@ -46,6 +47,7 @@ type View = 'tables' | 'order';
 export default function Waiter() {
   const { restaurant, signOut } = useAuth();
   const { toast } = useToast();
+  const { shouldAutoPrint } = usePrintSettings();
   const [view, setView] = useState<View>('tables');
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -153,6 +155,8 @@ export default function Waiter() {
         .eq('id', selectedTable.id);
 
       // Create order
+      const autoPrint = shouldAutoPrint('table');
+      
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -160,7 +164,7 @@ export default function Waiter() {
           table_id: selectedTable.id,
           order_type: 'table',
           status: 'pending',
-          print_status: 'pending', // Impressão automática
+          print_status: autoPrint ? 'pending' : 'disabled',
           total: cartTotal,
         })
         .select()

@@ -64,9 +64,10 @@ interface NewOrderModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOrderCreated: () => void;
+  shouldAutoPrint?: (orderType: string) => boolean;
 }
 
-export function NewOrderModal({ open, onOpenChange, onOrderCreated }: NewOrderModalProps) {
+export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPrint }: NewOrderModalProps) {
   const { restaurant } = useAuth();
   const { toast } = useToast();
   const [orderType, setOrderType] = useState<OrderType>('counter');
@@ -204,6 +205,9 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated }: NewOrderMo
     setSubmitting(true);
 
     try {
+      // Determine print status based on settings
+      const autoPrint = shouldAutoPrint ? shouldAutoPrint(orderType) : true;
+      
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -214,7 +218,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated }: NewOrderMo
           table_id: orderType === 'table' ? selectedTable : null,
           order_type: orderType,
           status: 'pending',
-          print_status: 'pending', // Impressão automática
+          print_status: autoPrint ? 'pending' : 'disabled',
           total: cartTotal,
           notes: notes || null,
         })
