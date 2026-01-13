@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -35,6 +36,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   DndContext,
   DragEndEvent,
@@ -74,6 +82,8 @@ import {
   Power,
   PowerOff,
   Keyboard,
+  ChevronDown,
+  Truck,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -270,7 +280,7 @@ export default function Dashboard() {
           order_items (*)
         `)
         .eq('restaurant_id', restaurant.id)
-        .in('status', ['pending', 'preparing', 'ready', 'delivered'])
+        .in('status', ['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -343,7 +353,7 @@ export default function Dashboard() {
   // Filter orders by status (exclude cancelled) and then by type
   const allPendingOrders = orders.filter(o => o.status === 'pending');
   const allPreparingOrders = orders.filter(o => o.status === 'preparing');
-  const allReadyOrders = orders.filter(o => o.status === 'ready');
+  const allReadyOrders = orders.filter(o => o.status === 'ready' || o.status === 'out_for_delivery');
 
   const pendingOrders = filterOrdersByType(allPendingOrders);
   const preparingOrders = filterOrdersByType(allPreparingOrders);
@@ -581,8 +591,80 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Action buttons */}
-        {showAdvanceButton && (
+        {/* Delivery Status Dropdown */}
+        {order.order_type === 'delivery' && order.status !== 'pending' && (
+          <div className="mt-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`w-full justify-between ${
+                    order.status === 'out_for_delivery' 
+                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                      : ''
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {order.status === 'preparing' && '🔥 Preparando'}
+                    {order.status === 'ready' && '✅ Pronto'}
+                    {order.status === 'out_for_delivery' && (
+                      <>
+                        <Truck className="w-4 h-4" />
+                        Em entrega
+                      </>
+                    )}
+                  </span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[200px]">
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'preparing');
+                  }}
+                  className={order.status === 'preparing' ? 'bg-accent' : ''}
+                >
+                  🔥 Preparando
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'ready');
+                  }}
+                  className={order.status === 'ready' ? 'bg-accent' : ''}
+                >
+                  ✅ Pronto
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'out_for_delivery');
+                  }}
+                  className={order.status === 'out_for_delivery' ? 'bg-accent' : ''}
+                >
+                  <Truck className="w-4 h-4 mr-2" />
+                  Em entrega
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'delivered');
+                  }}
+                  className="text-green-600"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Entregue
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Action buttons - only for non-delivery orders */}
+        {showAdvanceButton && order.order_type !== 'delivery' && (
           <Button 
             variant="outline" 
             className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
@@ -596,7 +678,22 @@ export default function Dashboard() {
           </Button>
         )}
 
-        {showFinalizeButton && (
+        {/* Advance button for delivery in pending status */}
+        {order.order_type === 'delivery' && order.status === 'pending' && (
+          <Button 
+            variant="outline" 
+            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              updateOrderStatus(order.id, 'preparing');
+            }}
+          >
+            Aceitar pedido
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        )}
+
+        {showFinalizeButton && order.order_type !== 'delivery' && (
           <Button 
             variant="outline" 
             className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white mt-2"
@@ -942,21 +1039,108 @@ export default function Dashboard() {
             {selectedOrder && (
               <div className="space-y-4">
                 {/* Order Type Badge */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="outline">
                     {getOrderTypeLabel(selectedOrder.order_type)}
                   </Badge>
                   <Badge className={
                     selectedOrder.status === 'ready' ? 'bg-green-500' :
+                    selectedOrder.status === 'out_for_delivery' ? 'bg-blue-500' :
                     selectedOrder.status === 'preparing' ? 'bg-orange-500' : 
                     selectedOrder.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'
                   }>
-                    {selectedOrder.status === 'pending' && 'Em análise'}
-                    {selectedOrder.status === 'preparing' && 'Em produção'}
+                    {selectedOrder.status === 'pending' && 'Pendente'}
+                    {selectedOrder.status === 'preparing' && 'Preparando'}
                     {selectedOrder.status === 'ready' && 'Pronto'}
-                    {selectedOrder.status === 'delivered' && 'Finalizado'}
+                    {selectedOrder.status === 'out_for_delivery' && 'Em entrega'}
+                    {selectedOrder.status === 'delivered' && 'Entregue'}
                   </Badge>
                 </div>
+
+                {/* Delivery Status Dropdown in Modal */}
+                {selectedOrder.order_type === 'delivery' && selectedOrder.status !== 'delivered' && (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <Label className="text-sm font-medium mb-2 block">Alterar Status</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between">
+                          <span className="flex items-center gap-2">
+                            {selectedOrder.status === 'pending' && '⏳ Pendente'}
+                            {selectedOrder.status === 'preparing' && '🔥 Preparando'}
+                            {selectedOrder.status === 'ready' && '✅ Pronto'}
+                            {selectedOrder.status === 'out_for_delivery' && (
+                              <>
+                                <Truck className="w-4 h-4" />
+                                Em entrega
+                              </>
+                            )}
+                          </span>
+                          <ChevronDown className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[250px]">
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            updateOrderStatus(selectedOrder.id, 'pending');
+                            setSelectedOrder(prev => prev ? { ...prev, status: 'pending' } : null);
+                          }}
+                          className={selectedOrder.status === 'pending' ? 'bg-accent' : ''}
+                        >
+                          ⏳ Pendente
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            updateOrderStatus(selectedOrder.id, 'preparing');
+                            setSelectedOrder(prev => prev ? { ...prev, status: 'preparing' } : null);
+                          }}
+                          className={selectedOrder.status === 'preparing' ? 'bg-accent' : ''}
+                        >
+                          🔥 Preparando
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            updateOrderStatus(selectedOrder.id, 'ready');
+                            setSelectedOrder(prev => prev ? { ...prev, status: 'ready' } : null);
+                          }}
+                          className={selectedOrder.status === 'ready' ? 'bg-accent' : ''}
+                        >
+                          ✅ Pronto
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            updateOrderStatus(selectedOrder.id, 'out_for_delivery');
+                            setSelectedOrder(prev => prev ? { ...prev, status: 'out_for_delivery' } : null);
+                          }}
+                          className={selectedOrder.status === 'out_for_delivery' ? 'bg-accent' : ''}
+                        >
+                          <Truck className="w-4 h-4 mr-2" />
+                          Em entrega
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            updateOrderStatus(selectedOrder.id, 'delivered');
+                            setShowOrderDetailModal(false);
+                          }}
+                          className="text-green-600"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Entregue
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setOrderToCancel(selectedOrder);
+                            setShowCancelDialog(true);
+                          }}
+                          className="text-destructive"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Cancelado
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
 
                 {/* Customer Info */}
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
