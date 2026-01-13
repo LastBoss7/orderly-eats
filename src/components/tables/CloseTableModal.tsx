@@ -310,11 +310,19 @@ export function CloseTableModal({
     setLoading(true);
     
     try {
-      // Update all orders to 'delivered' status
+      // Update all orders to 'delivered' status with payment info
       for (const order of orders) {
         await supabase
           .from('orders')
-          .update({ status: 'delivered' })
+          .update({ 
+            status: 'delivered',
+            payment_method: paymentMethod,
+            closed_at: new Date().toISOString(),
+            cash_received: paymentMethod === 'cash' ? cashReceived : null,
+            change_given: paymentMethod === 'cash' ? change : null,
+            split_mode: splitMode,
+            split_people: splitMode === 'equal' ? numPeople : null,
+          })
           .eq('id', order.id);
       }
       

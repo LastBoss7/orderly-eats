@@ -26,6 +26,7 @@ import PrintLogs from "./pages/PrintLogs";
 import Printers from "./pages/Printers";
 import PrepTimeReport from "./pages/PrepTimeReport";
 import Analytics from "./pages/Analytics";
+import TabHistory from "./pages/TabHistory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +89,7 @@ const AnimatedRoutes = () => {
           <Route path="/printers" element={<Printers />} />
           <Route path="/prep-time-report" element={<PrepTimeReport />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/tab-history" element={<TabHistory />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
