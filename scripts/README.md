@@ -2,49 +2,58 @@
 
 Serviço Windows para impressão automática de pedidos em impressoras térmicas.
 
-## Instalação
+## Compilar Executável
 
-### 1. Requisitos
-- Windows 10 ou superior
-- Python 3.8+ (apenas para desenvolvimento)
-- Impressora térmica instalada no Windows
+### Opção 1: Script Automático (Windows)
+```bash
+cd scripts
+build.bat
+```
 
-### 2. Configuração
+### Opção 2: Manual
+```bash
+cd scripts
+pip install -r requirements.txt
+pyinstaller --onefile --name "ImpressoraPedidos" --console print_service.py
+```
 
-1. Copie o arquivo `config.ini.example` para `config.ini`
-2. Edite o `config.ini` com as informações do restaurante:
+O executável será criado em `dist/ImpressoraPedidos.exe`
+
+## Criar Pacote de Distribuição
+
+Após compilar, crie um ZIP contendo:
+1. `dist/ImpressoraPedidos.exe`
+2. `LEIA-ME.txt`
+
+⚠️ **NÃO inclua o config.ini** - os clientes baixam ele pelo sistema web.
+
+Faça upload do ZIP no sistema web: **Menu Impressora > Upload do Executável**
+
+## Desenvolvimento Local
+
+```bash
+cd scripts
+pip install -r requirements.txt
+python print_service.py
+```
+
+## Configuração
+
+O arquivo `config.ini` é baixado automaticamente pelo cliente no sistema web.
 
 ```ini
 [GERAL]
-SUPABASE_URL = https://ueddnccouuevidwrcjaa.supabase.co
-SUPABASE_KEY = sua_chave_aqui
+SUPABASE_URL = https://sua-url.supabase.co
+SUPABASE_KEY = sua_anon_key
 
 [RESTAURANTE]
-ID = uuid_do_restaurante
+ID = uuid-do-restaurante
 IMPRESSORA = 
 
 [SISTEMA]
 INTERVALO = 5
 LARGURA_PAPEL = 48
 ```
-
-### 3. Executando
-
-**Como script Python:**
-```bash
-pip install requests pywin32
-python print_service.py
-```
-
-**Como executável (.exe):**
-```bash
-pip install pyinstaller requests pywin32
-pyinstaller --onefile --name "ImpressoraPedidos" print_service.py
-```
-
-O executável estará em `dist/ImpressoraPedidos.exe`
-
-## Configurações
 
 | Parâmetro | Descrição |
 |-----------|-----------|
@@ -55,31 +64,22 @@ O executável estará em `dist/ImpressoraPedidos.exe`
 | `INTERVALO` | Segundos entre verificações |
 | `LARGURA_PAPEL` | 48 para 80mm, 32 para 58mm |
 
-## Impressoras
+## Funcionamento
 
-Para ver o nome exato da impressora:
-1. Painel de Controle > Dispositivos e Impressoras
-2. Clique com botão direito na impressora
-3. O nome exato está no título
-
-Exemplo: `EPSON TM-T20X Receipt`
+1. O programa consulta o banco a cada X segundos
+2. Busca pedidos com `print_status = 'pending'`
+3. Formata e envia para a impressora térmica
+4. Atualiza o status para `printed`
+5. Registra log de impressão na tabela `print_logs`
 
 ## Solução de Problemas
 
 **"config.ini não encontrado"**
-- Certifique-se que o arquivo config.ini está na mesma pasta do .exe
+- Baixe o config.ini no sistema web > Impressora
 
-**"Sem conexão com a internet"**
-- Verifique a conexão de rede
-- Verifique se o firewall não está bloqueando
+**"Windows SmartScreen bloqueou"**
+- Clique em "Mais informações" > "Executar assim mesmo"
 
 **"Nenhuma impressora detectada"**
 - Configure o nome da impressora no config.ini
 - Verifique se a impressora está instalada no Windows
-
-## Entrega para Clientes
-
-Para cada novo cliente:
-1. Copie `ImpressoraPedidos.exe` + `config.ini`
-2. Edite apenas o `ID` do restaurante no config.ini
-3. Pronto!

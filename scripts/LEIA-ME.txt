@@ -1,0 +1,64 @@
+================================================
+  IMPRESSORA DE PEDIDOS - GUIA DE INSTALACAO
+================================================
+
+REQUISITOS:
+- Windows 10 ou 11
+- Impressora térmica instalada no Windows
+- Conexão com a internet
+
+INSTALACAO:
+
+1. Extraia todos os arquivos para uma pasta
+   Exemplo: C:\ImpressoraPedidos
+
+2. Baixe o arquivo 'config.ini' do sistema
+   - Acesse o sistema web
+   - Vá em "Impressora" no menu lateral
+   - Clique em "Baixar config.ini"
+   - Salve na mesma pasta do programa
+
+3. Execute o programa
+   - Dê duplo clique em "ImpressoraPedidos.exe"
+   - Uma janela preta aparecerá mostrando o status
+   - Deixe a janela aberta enquanto trabalha
+
+CONFIGURACAO MANUAL (opcional):
+
+Se precisar editar o config.ini manualmente:
+
+[GERAL]
+SUPABASE_URL = sua_url_aqui
+SUPABASE_KEY = sua_key_aqui
+
+[RESTAURANTE]
+ID = seu_restaurant_id
+IMPRESSORA =  (deixe vazio para usar a padrão)
+
+[SISTEMA]
+INTERVALO = 5    (segundos entre cada verificação)
+LARGURA_PAPEL = 48  (48 para 58mm, 42 para 80mm)
+
+INICIAR COM O WINDOWS:
+
+1. Pressione Win + R
+2. Digite: shell:startup
+3. Crie um atalho do ImpressoraPedidos.exe nessa pasta
+
+PROBLEMAS COMUNS:
+
+"Windows SmartScreen bloqueou"
+  → Clique em "Mais informações" e depois "Executar assim mesmo"
+
+"Nenhuma impressora encontrada"
+  → Verifique se a impressora está instalada no Windows
+
+"Erro de conexão"
+  → Verifique sua internet e o arquivo config.ini
+
+SUPORTE:
+
+Em caso de problemas, entre em contato com o suporte técnico
+ou regenere o arquivo config.ini no sistema web.
+
+================================================
