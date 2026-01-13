@@ -686,7 +686,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
           table_id: orderType === 'table' && dineInType === 'table' ? selectedTable : null,
           tab_id: orderType === 'table' && dineInType === 'tab' ? selectedTab : null,
-          driver_id: orderType === 'delivery' && selectedDriver ? selectedDriver : null,
+          driver_id: orderType === 'delivery' && selectedDriver && selectedDriver !== 'none' ? selectedDriver : null,
           order_type: orderType === 'table' ? (dineInType === 'tab' ? 'tab' : 'table') : orderType,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
@@ -1133,7 +1133,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                           <SelectValue placeholder="Selecione o motoboy" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Não definido</SelectItem>
+                          <SelectItem value="none">Não definido</SelectItem>
                           {drivers.map((driver) => (
                             <SelectItem key={driver.id} value={driver.id}>
                               {driver.name} {driver.vehicle_type && `(${driver.vehicle_type})`}
