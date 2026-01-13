@@ -660,6 +660,57 @@ export type Database = {
         }
         Relationships: []
       }
+      waiter_calls: {
+        Row: {
+          attended_at: string | null
+          attended_by: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          restaurant_id: string
+          status: string
+          table_id: string | null
+          table_number: number
+        }
+        Insert: {
+          attended_at?: string | null
+          attended_by?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          restaurant_id: string
+          status?: string
+          table_id?: string | null
+          table_number: number
+        }
+        Update: {
+          attended_at?: string | null
+          attended_by?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          restaurant_id?: string
+          status?: string
+          table_id?: string | null
+          table_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waiter_calls_attended_by_fkey"
+            columns: ["attended_by"]
+            isOneToOne: false
+            referencedRelation: "waiters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiter_calls_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waiters: {
         Row: {
           created_at: string
