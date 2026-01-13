@@ -1,39 +1,29 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Configurações
+  // Config
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   
-  // Layout
-  saveLayout: (layout) => ipcRenderer.invoke('save-layout', layout),
-  testPrintLayout: (layout) => ipcRenderer.invoke('test-print-layout', layout),
-  
-  // Impressoras do Sistema
+  // Printers
   getSystemPrinters: () => ipcRenderer.invoke('get-system-printers'),
-  
-  // Impressoras USB (ESC/POS)
   getUSBPrinters: () => ipcRenderer.invoke('get-usb-printers'),
   testUSBConnection: (vendorId, productId) => ipcRenderer.invoke('test-usb-connection', vendorId, productId),
   
-  // Impressão
+  // Print
   testPrint: () => ipcRenderer.invoke('test-print'),
+  testPrintLayout: (layout) => ipcRenderer.invoke('test-print-layout', layout),
   
-  // Status
+  // Stats & Status
   getStats: () => ipcRenderer.invoke('get-stats'),
   reconnect: () => ipcRenderer.invoke('reconnect'),
   
-  // Eventos do main process
-  onConnectionStatus: (callback) => {
-    ipcRenderer.on('connection-status', (event, data) => callback(data));
-  },
-  onLog: (callback) => {
-    ipcRenderer.on('log', (event, data) => callback(data));
-  },
-  onPrintSuccess: (callback) => {
-    ipcRenderer.on('print-success', (event, data) => callback(data));
-  },
-  onStats: (callback) => {
-    ipcRenderer.on('stats', (event, data) => callback(data));
-  },
+  // App control
+  quit: () => ipcRenderer.invoke('app-quit'),
+  
+  // Event listeners
+  onConnectionStatus: (callback) => ipcRenderer.on('connection-status', callback),
+  onLog: (callback) => ipcRenderer.on('log', callback),
+  onPrintSuccess: (callback) => ipcRenderer.on('print-success', callback),
+  onStats: (callback) => ipcRenderer.on('stats', callback),
 });
