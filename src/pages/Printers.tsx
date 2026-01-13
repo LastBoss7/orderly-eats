@@ -27,6 +27,7 @@ import {
   Monitor,
   ExternalLink,
   Github,
+  Send,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -337,6 +338,47 @@ LARGURA_PAPEL = 48
                   </CardContent>
                 </Card>
 
+                {/* How it Works */}
+                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-blue-500" />
+                      Como funciona a impressão automática?
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                          <Send className="w-6 h-6 text-primary" />
+                        </div>
+                        <p className="font-medium text-sm">1. Pedido criado</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Garçom ou sistema cria pedido
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
+                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
+                          <Monitor className="w-6 h-6 text-orange-500" />
+                        </div>
+                        <p className="font-medium text-sm">2. App detecta</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Aplicativo desktop monitora novos pedidos
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
+                        <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
+                          <PrinterIcon className="w-6 h-6 text-green-500" />
+                        </div>
+                        <p className="font-medium text-sm">3. Imprime</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Pedido é impresso automaticamente
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Quick Setup Guide */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -376,6 +418,18 @@ LARGURA_PAPEL = 48
                           <p className="font-medium">Configure com seus dados</p>
                           <p className="text-sm text-muted-foreground">
                             Use as credenciais abaixo para conectar ao sistema
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
+                          ✓
+                        </div>
+                        <div>
+                          <p className="font-medium">Pronto!</p>
+                          <p className="text-sm text-muted-foreground">
+                            Pedidos serão impressos automaticamente quando criados
                           </p>
                         </div>
                       </div>
