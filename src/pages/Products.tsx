@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Package, Pencil } from 'lucide-react';
+import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -47,6 +47,7 @@ interface Product {
   price_small: number | null;
   price_medium: number | null;
   price_large: number | null;
+  image_url: string | null;
 }
 
 export default function Products() {
@@ -69,6 +70,8 @@ export default function Products() {
   const [priceSmall, setPriceSmall] = useState('');
   const [priceMedium, setPriceMedium] = useState('');
   const [priceLarge, setPriceLarge] = useState('');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
@@ -102,6 +105,7 @@ export default function Products() {
     setPriceSmall('');
     setPriceMedium('');
     setPriceLarge('');
+    setImageUrl(null);
     setEditingProduct(null);
   };
 
@@ -116,7 +120,65 @@ export default function Products() {
     setPriceSmall(product.price_small?.toString() || '');
     setPriceMedium(product.price_medium?.toString() || '');
     setPriceLarge(product.price_large?.toString() || '');
+    setImageUrl(product.image_url);
     setShowDialog(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (4MB limit)
+    if (file.size > 4 * 1024 * 1024) {
+      toast({
+        variant: 'destructive',
+        title: 'Arquivo muito grande',
+        description: 'O tamanho máximo é 4MB.',
+      });
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: 'destructive',
+        title: 'Tipo inválido',
+        description: 'Apenas imagens são permitidas.',
+      });
+      return;
+    }
+
+    setUploadingImage(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${restaurant?.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+
+      setImageUrl(publicUrl);
+      toast({ title: 'Imagem carregada!' });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar imagem',
+        description: error.message,
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setImageUrl(null);
   };
 
   const handleSave = async () => {
@@ -164,6 +226,7 @@ export default function Products() {
         price_small: hasSizes && priceSmall ? parseFloat(priceSmall) : null,
         price_medium: hasSizes && priceMedium ? parseFloat(priceMedium) : null,
         price_large: hasSizes && priceLarge ? parseFloat(priceLarge) : null,
+        image_url: imageUrl,
       };
 
       if (editingProduct) {
@@ -255,7 +318,59 @@ export default function Products() {
                   {editingProduct ? 'Editar Produto' : 'Novo Produto'}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
+              <div className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto">
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label>Foto do Produto</Label>
+                  <div className="flex items-start gap-4">
+                    {imageUrl ? (
+                      <div className="relative">
+                        <img 
+                          src={imageUrl} 
+                          alt="Produto" 
+                          className="w-24 h-24 object-cover rounded-lg border"
+                        />
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={removeImage}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50">
+                        <Image className="w-8 h-8 text-muted-foreground/50" />
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleImageUpload}
+                          disabled={uploadingImage}
+                        />
+                        <div className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-muted transition-colors">
+                          {uploadingImage ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ImagePlus className="w-4 h-4" />
+                          )}
+                          <span className="text-sm">
+                            {uploadingImage ? 'Enviando...' : 'Enviar foto'}
+                          </span>
+                        </div>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Máximo 4MB. JPG, PNG ou WebP.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label>Nome *</Label>
                   <Input
@@ -396,6 +511,7 @@ export default function Products() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-16">Foto</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Preço</TableHead>
@@ -406,6 +522,19 @@ export default function Products() {
               <TableBody>
                 {products.map((product) => (
                   <TableRow key={product.id}>
+                    <TableCell>
+                      {product.image_url ? (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {product.name}
