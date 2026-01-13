@@ -14,6 +14,7 @@ import Categories from "./pages/Categories";
 import MenuImages from "./pages/MenuImages";
 import BulkEdit from "./pages/BulkEdit";
 import Deliveries from "./pages/Deliveries";
+import Customers from "./pages/Customers";
 import Waiter from "./pages/Waiter";
 import WaiterApp from "./pages/WaiterApp";
 import Kitchen from "./pages/Kitchen";
@@ -77,6 +78,7 @@ const AnimatedRoutes = () => {
           <Route path="/menu-images" element={<MenuImages />} />
           <Route path="/bulk-edit" element={<BulkEdit />} />
           <Route path="/deliveries" element={<Deliveries />} />
+          <Route path="/customers" element={<Customers />} />
           <Route path="/waiter" element={<Waiter />} />
           <Route path="/waiter-app" element={<WaiterApp />} />
           <Route path="/kitchen" element={<Kitchen />} />
