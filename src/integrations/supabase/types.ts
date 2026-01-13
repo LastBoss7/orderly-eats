@@ -97,6 +97,62 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_closings: {
+        Row: {
+          average_ticket: number
+          cancelled_orders: number
+          closed_by: string | null
+          closing_date: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_type_breakdown: Json
+          payment_breakdown: Json
+          restaurant_id: string
+          total_orders: number
+          total_revenue: number
+          updated_at: string
+        }
+        Insert: {
+          average_ticket?: number
+          cancelled_orders?: number
+          closed_by?: string | null
+          closing_date: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_type_breakdown?: Json
+          payment_breakdown?: Json
+          restaurant_id: string
+          total_orders?: number
+          total_revenue?: number
+          updated_at?: string
+        }
+        Update: {
+          average_ticket?: number
+          cancelled_orders?: number
+          closed_by?: string | null
+          closing_date?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_type_breakdown?: Json
+          payment_breakdown?: Json
+          restaurant_id?: string
+          total_orders?: number
+          total_revenue?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_closings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_drivers: {
         Row: {
           created_at: string
