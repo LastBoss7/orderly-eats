@@ -326,6 +326,51 @@ export type Database = {
           },
         ]
       }
+      printers: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_seen_at: string | null
+          linked_order_types: string[] | null
+          model: string | null
+          name: string
+          paper_width: number | null
+          printer_name: string | null
+          restaurant_id: string
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_seen_at?: string | null
+          linked_order_types?: string[] | null
+          model?: string | null
+          name: string
+          paper_width?: number | null
+          printer_name?: string | null
+          restaurant_id: string
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_seen_at?: string | null
+          linked_order_types?: string[] | null
+          model?: string | null
+          name?: string
+          paper_width?: number | null
+          printer_name?: string | null
+          restaurant_id?: string
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category_id: string | null
