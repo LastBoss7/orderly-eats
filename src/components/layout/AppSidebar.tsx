@@ -61,6 +61,7 @@ const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
+  { title: 'Logs de Impressão', url: '/print-logs', icon: ClipboardList },
 ];
 
 export function AppSidebar() {
