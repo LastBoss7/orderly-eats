@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
+import { WaiterTableOrders } from '@/components/waiter/WaiterTableOrders';
+import { WaiterTabOrders } from '@/components/waiter/WaiterTabOrders';
 import { 
   ArrowLeft,
   Search, 
@@ -31,6 +33,8 @@ import {
   User,
   Package,
   Home,
+  Receipt,
+  Eye,
 } from 'lucide-react';
 
 interface Waiter {
@@ -44,6 +48,13 @@ interface Table {
   number: number;
   status: 'available' | 'occupied' | 'closing';
   capacity: number | null;
+}
+
+interface Tab {
+  id: string;
+  number: number;
+  customer_name: string | null;
+  status: 'available' | 'occupied' | 'closing';
 }
 
 interface Category {
@@ -70,6 +81,7 @@ interface CartItem {
 interface Order {
   id: string;
   table_id: string | null;
+  tab_id: string | null;
   order_type: string;
   status: string;
   total: number;
@@ -81,6 +93,7 @@ interface Order {
   delivery_fee: number | null;
   order_items?: OrderItem[];
   tables?: { number: number } | null;
+  tabs?: { number: number; customer_name: string | null } | null;
 }
 
 interface OrderItem {
@@ -115,8 +128,8 @@ interface DeliveryForm {
   deliveryFee: number;
 }
 
-type AppView = 'login' | 'tables' | 'comandas' | 'order' | 'order-detail' | 'delivery' | 'delivery-order';
-type OrderMode = 'table' | 'delivery' | 'takeaway';
+type AppView = 'login' | 'tables' | 'comandas' | 'order' | 'order-detail' | 'delivery' | 'delivery-order' | 'table-orders' | 'tab-orders';
+type OrderMode = 'table' | 'delivery' | 'takeaway' | 'tab';
 
 export default function WaiterApp() {
   const { restaurant, signOut } = useAuth();
@@ -128,7 +141,9 @@ export default function WaiterApp() {
   const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -166,15 +181,17 @@ export default function WaiterApp() {
       if (!restaurant?.id) return;
 
       try {
-        const [waitersRes, tablesRes, categoriesRes, productsRes] = await Promise.all([
+        const [waitersRes, tablesRes, tabsRes, categoriesRes, productsRes] = await Promise.all([
           supabase.from('waiters').select('*').eq('status', 'active').order('name'),
           supabase.from('tables').select('*').order('number'),
+          supabase.from('tabs').select('*').order('number'),
           supabase.from('categories').select('*').order('sort_order'),
           supabase.from('products').select('*').eq('is_available', true).order('name'),
         ]);
 
         setWaiters(waitersRes.data || []);
         setTables((tablesRes.data || []) as Table[]);
+        setTabs((tabsRes.data || []) as Tab[]);
         setCategories(categoriesRes.data || []);
         setProducts(productsRes.data || []);
       } catch (error) {
@@ -247,14 +264,18 @@ export default function WaiterApp() {
       .channel('waiter-tables')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tables',
-        },
+        { event: '*', schema: 'public', table: 'tables' },
         async () => {
           const { data } = await supabase.from('tables').select('*').order('number');
           setTables((data || []) as Table[]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tabs' },
+        async () => {
+          const { data } = await supabase.from('tabs').select('*').order('number');
+          setTabs((data || []) as Tab[]);
         }
       )
       .subscribe();
@@ -616,6 +637,28 @@ export default function WaiterApp() {
           <p className="text-white/80">Carregando...</p>
         </div>
       </div>
+    );
+  }
+
+  // Table Orders View (View orders, close table, print)
+  if (view === 'table-orders' && selectedTable) {
+    return (
+      <WaiterTableOrders
+        table={selectedTable}
+        onBack={() => { setView('tables'); setSelectedTable(null); }}
+        onTableClosed={() => { setView('tables'); setSelectedTable(null); }}
+      />
+    );
+  }
+
+  // Tab Orders View (View orders, close tab, print)
+  if (view === 'tab-orders' && selectedTab) {
+    return (
+      <WaiterTabOrders
+        tab={selectedTab}
+        onBack={() => { setView('tables'); setSelectedTab(null); }}
+        onTabClosed={() => { setView('tables'); setSelectedTab(null); }}
+      />
     );
   }
 
