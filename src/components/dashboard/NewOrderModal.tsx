@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -33,6 +34,8 @@ import {
   UtensilsCrossed,
   MapPin,
   Store,
+  Phone,
+  CheckCircle,
 } from 'lucide-react';
 
 interface Category {
@@ -52,10 +55,29 @@ interface Table {
   number: number;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  cep: string | null;
+  address: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
+}
+
+interface DeliveryFee {
+  id: string;
+  neighborhood: string;
+  fee: number;
 }
 
 type OrderType = 'counter' | 'table' | 'delivery';
@@ -74,11 +96,28 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  
+  // Customer data
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerFound, setCustomerFound] = useState(false);
+  const [searchingCustomer, setSearchingCustomer] = useState(false);
+  
+  // Address data
+  const [cep, setCep] = useState('');
+  const [address, setAddress] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [complement, setComplement] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,15 +135,17 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setLoading(true);
 
     try {
-      const [categoriesRes, productsRes, tablesRes] = await Promise.all([
+      const [categoriesRes, productsRes, tablesRes, feesRes] = await Promise.all([
         supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
         supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
         supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
+        supabase.from('delivery_fees').select('*').eq('restaurant_id', restaurant.id).eq('is_active', true),
       ]);
 
       setCategories(categoriesRes.data || []);
       setProducts(productsRes.data || []);
       setTables(tablesRes.data || []);
+      setDeliveryFees(feesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -116,12 +157,167 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setCart([]);
     setCustomerName('');
     setCustomerPhone('');
-    setDeliveryAddress('');
+    setCustomerId(null);
+    setCustomerFound(false);
+    setCep('');
+    setAddress('');
+    setAddressNumber('');
+    setComplement('');
+    setNeighborhood('');
+    setCity('');
+    setState('');
+    setDeliveryFee(0);
     setSelectedTable('');
     setNotes('');
     setSearchTerm('');
     setOrderType('counter');
     setSelectedCategory(null);
+  };
+
+  // Format phone number
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  };
+
+  // Format CEP
+  const formatCep = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5, 8)}`;
+  };
+
+  // Search customer by phone
+  const searchCustomerByPhone = useCallback(async (phone: string) => {
+    if (!restaurant?.id || phone.replace(/\D/g, '').length < 10) {
+      setCustomerFound(false);
+      setCustomerId(null);
+      return;
+    }
+
+    setSearchingCustomer(true);
+    try {
+      const phoneDigits = phone.replace(/\D/g, '');
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .eq('phone', phoneDigits)
+        .maybeSingle();
+
+      if (customer) {
+        setCustomerId(customer.id);
+        setCustomerName(customer.name);
+        setCustomerFound(true);
+        
+        // Fill address if available
+        if (customer.cep) setCep(formatCep(customer.cep));
+        if (customer.address) setAddress(customer.address);
+        if (customer.number) setAddressNumber(customer.number);
+        if (customer.complement) setComplement(customer.complement);
+        if (customer.neighborhood) setNeighborhood(customer.neighborhood);
+        if (customer.city) setCity(customer.city);
+        if (customer.state) setState(customer.state);
+
+        // Check delivery fee for neighborhood
+        if (customer.neighborhood) {
+          const fee = deliveryFees.find(f => 
+            f.neighborhood.toLowerCase() === customer.neighborhood?.toLowerCase()
+          );
+          if (fee) setDeliveryFee(fee.fee);
+        }
+
+        toast({
+          title: 'Cliente encontrado!',
+          description: `${customer.name} - dados carregados.`,
+        });
+      } else {
+        setCustomerFound(false);
+        setCustomerId(null);
+      }
+    } catch (error) {
+      console.error('Error searching customer:', error);
+    } finally {
+      setSearchingCustomer(false);
+    }
+  }, [restaurant?.id, deliveryFees, toast]);
+
+  // Handle phone change with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (customerPhone.replace(/\D/g, '').length >= 10) {
+        searchCustomerByPhone(customerPhone);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [customerPhone, searchCustomerByPhone]);
+
+  // Fetch address from CEP
+  const fetchAddressFromCep = async (cepValue: string) => {
+    const cepDigits = cepValue.replace(/\D/g, '');
+    if (cepDigits.length !== 8) return;
+
+    setLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+      const data = await response.json();
+
+      if (!data.erro) {
+        setAddress(data.logradouro || '');
+        setNeighborhood(data.bairro || '');
+        setCity(data.localidade || '');
+        setState(data.uf || '');
+
+        // Check delivery fee for neighborhood
+        if (data.bairro) {
+          const fee = deliveryFees.find(f => 
+            f.neighborhood.toLowerCase() === data.bairro.toLowerCase()
+          );
+          if (fee) {
+            setDeliveryFee(fee.fee);
+          } else {
+            setDeliveryFee(0);
+          }
+        }
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'CEP não encontrado',
+          description: 'Verifique o CEP informado.',
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao buscar CEP',
+        description: 'Não foi possível buscar o endereço.',
+      });
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  // Handle CEP change
+  const handleCepChange = (value: string) => {
+    const formatted = formatCep(value);
+    setCep(formatted);
+    
+    if (value.replace(/\D/g, '').length === 8) {
+      fetchAddressFromCep(value);
+    }
+  };
+
+  // Handle neighborhood change to update delivery fee
+  const handleNeighborhoodChange = (value: string) => {
+    setNeighborhood(value);
+    const fee = deliveryFees.find(f => 
+      f.neighborhood.toLowerCase() === value.toLowerCase()
+    );
+    setDeliveryFee(fee?.fee || 0);
   };
 
   const filteredProducts = products.filter(p => {
@@ -167,11 +363,22 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     0
   );
 
+  const orderTotal = cartTotal + (orderType === 'delivery' ? deliveryFee : 0);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const getFullAddress = () => {
+    const parts = [address];
+    if (addressNumber) parts.push(addressNumber);
+    if (complement) parts.push(complement);
+    if (neighborhood) parts.push(neighborhood);
+    if (city && state) parts.push(`${city}/${state}`);
+    return parts.join(', ');
   };
 
   const handleSubmit = async () => {
@@ -193,18 +400,67 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       return;
     }
 
-    if (orderType === 'delivery' && !deliveryAddress) {
-      toast({
-        variant: 'destructive',
-        title: 'Endereço não informado',
-        description: 'Informe o endereço de entrega.',
-      });
-      return;
+    if (orderType === 'delivery') {
+      if (!customerName.trim()) {
+        toast({
+          variant: 'destructive',
+          title: 'Nome obrigatório',
+          description: 'Informe o nome do cliente para delivery.',
+        });
+        return;
+      }
+      if (!address.trim()) {
+        toast({
+          variant: 'destructive',
+          title: 'Endereço obrigatório',
+          description: 'Informe o endereço de entrega.',
+        });
+        return;
+      }
     }
 
     setSubmitting(true);
 
     try {
+      // Save or update customer
+      let savedCustomerId = customerId;
+      if (orderType === 'delivery' && customerName) {
+        const phoneDigits = customerPhone.replace(/\D/g, '');
+        const cepDigits = cep.replace(/\D/g, '');
+
+        const customerData = {
+          restaurant_id: restaurant?.id,
+          name: customerName.trim(),
+          phone: phoneDigits,
+          cep: cepDigits || null,
+          address: address || null,
+          number: addressNumber || null,
+          complement: complement || null,
+          neighborhood: neighborhood || null,
+          city: city || null,
+          state: state || null,
+        };
+
+        if (customerId) {
+          // Update existing customer
+          await supabase
+            .from('customers')
+            .update(customerData)
+            .eq('id', customerId);
+        } else if (phoneDigits.length >= 10) {
+          // Create new customer
+          const { data: newCustomer } = await supabase
+            .from('customers')
+            .insert(customerData)
+            .select()
+            .single();
+          
+          if (newCustomer) {
+            savedCustomerId = newCustomer.id;
+          }
+        }
+      }
+
       // Get and increment daily order counter
       const { data: settings, error: settingsError } = await supabase
         .from('salon_settings')
@@ -240,14 +496,16 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         .from('orders')
         .insert({
           restaurant_id: restaurant?.id,
+          customer_id: savedCustomerId,
           customer_name: customerName || null,
-          delivery_phone: customerPhone || null,
-          delivery_address: orderType === 'delivery' ? deliveryAddress : null,
+          delivery_phone: customerPhone.replace(/\D/g, '') || null,
+          delivery_address: orderType === 'delivery' ? getFullAddress() : null,
+          delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
           table_id: orderType === 'table' ? selectedTable : null,
           order_type: orderType,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
-          total: cartTotal,
+          total: orderTotal,
           notes: notes || null,
           order_number: newOrderNumber,
         })
@@ -382,133 +640,236 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           </div>
 
           {/* Right Panel - Cart & Details */}
-          <div className="w-80 flex flex-col overflow-hidden">
+          <div className="w-96 flex flex-col overflow-hidden">
             {/* Order Details */}
-            <div className="p-4 border-b space-y-3">
-              <div className="space-y-2">
-                <Label>Nome do cliente</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cliente (opcional)"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              {orderType === 'table' && (
-                <div className="space-y-2">
-                  <Label>Mesa</Label>
-                  <Select value={selectedTable} onValueChange={setSelectedTable}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a mesa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tables.map((table) => (
-                        <SelectItem key={table.id} value={table.id}>
-                          Mesa {table.number}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {orderType === 'delivery' && (
-                <>
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-3">
+                {/* Phone field - always shown for delivery */}
+                {orderType === 'delivery' && (
                   <div className="space-y-2">
-                    <Label>Telefone</Label>
+                    <Label>Telefone *</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="(00) 00000-0000"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
+                        className="pl-10 pr-10"
+                        maxLength={15}
+                      />
+                      {searchingCustomer && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                      )}
+                      {customerFound && (
+                        <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500" />
+                      )}
+                    </div>
+                    {customerFound && (
+                      <Badge variant="secondary" className="text-xs">
+                        Cliente cadastrado
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {/* Customer Name */}
+                <div className="space-y-2">
+                  <Label>{orderType === 'delivery' ? 'Nome do cliente *' : 'Nome do cliente'}</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="(00) 00000-0000"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      placeholder={orderType === 'delivery' ? 'Nome completo' : 'Cliente (opcional)'}
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="pl-10"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Endereço de entrega</Label>
-                    <Textarea
-                      placeholder="Endereço completo"
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="space-y-2">
-                <Label>Observações</Label>
-                <Textarea
-                  placeholder="Observações do pedido"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            </div>
-
-            {/* Cart Items */}
-            <ScrollArea className="flex-1 p-4">
-              {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-                  <ShoppingCart className="w-10 h-10 mb-2 opacity-50" />
-                  <p className="text-sm">Carrinho vazio</p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {cart.map((item) => (
-                    <div
-                      key={item.product.id}
-                      className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{item.product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatCurrency(item.product.price)}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => updateQuantity(item.product.id, -1)}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-6 text-center text-sm">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => updateQuantity(item.product.id, 1)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive"
-                          onClick={() => removeFromCart(item.product.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+
+                {orderType === 'table' && (
+                  <div className="space-y-2">
+                    <Label>Mesa</Label>
+                    <Select value={selectedTable} onValueChange={setSelectedTable}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a mesa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tables.map((table) => (
+                          <SelectItem key={table.id} value={table.id}>
+                            Mesa {table.number}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {orderType === 'delivery' && (
+                  <>
+                    <Separator />
+                    <p className="text-sm font-semibold text-muted-foreground">Endereço de Entrega</p>
+                    
+                    {/* CEP */}
+                    <div className="space-y-2">
+                      <Label>CEP</Label>
+                      <div className="relative">
+                        <Input
+                          placeholder="00000-000"
+                          value={cep}
+                          onChange={(e) => handleCepChange(e.target.value)}
+                          maxLength={9}
+                        />
+                        {loadingCep && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
                       </div>
                     </div>
-                  ))}
+
+                    {/* Address */}
+                    <div className="space-y-2">
+                      <Label>Rua *</Label>
+                      <Input
+                        placeholder="Nome da rua"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Number and Complement */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>Número</Label>
+                        <Input
+                          placeholder="Nº"
+                          value={addressNumber}
+                          onChange={(e) => setAddressNumber(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Complemento</Label>
+                        <Input
+                          placeholder="Apto, bloco..."
+                          value={complement}
+                          onChange={(e) => setComplement(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Neighborhood and City */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>Bairro *</Label>
+                        <Input
+                          placeholder="Bairro"
+                          value={neighborhood}
+                          onChange={(e) => handleNeighborhoodChange(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cidade</Label>
+                        <Input
+                          placeholder="Cidade"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Delivery Fee */}
+                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                      <span className="text-sm font-medium">Taxa de entrega:</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(deliveryFee)}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Observações</Label>
+                  <Textarea
+                    placeholder="Observações do pedido"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                  />
                 </div>
-              )}
+
+                <Separator />
+
+                {/* Cart Items */}
+                <p className="text-sm font-semibold text-muted-foreground">Itens do Pedido</p>
+                {cart.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <ShoppingCart className="w-10 h-10 mb-2 opacity-50" />
+                    <p className="text-sm">Carrinho vazio</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {cart.map((item) => (
+                      <div
+                        key={item.product.id}
+                        className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{item.product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(item.product.price)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => updateQuantity(item.product.id, -1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-6 text-center text-sm">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => updateQuantity(item.product.id, 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive"
+                            onClick={() => removeFromCart(item.product.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </ScrollArea>
 
             {/* Total & Submit */}
             <div className="p-4 border-t space-y-3">
+              {orderType === 'delivery' && deliveryFee > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span>Subtotal:</span>
+                  <span>{formatCurrency(cartTotal)}</span>
+                </div>
+              )}
+              {orderType === 'delivery' && deliveryFee > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span>Taxa de entrega:</span>
+                  <span>{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
               <Separator />
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Total</span>
                 <span className="text-lg font-bold text-primary">
-                  {formatCurrency(cartTotal)}
+                  {formatCurrency(orderTotal)}
                 </span>
               </div>
               <Button
