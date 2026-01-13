@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -13,6 +13,24 @@ import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DndContext,
   DragEndEvent,
   DragOverlay,
@@ -24,6 +42,7 @@ import {
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { toast } from 'sonner';
 import { 
   Search,
   Plus,
@@ -39,6 +58,13 @@ import {
   VolumeX,
   Bell,
   GripVertical,
+  X,
+  Phone,
+  User,
+  Bike,
+  Package,
+  Trash2,
+  CheckCircle,
 } from 'lucide-react';
 
 interface PrepTimeSettings {
@@ -57,11 +83,16 @@ interface Order {
   table_id: string | null;
   created_at: string;
   notes: string | null;
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_fee: number | null;
+  created_by: string | null;
   order_items?: {
     id: string;
     product_name: string;
     quantity: number;
     product_price: number;
+    notes: string | null;
   }[];
 }
 
@@ -84,6 +115,10 @@ export default function Dashboard() {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showPrepTimeModal, setShowPrepTimeModal] = useState(false);
   const [showPrintSettingsModal, setShowPrintSettingsModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
@@ -165,6 +200,29 @@ export default function Dashboard() {
     };
   }, [restaurant?.id]);
 
+  // Auto-accept orders: automatically move pending orders to preparing
+  useEffect(() => {
+    if (!autoAccept || !restaurant?.id) return;
+
+    const autoAcceptOrders = async () => {
+      const pendingOrders = orders.filter(o => o.status === 'pending');
+      
+      for (const order of pendingOrders) {
+        await supabase
+          .from('orders')
+          .update({ status: 'preparing' })
+          .eq('id', order.id);
+      }
+      
+      if (pendingOrders.length > 0) {
+        fetchOrders();
+      }
+    };
+
+    // Run immediately when orders change
+    autoAcceptOrders();
+  }, [autoAccept, orders.filter(o => o.status === 'pending').length, restaurant?.id]);
+
   const fetchOrders = async () => {
     if (!restaurant?.id) return;
 
@@ -175,6 +233,8 @@ export default function Dashboard() {
           *,
           order_items (*)
         `)
+        .eq('restaurant_id', restaurant.id)
+        .in('status', ['pending', 'preparing', 'ready', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -212,6 +272,16 @@ export default function Dashboard() {
     });
   };
 
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   const isDelayed = (order: Order) => {
     const created = new Date(order.created_at);
     const now = new Date();
@@ -219,14 +289,81 @@ export default function Dashboard() {
     return diffMinutes > 30;
   };
 
-  // Filter orders by status
+  // Filter orders by status (exclude cancelled)
   const pendingOrders = orders.filter(o => o.status === 'pending');
   const preparingOrders = orders.filter(o => o.status === 'preparing');
-  const readyOrders = orders.filter(o => ['ready', 'delivered'].includes(o.status || ''));
+  const readyOrders = orders.filter(o => o.status === 'ready');
 
   const updateOrderStatus = async (orderId: string, status: string) => {
+    const order = orders.find(o => o.id === orderId);
+    
     await supabase.from('orders').update({ status }).eq('id', orderId);
+    
+    // If finalizing order and it's a table order, update table status to available
+    if (status === 'delivered' && order?.table_id) {
+      await supabase
+        .from('tables')
+        .update({ status: 'available' })
+        .eq('id', order.table_id);
+    }
+    
     fetchOrders();
+    toast.success(`Pedido ${status === 'delivered' ? 'finalizado' : 'atualizado'} com sucesso!`);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderToCancel) return;
+
+    try {
+      // Update order status to cancelled
+      await supabase
+        .from('orders')
+        .update({ status: 'cancelled' })
+        .eq('id', orderToCancel.id);
+
+      // If it's a table order, set table back to available
+      if (orderToCancel.table_id) {
+        await supabase
+          .from('tables')
+          .update({ status: 'available' })
+          .eq('id', orderToCancel.table_id);
+      }
+
+      toast.success('Pedido cancelado com sucesso!');
+      setShowCancelDialog(false);
+      setOrderToCancel(null);
+      setShowOrderDetailModal(false);
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (error) {
+      toast.error('Erro ao cancelar pedido');
+    }
+  };
+
+  const handleOpenOrderDetail = (order: Order) => {
+    setSelectedOrder(order);
+    setShowOrderDetailModal(true);
+  };
+
+  const getOrderTypeLabel = (type: string | null) => {
+    const labels: Record<string, string> = {
+      table: 'Mesa',
+      delivery: 'Delivery',
+      takeaway: 'Para Levar',
+      counter: 'Balcão',
+    };
+    return labels[type || ''] || type || 'Mesa';
+  };
+
+  const getOrderTypeIcon = (type: string | null) => {
+    switch (type) {
+      case 'delivery':
+        return <Bike className="w-4 h-4" />;
+      case 'takeaway':
+        return <Package className="w-4 h-4" />;
+      default:
+        return <UtensilsCrossed className="w-4 h-4" />;
+    }
   };
 
   // Handle drag start
@@ -313,13 +450,15 @@ export default function Dashboard() {
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`order-card ${delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''} ${isDragging ? 'shadow-xl z-50' : ''}`}
+        className={`order-card cursor-pointer ${delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''} ${isDragging ? 'shadow-xl z-50' : ''}`}
+        onClick={() => handleOpenOrderDetail(order)}
       >
         {/* Drag Handle */}
         <div 
           {...listeners} 
           {...attributes}
           className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+          onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-4 h-4" />
         </div>
@@ -327,7 +466,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="order-card-header pr-8">
           <div className="order-number">
-            <ChefHat className="w-5 h-5 text-muted-foreground" />
+            {getOrderTypeIcon(order.order_type)}
             <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
           </div>
           <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
@@ -347,17 +486,15 @@ export default function Dashboard() {
         {/* Customer info */}
         <div className="space-y-1 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">
-              {order.customer_name || 'Não identificado'}
+            <span className="text-muted-foreground flex items-center gap-1">
+              <User className="w-3 h-3" />
+              {order.customer_name || 'Cliente não identificado'}
             </span>
-            <span className="font-semibold">Total: {formatCurrency(order.total)}</span>
+            <span className="font-semibold">{formatCurrency(order.total)}</span>
           </div>
-          {!order.customer_name && (
-            <p className="text-xs text-muted-foreground">Não registrado</p>
-          )}
         </div>
 
-        {/* Table info */}
+        {/* Table or delivery info */}
         {tableNumber && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <UtensilsCrossed className="w-4 h-4" />
@@ -366,10 +503,26 @@ export default function Dashboard() {
         )}
 
         {/* Order type badge */}
-        {order.order_type === 'delivery' && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <MapPin className="w-4 h-4" />
-            Retirada no local
+        {order.order_type && order.order_type !== 'table' && (
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              {getOrderTypeIcon(order.order_type)}
+              <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
+            </Badge>
+          </div>
+        )}
+
+        {/* Items preview */}
+        {order.order_items && order.order_items.length > 0 && (
+          <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+            {order.order_items.slice(0, 2).map((item, idx) => (
+              <div key={item.id} className="truncate">
+                {item.quantity}x {item.product_name}
+              </div>
+            ))}
+            {order.order_items.length > 2 && (
+              <div className="text-primary">+{order.order_items.length - 2} mais itens</div>
+            )}
           </div>
         )}
 
@@ -377,7 +530,7 @@ export default function Dashboard() {
         {showAdvanceButton && (
           <Button 
             variant="outline" 
-            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
             onClick={(e) => {
               e.stopPropagation();
               updateOrderStatus(order.id, order.status === 'pending' ? 'preparing' : 'ready');
@@ -389,20 +542,17 @@ export default function Dashboard() {
         )}
 
         {showFinalizeButton && (
-          <div className="flex gap-2">
-            <Badge className="nfc-badge">NFC</Badge>
-            <Button 
-              variant="outline" 
-              className="flex-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                updateOrderStatus(order.id, 'delivered');
-              }}
-            >
-              Finalizar pedido
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
+          <Button 
+            variant="outline" 
+            className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white mt-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              updateOrderStatus(order.id, 'delivered');
+            }}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Finalizar pedido
+          </Button>
         )}
       </div>
     );
@@ -417,7 +567,7 @@ export default function Dashboard() {
       <div className={`order-card shadow-2xl rotate-3 ${delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive' : ''}`}>
         <div className="order-card-header">
           <div className="order-number">
-            <ChefHat className="w-5 h-5 text-muted-foreground" />
+            {getOrderTypeIcon(order.order_type)}
             <span>Pedido #{order.id.slice(0, 4).toUpperCase()}</span>
           </div>
           <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
@@ -441,6 +591,13 @@ export default function Dashboard() {
         )}
       </div>
     );
+  };
+
+  // Finalize all ready orders
+  const handleFinalizeAllReady = async () => {
+    for (const order of readyOrders) {
+      await updateOrderStatus(order.id, 'delivered');
+    }
   };
 
   return (
@@ -463,13 +620,13 @@ export default function Dashboard() {
                 className={`filter-tab ${filter === 'delivery' ? 'active' : ''}`}
                 onClick={() => setFilter('delivery')}
               >
-                <UtensilsCrossed className="w-4 h-4" />
+                <Bike className="w-4 h-4" />
               </button>
               <button 
                 className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
                 onClick={() => setFilter('table')}
               >
-                <ChefHat className="w-4 h-4" />
+                <UtensilsCrossed className="w-4 h-4" />
               </button>
             </div>
 
@@ -571,8 +728,11 @@ export default function Dashboard() {
                 {pendingOrders.length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
                     <div className="w-12 h-12 mb-3 opacity-50">↩</div>
-                    <p className="text-sm">Todos os pedidos</p>
-                    <p className="text-sm">são aceitos automaticamente</p>
+                    <p className="text-sm">
+                      {autoAccept 
+                        ? 'Todos os pedidos são aceitos automaticamente' 
+                        : 'Nenhum pedido em análise'}
+                    </p>
                   </div>
                 ) : (
                   <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -620,9 +780,16 @@ export default function Dashboard() {
                 <div className="kanban-header ready">
                   <span>Prontos para entrega</span>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" className="h-7 text-xs">
-                      Finalizar
-                    </Button>
+                    {readyOrders.length > 0 && (
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-7 text-xs"
+                        onClick={handleFinalizeAllReady}
+                      >
+                        Finalizar Todos
+                      </Button>
+                    )}
                     <Badge variant="secondary">
                       {readyOrders.length}
                     </Badge>
@@ -650,6 +817,149 @@ export default function Dashboard() {
             {activeOrder ? <OrderCardOverlay order={activeOrder} /> : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Order Detail Modal */}
+        <Dialog open={showOrderDetailModal} onOpenChange={setShowOrderDetailModal}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedOrder && getOrderTypeIcon(selectedOrder.order_type)}
+                Pedido #{selectedOrder?.id.slice(0, 4).toUpperCase()}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedOrder && formatDateTime(selectedOrder.created_at)}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedOrder && (
+              <div className="space-y-4">
+                {/* Order Type Badge */}
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">
+                    {getOrderTypeLabel(selectedOrder.order_type)}
+                  </Badge>
+                  <Badge className={
+                    selectedOrder.status === 'ready' ? 'bg-green-500' :
+                    selectedOrder.status === 'preparing' ? 'bg-orange-500' : 
+                    selectedOrder.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'
+                  }>
+                    {selectedOrder.status === 'pending' && 'Em análise'}
+                    {selectedOrder.status === 'preparing' && 'Em produção'}
+                    {selectedOrder.status === 'ready' && 'Pronto'}
+                    {selectedOrder.status === 'delivered' && 'Finalizado'}
+                  </Badge>
+                </div>
+
+                {/* Customer Info */}
+                <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                  <h4 className="font-semibold text-sm text-muted-foreground">Dados do Cliente</h4>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedOrder.customer_name || 'Cliente não identificado'}</span>
+                  </div>
+                  {selectedOrder.delivery_phone && (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-muted-foreground" />
+                      <span>{selectedOrder.delivery_phone}</span>
+                    </div>
+                  )}
+                  {getTableNumber(selectedOrder.table_id) && (
+                    <div className="flex items-center gap-2">
+                      <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
+                      <span>Mesa {getTableNumber(selectedOrder.table_id)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.delivery_address && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                      <span className="text-sm">{selectedOrder.delivery_address}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Order Items */}
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-muted-foreground">Itens do Pedido</h4>
+                  <div className="border rounded-lg divide-y">
+                    {selectedOrder.order_items?.map((item) => (
+                      <div key={item.id} className="p-3 flex justify-between">
+                        <div>
+                          <span className="font-medium">{item.quantity}x </span>
+                          <span>{item.product_name}</span>
+                          {item.notes && (
+                            <p className="text-xs text-muted-foreground">Obs: {item.notes}</p>
+                          )}
+                        </div>
+                        <span className="font-medium">{formatCurrency(item.product_price * item.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Order Notes */}
+                {selectedOrder.notes && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Observações:</strong> {selectedOrder.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Totals */}
+                <div className="border-t pt-4 space-y-1">
+                  {selectedOrder.delivery_fee && selectedOrder.delivery_fee > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Taxa de entrega</span>
+                      <span>{formatCurrency(selectedOrder.delivery_fee)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span>{formatCurrency(selectedOrder.total)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="flex gap-2 sm:gap-0">
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setOrderToCancel(selectedOrder);
+                  setShowCancelDialog(true);
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Cancelar Pedido
+              </Button>
+              <Button onClick={() => setShowOrderDetailModal(false)}>
+                Fechar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Cancel Order Confirmation */}
+        <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar Pedido</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja cancelar o pedido #{orderToCancel?.id.slice(0, 4).toUpperCase()}? 
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Não, manter pedido</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleCancelOrder}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Sim, cancelar pedido
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* New Order Modal */}
         <NewOrderModal
