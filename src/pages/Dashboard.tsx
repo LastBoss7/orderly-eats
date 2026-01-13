@@ -102,7 +102,7 @@ interface Table {
   number: number;
 }
 
-type FilterType = 'all' | 'delivery' | 'table' | 'scheduled';
+type FilterType = 'all' | 'delivery' | 'counter';
 
 export default function Dashboard() {
   const { restaurant } = useAuth();
@@ -291,10 +291,22 @@ export default function Dashboard() {
     return diffMinutes > 30;
   };
 
-  // Filter orders by status (exclude cancelled)
-  const pendingOrders = orders.filter(o => o.status === 'pending');
-  const preparingOrders = orders.filter(o => o.status === 'preparing');
-  const readyOrders = orders.filter(o => o.status === 'ready');
+  // Filter orders by type first
+  const filterOrdersByType = (orderList: Order[]) => {
+    if (filter === 'all') return orderList;
+    if (filter === 'delivery') return orderList.filter(o => o.order_type === 'delivery');
+    if (filter === 'counter') return orderList.filter(o => o.order_type === 'counter' || o.order_type === 'takeaway');
+    return orderList;
+  };
+
+  // Filter orders by status (exclude cancelled) and then by type
+  const allPendingOrders = orders.filter(o => o.status === 'pending');
+  const allPreparingOrders = orders.filter(o => o.status === 'preparing');
+  const allReadyOrders = orders.filter(o => o.status === 'ready');
+
+  const pendingOrders = filterOrdersByType(allPendingOrders);
+  const preparingOrders = filterOrdersByType(allPreparingOrders);
+  const readyOrders = filterOrdersByType(allReadyOrders);
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     const updateData: { status: string; ready_at?: string } = { status };
@@ -615,18 +627,21 @@ export default function Dashboard() {
               <button 
                 className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
                 onClick={() => setFilter('all')}
+                title="Todos os pedidos"
               >
                 Todos
               </button>
               <button 
                 className={`filter-tab ${filter === 'delivery' ? 'active' : ''}`}
                 onClick={() => setFilter('delivery')}
+                title="Pedidos para entrega"
               >
                 <Bike className="w-4 h-4" />
               </button>
               <button 
-                className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
-                onClick={() => setFilter('table')}
+                className={`filter-tab ${filter === 'counter' ? 'active' : ''}`}
+                onClick={() => setFilter('counter')}
+                title="Pedidos para retirada"
               >
                 <UtensilsCrossed className="w-4 h-4" />
               </button>
