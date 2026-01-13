@@ -128,13 +128,13 @@
 
     .tab {
       flex: 1;
-      padding: 10px;
+      padding: 10px 6px;
       border: none;
       background: transparent;
       border-radius: 8px;
       cursor: pointer;
       font-weight: 500;
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       transition: all 0.2s;
     }
@@ -263,6 +263,11 @@
       gap: 8px;
     }
 
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
     /* Checkbox */
     .checkbox-group {
       display: flex;
@@ -299,27 +304,241 @@
       gap: 8px;
     }
 
-    /* Message */
-    .message {
-      padding: 12px 16px;
+    /* Receipt Preview */
+    .preview-container {
+      display: flex;
+      gap: 16px;
+    }
+
+    .preview-settings {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .preview-panel {
+      width: 280px;
+      flex-shrink: 0;
+    }
+
+    .receipt-preview {
+      background: white;
+      border: 1px solid #e5e7eb;
       border-radius: 8px;
-      margin-bottom: 16px;
+      padding: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 500px;
+      overflow-y: auto;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .receipt-preview.paper-58mm {
+      width: 220px;
+    }
+
+    .receipt-preview.paper-80mm {
+      width: 280px;
+    }
+
+    .receipt-header {
+      text-align: center;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .receipt-logo {
+      max-width: 120px;
+      max-height: 60px;
+      margin: 0 auto 8px;
+      display: block;
+    }
+
+    .receipt-restaurant-name {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .receipt-divider {
+      border-top: 1px dashed #999;
+      margin: 8px 0;
+    }
+
+    .receipt-divider-double {
+      border-top: 2px solid #333;
+      margin: 8px 0;
+    }
+
+    .receipt-section-title {
+      font-weight: bold;
+      margin: 8px 0 4px;
+    }
+
+    .receipt-item {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .receipt-total {
+      font-weight: bold;
       font-size: 13px;
     }
 
-    .message.success {
-      background: #dcfce7;
-      color: #166534;
+    .receipt-footer {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 10px;
+      color: #666;
     }
 
-    .message.error {
-      background: #fef2f2;
-      color: #991b1b;
+    /* Section toggles */
+    .section-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 8px;
+      margin-bottom: 8px;
     }
 
-    .message.warning {
-      background: #fef3c7;
-      color: #92400e;
+    .section-toggle-label {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: #6366f1;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Color picker */
+    .color-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-input {
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* Font size slider */
+    .range-input {
+      width: 100%;
+      accent-color: #6366f1;
+    }
+
+    .range-value {
+      display: inline-block;
+      min-width: 40px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
+    }
+
+    /* File input styling */
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .logo-preview {
+      max-width: 150px;
+      max-height: 80px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px;
+      margin-top: 8px;
+    }
+
+    .logo-placeholder {
+      width: 150px;
+      height: 60px;
+      border: 2px dashed #e5e7eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -341,7 +560,7 @@
           <div id="statusDot" class="status-dot disconnected"></div>
           <span id="statusText">Desconectado</span>
         </div>
-        <button class="btn btn-secondary" onclick="reconnect()">
+        <button class="btn btn-secondary btn-sm" onclick="reconnect()">
           🔄 Reconectar
         </button>
       </div>
@@ -360,7 +579,8 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" data-tab="monitor">📋 Monitor</button>
-      <button class="tab" data-tab="config">⚙️ Configurações</button>
+      <button class="tab" data-tab="layout">🎨 Layout</button>
+      <button class="tab" data-tab="config">⚙️ Config</button>
     </div>
 
     <!-- Monitor Tab -->
@@ -379,6 +599,241 @@
         <button class="btn btn-primary" style="flex:1" onclick="clearLogs()">
           🗑️ Limpar Log
         </button>
+      </div>
+    </div>
+
+    <!-- Layout Tab -->
+    <div id="layout" class="tab-content">
+      <div class="preview-container">
+        <!-- Settings -->
+        <div class="preview-settings">
+          <!-- Paper Settings -->
+          <div class="card">
+            <div class="card-title">📄 Papel</div>
+            
+            <div class="form-group">
+              <label class="form-label">Tamanho do Papel</label>
+              <select id="layoutPaperSize" class="form-select" onchange="updatePreview()">
+                <option value="58mm">58mm (Padrão)</option>
+                <option value="80mm">80mm (Largo)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Largura (caracteres): <span id="layoutWidthValue" class="range-value">48</span></label>
+              <input type="range" id="layoutWidth" class="range-input" min="32" max="64" value="48" onchange="updatePreview(); document.getElementById('layoutWidthValue').textContent = this.value">
+            </div>
+          </div>
+
+          <!-- Logo Settings -->
+          <div class="card">
+            <div class="card-title">🏪 Logotipo</div>
+            
+            <div class="section-toggle">
+              <span class="section-toggle-label">Mostrar Logo</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showLogo" onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Imagem do Logo</label>
+              <div class="file-input-wrapper">
+                <button class="btn btn-secondary btn-sm">📁 Escolher Imagem</button>
+                <input type="file" id="logoFile" accept="image/*" onchange="handleLogoUpload(event)">
+              </div>
+              <div id="logoPreviewContainer">
+                <div class="logo-placeholder">Sem logo</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Header Settings -->
+          <div class="card">
+            <div class="card-title">📋 Cabeçalho</div>
+            
+            <div class="section-toggle">
+              <span class="section-toggle-label">Nome do Restaurante</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showRestaurantName" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Endereço</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showAddress" onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Telefone</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showPhone" onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">CNPJ</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showCnpj" onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Título do Cupom</label>
+              <input type="text" id="receiptTitle" class="form-input" value="*** PEDIDO ***" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <!-- Order Info Settings -->
+          <div class="card">
+            <div class="card-title">🍽️ Informações do Pedido</div>
+            
+            <div class="section-toggle">
+              <span class="section-toggle-label">Número do Pedido</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showOrderNumber" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Tipo do Pedido</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showOrderType" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Mesa (se aplicável)</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showTable" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Preços dos Itens</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showItemPrices" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Observações dos Itens</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showItemNotes" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Customer Info Settings -->
+          <div class="card">
+            <div class="card-title">👤 Informações do Cliente</div>
+            
+            <div class="section-toggle">
+              <span class="section-toggle-label">Nome do Cliente</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showCustomerName" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Telefone do Cliente</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showCustomerPhone" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Endereço de Entrega</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showDeliveryAddress" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Footer Settings -->
+          <div class="card">
+            <div class="card-title">📝 Rodapé</div>
+            
+            <div class="section-toggle">
+              <span class="section-toggle-label">Data e Hora</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showDateTime" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Totais</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showTotals" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Taxa de Entrega</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="showDeliveryFee" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Mensagem do Rodapé</label>
+              <input type="text" id="footerMessage" class="form-input" value="Obrigado pela preferência!" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <!-- Font Settings -->
+          <div class="card">
+            <div class="card-title">🔤 Fonte</div>
+            
+            <div class="form-group">
+              <label class="form-label">Tamanho da Fonte: <span id="fontSizeValue" class="range-value">12</span>px</label>
+              <input type="range" id="fontSize" class="range-input" min="8" max="16" value="12" onchange="updatePreview(); document.getElementById('fontSizeValue').textContent = this.value">
+            </div>
+
+            <div class="section-toggle">
+              <span class="section-toggle-label">Negrito no Total</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="boldTotal" checked onchange="updatePreview()">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block" onclick="saveLayout()">
+            💾 Salvar Layout
+          </button>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="preview-panel">
+          <div class="card" style="position: sticky; top: 20px;">
+            <div class="card-title">👁️ Preview do Cupom</div>
+            <div id="receiptPreview" class="receipt-preview paper-58mm">
+              <!-- Preview será gerado via JS -->
+            </div>
+            <button class="btn btn-secondary btn-block" style="margin-top: 12px" onclick="testPrintLayout()">
+              🖨️ Imprimir Preview
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -415,15 +870,6 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Largura do Papel (caracteres)</label>
-          <select id="paperWidth" class="form-select">
-            <option value="32">32 (58mm compacto)</option>
-            <option value="42">42 (80mm)</option>
-            <option value="48" selected>48 (58mm)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">Intervalo de Verificação (segundos)</label>
           <input type="number" id="checkInterval" class="form-input" value="5" min="1" max="60">
         </div>
@@ -440,6 +886,11 @@
         <div class="checkbox-group">
           <input type="checkbox" id="autoStart">
           <label for="autoStart">Iniciar com o Windows</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="soundNotification" checked>
+          <label for="soundNotification">Som ao imprimir pedido</label>
         </div>
       </div>
 

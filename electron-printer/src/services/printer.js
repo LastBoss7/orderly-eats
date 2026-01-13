@@ -21,7 +21,7 @@ class PrinterService {
             .filter(line => line.length > 0);
           resolve(printers);
         });
-      } else if (this.platform === 'darwin') {
+      } else if (this.platform === 'darwin' || this.platform === 'linux') {
         exec('lpstat -p', (error, stdout) => {
           if (error) {
             resolve([]);
@@ -34,79 +34,122 @@ class PrinterService {
           resolve(printers);
         });
       } else {
-        exec('lpstat -p', (error, stdout) => {
-          if (error) {
-            resolve([]);
-            return;
-          }
-          const printers = stdout
-            .split('\n')
-            .filter(line => line.startsWith('printer'))
-            .map(line => line.split(' ')[1]);
-          resolve(printers);
-        });
+        resolve([]);
       }
     });
   }
 
   async printOrder(order, options = {}) {
-    const { paperWidth = 48, printerName = '' } = options;
-    const receipt = this.formatReceipt(order, paperWidth);
+    const { layout = {}, printerName = '' } = options;
+    const receipt = this.formatReceipt(order, layout);
     
     return this.printText(receipt, printerName);
   }
 
   async printTest(options = {}) {
-    const { paperWidth = 48, printerName = '' } = options;
-    const testText = this.formatTestReceipt(paperWidth);
+    const { layout = {}, printerName = '' } = options;
+    const testText = this.formatTestReceipt(layout);
     
     return this.printText(testText, printerName);
   }
 
-  formatReceipt(order, width) {
+  async printTestWithLayout(options = {}) {
+    const { layout = {}, printerName = '' } = options;
+    
+    // Create a sample order for preview
+    const sampleOrder = {
+      id: 'PREVIEW123456789',
+      order_type: 'delivery',
+      table_id: null,
+      customer_name: 'João Silva',
+      delivery_phone: '(11) 98888-7777',
+      delivery_address: 'Av. Brasil, 456, Ap 12',
+      delivery_fee: 8.00,
+      total: 98.30,
+      notes: 'Tocar campainha 2x',
+      order_items: [
+        { quantity: 2, product_name: 'X-Burguer Especial', product_price: 29.90, notes: null },
+        { quantity: 1, product_name: 'Batata Frita Grande', product_price: 18.50, notes: 'Sem sal' },
+        { quantity: 2, product_name: 'Refrigerante 350ml', product_price: 6.00, notes: null },
+      ]
+    };
+    
+    const receipt = this.formatReceipt(sampleOrder, layout);
+    return this.printText(receipt, printerName);
+  }
+
+  formatReceipt(order, layout) {
+    const width = layout.paperWidth || 48;
     const divider = '='.repeat(width);
     const thinDivider = '-'.repeat(width);
     
     const lines = [];
     
-    // Cabeçalho
-    lines.push(this.center('*** PEDIDO ***', width));
+    // Header with restaurant info
+    if (layout.showRestaurantName) {
+      lines.push(this.center('MEU RESTAURANTE', width));
+    }
+    
+    if (layout.showAddress) {
+      lines.push(this.center('Rua Exemplo, 123 - Centro', width));
+    }
+    
+    if (layout.showPhone) {
+      lines.push(this.center('Tel: (11) 99999-9999', width));
+    }
+    
+    if (layout.showCnpj) {
+      lines.push(this.center('CNPJ: 12.345.678/0001-90', width));
+    }
+    
+    if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {
+      lines.push('');
+    }
+    
+    // Title
+    lines.push(this.center(layout.receiptTitle || '*** PEDIDO ***', width));
     lines.push('');
     lines.push(divider);
     
-    // Informações do pedido
-    const orderNum = order.id.slice(0, 8).toUpperCase();
-    lines.push(this.center(`#${orderNum}`, width));
-    lines.push('');
+    // Order number
+    if (layout.showOrderNumber) {
+      const orderNum = order.id.slice(0, 8).toUpperCase();
+      lines.push(this.center(`#${orderNum}`, width));
+      lines.push('');
+    }
     
-    // Tipo de pedido
-    const orderTypeLabels = {
-      'counter': 'BALCÃO',
-      'table': 'MESA',
-      'delivery': 'ENTREGA'
-    };
-    lines.push(`Tipo: ${orderTypeLabels[order.order_type] || order.order_type}`);
+    // Order type
+    if (layout.showOrderType) {
+      const orderTypeLabels = {
+        'counter': 'BALCÃO',
+        'table': 'MESA',
+        'delivery': 'ENTREGA'
+      };
+      lines.push(`Tipo: ${orderTypeLabels[order.order_type] || order.order_type}`);
+    }
     
-    // Mesa (se aplicável)
-    if (order.table_id) {
+    // Table
+    if (layout.showTable && order.table_id) {
       lines.push(`Mesa: ${order.table_id}`);
     }
     
-    // Cliente (se aplicável)
-    if (order.customer_name) {
+    // Customer info
+    if (layout.showCustomerName && order.customer_name) {
       lines.push(`Cliente: ${order.customer_name}`);
     }
-    if (order.delivery_phone) {
+    
+    if (layout.showCustomerPhone && order.delivery_phone) {
       lines.push(`Tel: ${order.delivery_phone}`);
     }
-    if (order.delivery_address) {
+    
+    if (layout.showDeliveryAddress && order.delivery_address) {
       lines.push(`End: ${order.delivery_address}`);
     }
     
     lines.push(divider);
     lines.push('');
     
-    // Itens
+    // Items
     lines.push('ITENS:');
     lines.push(thinDivider);
     
@@ -114,12 +157,15 @@ class PrinterService {
       for (const item of order.order_items) {
         const qty = item.quantity || 1;
         const name = item.product_name;
-        const price = (item.product_price * qty).toFixed(2);
         
         lines.push(`${qty}x ${name}`);
-        lines.push(this.alignRight(`R$ ${price}`, width));
         
-        if (item.notes) {
+        if (layout.showItemPrices) {
+          const price = (item.product_price * qty).toFixed(2);
+          lines.push(this.alignRight(`R$ ${price}`, width));
+        }
+        
+        if (layout.showItemNotes && item.notes) {
           lines.push(`   Obs: ${item.notes}`);
         }
         lines.push('');
@@ -128,15 +174,19 @@ class PrinterService {
     
     lines.push(thinDivider);
     
-    // Totais
-    if (order.delivery_fee && order.delivery_fee > 0) {
-      lines.push(this.alignBoth('Taxa de entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width));
+    // Totals
+    if (layout.showTotals) {
+      if (layout.showDeliveryFee && order.delivery_fee && order.delivery_fee > 0) {
+        lines.push(this.alignBoth('Taxa de entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width));
+      }
+      
+      const totalLine = this.alignBoth('TOTAL:', `R$ ${(order.total || 0).toFixed(2)}`, width);
+      lines.push(layout.boldTotal ? totalLine : totalLine);
     }
     
-    lines.push(this.alignBoth('TOTAL:', `R$ ${(order.total || 0).toFixed(2)}`, width));
     lines.push('');
     
-    // Observações
+    // Notes
     if (order.notes) {
       lines.push(divider);
       lines.push('OBSERVAÇÕES:');
@@ -146,11 +196,20 @@ class PrinterService {
     lines.push('');
     lines.push(divider);
     
-    // Rodapé
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('pt-BR');
-    const timeStr = now.toLocaleTimeString('pt-BR');
-    lines.push(this.center(`${dateStr} ${timeStr}`, width));
+    // Footer
+    if (layout.showDateTime) {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR');
+      lines.push(this.center(`${dateStr} ${timeStr}`, width));
+    }
+    
+    if (layout.footerMessage) {
+      lines.push('');
+      lines.push(this.center(layout.footerMessage, width));
+    }
+    
+    // Add blank lines for paper cutting
     lines.push('');
     lines.push('');
     lines.push('');
@@ -158,7 +217,8 @@ class PrinterService {
     return lines.join('\n');
   }
 
-  formatTestReceipt(width) {
+  formatTestReceipt(layout) {
+    const width = layout.paperWidth || 48;
     const divider = '='.repeat(width);
     const lines = [];
     
@@ -170,6 +230,9 @@ class PrinterService {
     lines.push(this.center('com sucesso!', width));
     lines.push('');
     lines.push(divider);
+    lines.push('');
+    lines.push(this.center(`Largura: ${width} caracteres`, width));
+    lines.push(this.center(`Papel: ${layout.paperSize || '58mm'}`, width));
     lines.push('');
     
     const now = new Date();
@@ -204,15 +267,19 @@ class PrinterService {
     return new Promise((resolve, reject) => {
       if (this.platform === 'win32') {
         // Windows: usar PowerShell para imprimir
-        const escapedText = text.replace(/"/g, '`"').replace(/\n/g, '`n');
-        const printerParam = printerName ? `-PrinterName "${printerName}"` : '';
+        const fs = require('fs');
+        const tmpFile = `${process.env.TEMP}\\print_${Date.now()}.txt`;
         
-        const psCommand = `
-          $text = "${escapedText}"
-          $text | Out-Printer ${printerParam}
-        `;
+        fs.writeFileSync(tmpFile, text, 'utf8');
+        
+        const printerParam = printerName ? `-PrinterName "${printerName}"` : '';
+        const psCommand = `Get-Content -Path "${tmpFile}" -Raw | Out-Printer ${printerParam}`;
         
         exec(`powershell -Command "${psCommand}"`, (error) => {
+          try {
+            fs.unlinkSync(tmpFile);
+          } catch (e) {}
+          
           if (error) {
             reject(new Error(`Erro ao imprimir: ${error.message}`));
           } else {
@@ -224,11 +291,14 @@ class PrinterService {
         const fs = require('fs');
         const tmpFile = `/tmp/print_${Date.now()}.txt`;
         
-        fs.writeFileSync(tmpFile, text);
+        fs.writeFileSync(tmpFile, text, 'utf8');
         
         const printerParam = printerName ? `-d "${printerName}"` : '';
         exec(`lp ${printerParam} "${tmpFile}"`, (error) => {
-          fs.unlinkSync(tmpFile);
+          try {
+            fs.unlinkSync(tmpFile);
+          } catch (e) {}
+          
           if (error) {
             reject(new Error(`Erro ao imprimir: ${error.message}`));
           } else {

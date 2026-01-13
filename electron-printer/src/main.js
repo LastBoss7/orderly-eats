@@ -4,6 +4,33 @@ const Store = require('electron-store');
 const { createClient } = require('@supabase/supabase-js');
 const PrinterService = require('./services/printer');
 
+// Default layout configuration
+const defaultLayout = {
+  paperSize: '58mm',
+  paperWidth: 48,
+  showLogo: false,
+  logoData: null,
+  showRestaurantName: true,
+  showAddress: false,
+  showPhone: false,
+  showCnpj: false,
+  receiptTitle: '*** PEDIDO ***',
+  showOrderNumber: true,
+  showOrderType: true,
+  showTable: true,
+  showItemPrices: true,
+  showItemNotes: true,
+  showCustomerName: true,
+  showCustomerPhone: true,
+  showDeliveryAddress: true,
+  showDateTime: true,
+  showTotals: true,
+  showDeliveryFee: true,
+  footerMessage: 'Obrigado pela preferência!',
+  fontSize: 12,
+  boldTotal: true,
+};
+
 // Configuração persistente
 const store = new Store({
   defaults: {
@@ -11,10 +38,11 @@ const store = new Store({
     supabaseKey: '',
     restaurantId: '',
     printerName: '',
-    paperWidth: 48,
     checkInterval: 5,
     autoStart: false,
     minimizeToTray: true,
+    soundNotification: true,
+    layout: defaultLayout,
   }
 });
 
@@ -42,10 +70,10 @@ app.on('second-instance', () => {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 600,
-    minWidth: 400,
-    minHeight: 500,
+    width: 900,
+    height: 700,
+    minWidth: 800,
+    minHeight: 600,
     resizable: true,
     icon: path.join(__dirname, '../assets/icon.png'),
     webPreferences: {
@@ -64,7 +92,6 @@ function createWindow() {
     }
   });
 
-  // Abrir links externos no navegador
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -73,39 +100,19 @@ function createWindow() {
 
 function createTray() {
   const iconPath = path.join(__dirname, '../assets/tray-icon.png');
-  const icon = nativeImage.createFromPath(iconPath);
+  let icon;
   
-  tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  try {
+    icon = nativeImage.createFromPath(iconPath);
+    icon = icon.resize({ width: 16, height: 16 });
+  } catch (e) {
+    // Fallback if icon doesn't exist
+    icon = nativeImage.createEmpty();
+  }
   
-  const contextMenu = Menu.buildFromTemplate([
-    { 
-      label: 'Abrir', 
-      click: () => {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    },
-    { 
-      label: isConnected ? '● Conectado' : '○ Desconectado',
-      enabled: false 
-    },
-    { type: 'separator' },
-    { 
-      label: `Pedidos impressos: ${printedCount}`,
-      enabled: false 
-    },
-    { type: 'separator' },
-    { 
-      label: 'Sair', 
-      click: () => {
-        app.isQuitting = true;
-        app.quit();
-      }
-    }
-  ]);
-
+  tray = new Tray(icon);
+  updateTrayMenu();
   tray.setToolTip('Impressora de Pedidos');
-  tray.setContextMenu(contextMenu);
   
   tray.on('double-click', () => {
     mainWindow.show();
@@ -158,7 +165,6 @@ async function initializeSupabase() {
   try {
     supabase = createClient(url, key);
     
-    // Testar conexão
     const { error } = await supabase.from('orders').select('id').limit(1);
     
     if (error) throw error;
@@ -167,7 +173,6 @@ async function initializeSupabase() {
     sendToRenderer('connection-status', { connected: true, message: 'Conectado' });
     updateTrayMenu();
     
-    // Iniciar monitoramento de pedidos
     startOrderMonitoring();
     
     return true;
@@ -190,7 +195,6 @@ function startOrderMonitoring() {
     await checkPendingOrders();
   }, interval);
 
-  // Verificar imediatamente
   checkPendingOrders();
 }
 
@@ -201,7 +205,6 @@ async function checkPendingOrders() {
   if (!restaurantId) return;
 
   try {
-    // Buscar pedidos pendentes de impressão
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
@@ -230,14 +233,14 @@ async function printOrder(order) {
   try {
     sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)}...`);
     
-    // Imprimir
+    const layout = store.get('layout') || defaultLayout;
+    
     const success = await printerService.printOrder(order, {
-      paperWidth: store.get('paperWidth'),
+      layout,
       printerName: store.get('printerName'),
     });
 
     if (success) {
-      // Atualizar status no banco
       await supabase
         .from('orders')
         .update({ 
@@ -252,19 +255,27 @@ async function printOrder(order) {
       sendToRenderer('print-success', { orderId: order.id });
       sendToRenderer('stats', { printedCount });
       sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} impresso com sucesso`);
+      
+      // Play sound notification
+      if (store.get('soundNotification')) {
+        // Sound will be played by the renderer
+      }
     }
   } catch (error) {
     sendToRenderer('log', `✗ Erro ao imprimir pedido: ${error.message}`);
     
-    // Registrar erro no banco
-    await supabase.from('print_logs').insert({
-      restaurant_id: store.get('restaurantId'),
-      order_id: order.id,
-      event_type: 'print_error',
-      status: 'error',
-      error_message: error.message,
-      printer_name: store.get('printerName') || 'default',
-    });
+    try {
+      await supabase.from('print_logs').insert({
+        restaurant_id: store.get('restaurantId'),
+        order_id: order.id,
+        event_type: 'print_error',
+        status: 'error',
+        error_message: error.message,
+        printer_name: store.get('printerName') || 'default',
+      });
+    } catch (logError) {
+      console.error('Error logging print failure:', logError);
+    }
   }
 }
 
@@ -281,21 +292,28 @@ ipcMain.handle('get-config', () => {
     supabaseKey: store.get('supabaseKey'),
     restaurantId: store.get('restaurantId'),
     printerName: store.get('printerName'),
-    paperWidth: store.get('paperWidth'),
     checkInterval: store.get('checkInterval'),
     autoStart: store.get('autoStart'),
     minimizeToTray: store.get('minimizeToTray'),
+    soundNotification: store.get('soundNotification'),
+    layout: store.get('layout') || defaultLayout,
   };
 });
 
 ipcMain.handle('save-config', async (event, config) => {
   Object.keys(config).forEach(key => {
-    store.set(key, config[key]);
+    if (key !== 'layout') {
+      store.set(key, config[key]);
+    }
   });
   
-  // Reiniciar conexão
   await initializeSupabase();
   
+  return { success: true };
+});
+
+ipcMain.handle('save-layout', async (event, layout) => {
+  store.set('layout', layout);
   return { success: true };
 });
 
@@ -305,8 +323,21 @@ ipcMain.handle('get-printers', async () => {
 
 ipcMain.handle('test-print', async () => {
   try {
+    const layout = store.get('layout') || defaultLayout;
     await printerService.printTest({
-      paperWidth: store.get('paperWidth'),
+      layout,
+      printerName: store.get('printerName'),
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('test-print-layout', async (event, layout) => {
+  try {
+    await printerService.printTestWithLayout({
+      layout,
       printerName: store.get('printerName'),
     });
     return { success: true };
@@ -342,7 +373,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    // No Windows/Linux, minimizar para tray em vez de fechar
     if (!store.get('minimizeToTray')) {
       app.quit();
     }
