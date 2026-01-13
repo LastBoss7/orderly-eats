@@ -8,6 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
+import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
+import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import {
   DndContext,
   DragEndEvent,
@@ -36,6 +38,13 @@ import {
   Bell,
   GripVertical,
 } from 'lucide-react';
+
+interface PrepTimeSettings {
+  counter_min: number;
+  counter_max: number;
+  delivery_min: number;
+  delivery_max: number;
+}
 
 interface Order {
   id: string;
@@ -70,7 +79,14 @@ export default function Dashboard() {
   const [autoAccept, setAutoAccept] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
-  
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [showPrepTimeModal, setShowPrepTimeModal] = useState(false);
+  const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
+    counter_min: 10,
+    counter_max: 50,
+    delivery_min: 25,
+    delivery_max: 80,
+  });
   // Order notifications hook
   const { 
     notifications, 
@@ -87,6 +103,20 @@ export default function Dashboard() {
       },
     })
   );
+
+  // Load prep times from localStorage
+  useEffect(() => {
+    if (restaurant?.id) {
+      const saved = localStorage.getItem(`prep_times_${restaurant.id}`);
+      if (saved) {
+        try {
+          setPrepTimes(JSON.parse(saved));
+        } catch (e) {
+          console.error('Error loading prep times:', e);
+        }
+      }
+    }
+  }, [restaurant?.id]);
 
   useEffect(() => {
     fetchOrders();
@@ -441,7 +471,7 @@ export default function Dashboard() {
             </div>
 
             {/* Actions */}
-            <Button className="top-action-btn">
+            <Button className="top-action-btn" onClick={() => setShowNewOrderModal(true)}>
               <Plus className="w-4 h-4" />
               Novo pedido
             </Button>
@@ -500,8 +530,16 @@ export default function Dashboard() {
                 {/* Auto accept toggle */}
                 <div className="p-4 bg-white border-b">
                   <div className="text-sm space-y-1">
-                    <p><strong>Balcão:</strong> 10 a 50 min <span className="text-primary cursor-pointer">Editar</span></p>
-                    <p><strong>Delivery:</strong> 25 a 80 min</p>
+                    <p>
+                      <strong>Balcão:</strong> {prepTimes.counter_min} a {prepTimes.counter_max} min{' '}
+                      <span 
+                        className="text-primary cursor-pointer hover:underline"
+                        onClick={() => setShowPrepTimeModal(true)}
+                      >
+                        Editar
+                      </span>
+                    </p>
+                    <p><strong>Delivery:</strong> {prepTimes.delivery_min} a {prepTimes.delivery_max} min</p>
                   </div>
                   <div className="flex items-center gap-2 mt-3">
                     <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
@@ -591,6 +629,21 @@ export default function Dashboard() {
             {activeOrder ? <OrderCardOverlay order={activeOrder} /> : null}
           </DragOverlay>
         </DndContext>
+
+        {/* New Order Modal */}
+        <NewOrderModal
+          open={showNewOrderModal}
+          onOpenChange={setShowNewOrderModal}
+          onOrderCreated={fetchOrders}
+        />
+
+        {/* Edit Prep Time Modal */}
+        <EditPrepTimeModal
+          open={showPrepTimeModal}
+          onOpenChange={setShowPrepTimeModal}
+          initialValues={prepTimes}
+          onSave={setPrepTimes}
+        />
       </div>
     </DashboardLayout>
   );
