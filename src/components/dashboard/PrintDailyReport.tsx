@@ -1,5 +1,17 @@
 import { supabase } from '@/integrations/supabase/client';
 
+interface ReceiptSettings {
+  receiptHeader: string | null;
+  receiptFooter: string | null;
+  showAddress: boolean;
+  showPhone: boolean;
+  showCnpj: boolean;
+  logoUrl: string | null;
+  address: string | null;
+  phone: string | null;
+  cnpj: string | null;
+}
+
 interface DailyReportData {
   restaurantName: string;
   date: string;
@@ -19,6 +31,7 @@ interface DailyReportData {
     total: number;
   }[];
   cancelledOrders: number;
+  receiptSettings?: ReceiptSettings;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -51,6 +64,31 @@ export async function fetchDailyReportData(
     .eq('restaurant_id', restaurantId)
     .gte('created_at', startOfDay.toISOString())
     .lte('created_at', new Date().toISOString());
+
+  // Fetch receipt settings
+  const { data: salonSettings } = await supabase
+    .from('salon_settings')
+    .select('receipt_header, receipt_footer, show_address_on_receipt, show_phone_on_receipt, show_cnpj_on_receipt')
+    .eq('restaurant_id', restaurantId)
+    .single();
+
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('logo_url, address, phone, cnpj')
+    .eq('id', restaurantId)
+    .single();
+
+  const receiptSettings: ReceiptSettings = {
+    receiptHeader: salonSettings?.receipt_header || null,
+    receiptFooter: salonSettings?.receipt_footer || null,
+    showAddress: salonSettings?.show_address_on_receipt ?? true,
+    showPhone: salonSettings?.show_phone_on_receipt ?? true,
+    showCnpj: salonSettings?.show_cnpj_on_receipt ?? true,
+    logoUrl: restaurant?.logo_url || null,
+    address: restaurant?.address || null,
+    phone: restaurant?.phone || null,
+    cnpj: restaurant?.cnpj || null,
+  };
 
   const allOrders = orders || [];
   const closedOrders = allOrders.filter(o => o.status !== 'cancelled' && o.status !== 'pending');
@@ -105,6 +143,7 @@ export async function fetchDailyReportData(
     paymentBreakdown,
     orderTypeBreakdown,
     cancelledOrders: cancelledOrders.length,
+    receiptSettings,
   };
 }
 
@@ -113,9 +152,32 @@ export function printDailyReport(data: DailyReportData) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const settings = data.receiptSettings;
+
+  const logoHtml = settings?.logoUrl 
+    ? `<img src="${settings.logoUrl}" alt="Logo" class="logo" />`
+    : '';
+
+  const headerHtml = settings?.receiptHeader 
+    ? `<div class="custom-header">${settings.receiptHeader}</div>`
+    : '';
+
+  const restaurantInfoHtml = `
+    ${settings?.showAddress && settings?.address ? `<div class="info-text">${settings.address}</div>` : ''}
+    ${settings?.showPhone && settings?.phone ? `<div class="info-text">Tel: ${settings.phone}</div>` : ''}
+    ${settings?.showCnpj && settings?.cnpj ? `<div class="info-text">CNPJ: ${settings.cnpj}</div>` : ''}
+  `;
+
+  const footerHtml = settings?.receiptFooter 
+    ? `<div class="custom-footer">${settings.receiptFooter}</div>`
+    : '';
+
   const printContent = `
     <div class="header">
+      ${logoHtml}
       <div class="restaurant-name">${data.restaurantName}</div>
+      ${headerHtml}
+      ${restaurantInfoHtml}
       <div class="report-title">RELATÓRIO DE FECHAMENTO</div>
       <div class="date">${data.date}</div>
     </div>
@@ -173,6 +235,7 @@ export function printDailyReport(data: DailyReportData) {
     </div>
 
     <div class="footer">
+      ${footerHtml}
       <p>Relatório gerado automaticamente</p>
       <p>${new Date().toLocaleString('pt-BR')}</p>
     </div>
@@ -209,12 +272,28 @@ export function printDailyReport(data: DailyReportData) {
             padding-bottom: 12px;
             margin-bottom: 12px;
           }
+          .logo {
+            max-width: 120px;
+            max-height: 60px;
+            margin: 0 auto 10px;
+            display: block;
+          }
           .restaurant-name {
             font-size: 20px;
             font-weight: 900;
             margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
+          }
+          .custom-header {
+            font-size: 12px;
+            margin-bottom: 6px;
+            white-space: pre-line;
+          }
+          .info-text {
+            font-size: 11px;
+            color: #333;
+            margin: 2px 0;
           }
           .report-title {
             font-size: 16px;
@@ -229,6 +308,12 @@ export function printDailyReport(data: DailyReportData) {
             font-size: 14px;
             font-weight: 700;
             margin-top: 8px;
+          }
+          .custom-footer {
+            font-size: 12px;
+            margin-bottom: 8px;
+            white-space: pre-line;
+            font-style: italic;
           }
           .section {
             border-bottom: 2px dashed #000;
