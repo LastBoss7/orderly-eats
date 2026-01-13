@@ -48,7 +48,8 @@ import {
   RefreshCw,
   DollarSign,
   Pencil,
-  Trash2
+  Trash2,
+  Bike
 } from 'lucide-react';
 
 interface Customer {
@@ -88,7 +89,16 @@ interface Order {
   delivery_address: string | null;
   delivery_phone: string | null;
   notes: string | null;
+  driver_id: string | null;
   order_items?: { product_name: string; quantity: number; product_price: number }[];
+}
+
+interface DeliveryDriver {
+  id: string;
+  name: string;
+  phone: string | null;
+  vehicle_type: string | null;
+  status: string | null;
 }
 
 interface DeliveryFee {
@@ -109,6 +119,7 @@ export default function Deliveries() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
+  const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewOrderDialog, setShowNewOrderDialog] = useState(false);
   const [showFeeDialog, setShowFeeDialog] = useState(false);
@@ -162,7 +173,7 @@ export default function Deliveries() {
     if (!restaurant?.id) return;
 
     try {
-      const [ordersRes, customersRes, productsRes, feesRes] = await Promise.all([
+      const [ordersRes, customersRes, productsRes, feesRes, driversRes] = await Promise.all([
         supabase
           .from('orders')
           .select('*, order_items(product_name, quantity, product_price)')
@@ -171,12 +182,14 @@ export default function Deliveries() {
         supabase.from('customers').select('*').order('name'),
         supabase.from('products').select('*').eq('is_available', true).order('name'),
         supabase.from('delivery_fees').select('*').order('neighborhood'),
+        supabase.from('delivery_drivers').select('*').eq('status', 'active').order('name'),
       ]);
 
       setOrders(ordersRes.data || []);
       setCustomers(customersRes.data || []);
       setProducts(productsRes.data || []);
       setDeliveryFees(feesRes.data || []);
+      setDrivers(driversRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -555,6 +568,35 @@ export default function Deliveries() {
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao atualizar', description: error.message });
     }
+  };
+
+  const assignDriver = async (orderId: string, driverId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ driver_id: driverId || null })
+        .eq('id', orderId);
+
+      if (error) throw error;
+      
+      const driverName = driverId 
+        ? drivers.find(d => d.id === driverId)?.name 
+        : null;
+      
+      toast({ 
+        title: driverName 
+          ? `Motoboy ${driverName} atribuído` 
+          : 'Motoboy removido do pedido' 
+      });
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao atribuir motoboy', description: error.message });
+    }
+  };
+
+  const getDriverName = (driverId: string | null) => {
+    if (!driverId) return null;
+    return drivers.find(d => d.id === driverId)?.name || null;
   };
 
   const getStatusLabel = (status: string | null) => {
@@ -977,6 +1019,15 @@ export default function Deliveries() {
                               Taxa de entrega: {formatCurrency(order.delivery_fee)}
                             </div>
                           )}
+                          {/* Driver info */}
+                          {order.driver_id && getDriverName(order.driver_id) && (
+                            <div className="flex items-center gap-2 text-sm pt-1">
+                              <Bike className="w-4 h-4 text-primary" />
+                              <span className="font-medium text-primary">
+                                {getDriverName(order.driver_id)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <span className="text-lg font-bold">
@@ -996,6 +1047,33 @@ export default function Deliveries() {
                               <SelectItem value="delivering">Em entrega</SelectItem>
                               <SelectItem value="delivered">Entregue</SelectItem>
                               <SelectItem value="cancelled">Cancelado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {/* Driver selector */}
+                          <Select 
+                            value={order.driver_id || 'none'} 
+                            onValueChange={(value) => assignDriver(order.id, value === 'none' ? null : value)}
+                          >
+                            <SelectTrigger className="w-36">
+                              <div className="flex items-center gap-2">
+                                <Bike className="w-4 h-4" />
+                                <span className="truncate">
+                                  {order.driver_id ? getDriverName(order.driver_id) || 'Motoboy' : 'Motoboy'}
+                                </span>
+                              </div>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">
+                                <span className="text-muted-foreground">Sem motoboy</span>
+                              </SelectItem>
+                              {drivers.map(driver => (
+                                <SelectItem key={driver.id} value={driver.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Bike className="w-4 h-4" />
+                                    {driver.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <div className="flex gap-2">

@@ -253,6 +253,7 @@ export type Database = {
           delivery_address: string | null
           delivery_fee: number | null
           delivery_phone: string | null
+          driver_id: string | null
           id: string
           notes: string | null
           order_number: number | null
@@ -282,6 +283,7 @@ export type Database = {
           delivery_address?: string | null
           delivery_fee?: number | null
           delivery_phone?: string | null
+          driver_id?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
@@ -311,6 +313,7 @@ export type Database = {
           delivery_address?: string | null
           delivery_fee?: number | null
           delivery_phone?: string | null
+          driver_id?: string | null
           id?: string
           notes?: string | null
           order_number?: number | null
@@ -335,6 +338,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_drivers"
             referencedColumns: ["id"]
           },
           {
