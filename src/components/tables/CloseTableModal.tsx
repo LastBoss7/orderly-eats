@@ -335,103 +335,182 @@ export function CloseTableModal({
     }
   };
 
+  // If no orders, show empty state
+  if (orders.length === 0) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Receipt className="w-5 h-5 text-primary" />
+              Mesa {table?.number}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-8 text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+              <Receipt className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Nenhum pedido em aberto</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Esta mesa não possui pedidos para fechar.
+              </p>
+            </div>
+            <Button onClick={onClose} className="mt-4">
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Receipt className="w-5 h-5" />
-            Fechar Mesa {table?.number}
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
+          <DialogTitle className="flex items-center gap-3 text-xl">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Receipt className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <span className="block">Fechar Mesa {table?.number}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {orders.length} pedido{orders.length > 1 ? 's' : ''} • {allItems.length} {allItems.length === 1 ? 'item' : 'itens'}
+              </span>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6">
+        <ScrollArea className="flex-1 px-6">
+          <div className="space-y-6 py-4">
+            {/* Grand Total Card */}
+            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-5 border border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total da Mesa</p>
+                  <p className="text-3xl font-bold text-foreground tracking-tight">
+                    {formatCurrency(grandTotal)}
+                  </p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
+                  <Calculator className="w-7 h-7 text-primary" />
+                </div>
+              </div>
+            </div>
+
             {/* Orders Summary */}
-            <div className="bg-muted/50 rounded-lg p-4">
-              <h3 className="font-semibold mb-3">Resumo dos Pedidos</h3>
-              <div className="space-y-2 text-sm">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Resumo dos Pedidos
+              </h3>
+              <div className="bg-card rounded-xl border divide-y">
                 {orders.map((order, idx) => (
-                  <div key={order.id} className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Pedido #{idx + 1} ({formatDateTime(order.created_at)})
-                    </span>
-                    <span className="font-medium">{formatCurrency(order.total)}</span>
+                  <div key={order.id} className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-foreground">
+                        Pedido #{idx + 1}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {formatDateTime(order.created_at)}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {order.order_items?.map(item => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {item.quantity}x {item.product_name}
+                          </span>
+                          <span className="font-medium">
+                            {formatCurrency(item.product_price * item.quantity)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between mt-3 pt-2 border-t">
+                      <span className="font-medium">Subtotal</span>
+                      <span className="font-semibold">{formatCurrency(order.total)}</span>
+                    </div>
                   </div>
                 ))}
-              </div>
-              <Separator className="my-3" />
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total Geral</span>
-                <span>{formatCurrency(grandTotal)}</span>
               </div>
             </div>
 
             {/* Split Mode Selection */}
             <div className="space-y-3">
-              <Label className="font-semibold">Modo de Pagamento</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Modo de Divisão
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <button
                   type="button"
-                  variant={splitMode === 'none' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    splitMode === 'none' 
+                      ? 'border-primary bg-primary/5 text-primary' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
                   onClick={() => setSplitMode('none')}
                 >
-                  <Calculator className="w-5 h-5" />
-                  <span className="text-xs">Conta Única</span>
-                </Button>
-                <Button
+                  <Calculator className="w-6 h-6" />
+                  <span className="text-sm font-medium">Conta Única</span>
+                </button>
+                <button
                   type="button"
-                  variant={splitMode === 'equal' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    splitMode === 'equal' 
+                      ? 'border-primary bg-primary/5 text-primary' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
                   onClick={() => setSplitMode('equal')}
                 >
-                  <Users className="w-5 h-5" />
-                  <span className="text-xs">Dividir Igual</span>
-                </Button>
-                <Button
+                  <Users className="w-6 h-6" />
+                  <span className="text-sm font-medium">Dividir Igual</span>
+                </button>
+                <button
                   type="button"
-                  variant={splitMode === 'by-item' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    splitMode === 'by-item' 
+                      ? 'border-primary bg-primary/5 text-primary' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  }`}
                   onClick={() => setSplitMode('by-item')}
                 >
-                  <Divide className="w-5 h-5" />
-                  <span className="text-xs">Por Item</span>
-                </Button>
+                  <Divide className="w-6 h-6" />
+                  <span className="text-sm font-medium">Por Item</span>
+                </button>
               </div>
             </div>
 
             {/* Equal Split Options */}
             {splitMode === 'equal' && (
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 space-y-3">
-                <Label>Número de Pessoas</Label>
-                <div className="flex items-center gap-3">
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-5 space-y-4 border border-blue-200 dark:border-blue-800">
+                <Label className="text-sm font-medium">Número de Pessoas</Label>
+                <div className="flex items-center justify-center gap-4">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
+                    className="h-12 w-12 rounded-xl"
                     onClick={() => setNumPeople(Math.max(2, numPeople - 1))}
                   >
                     -
                   </Button>
-                  <Input
-                    type="number"
-                    value={numPeople}
-                    onChange={(e) => setNumPeople(Math.max(2, parseInt(e.target.value) || 2))}
-                    className="w-20 text-center"
-                  />
+                  <div className="w-20 text-center">
+                    <span className="text-4xl font-bold">{numPeople}</span>
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
+                    className="h-12 w-12 rounded-xl"
                     onClick={() => setNumPeople(numPeople + 1)}
                   >
                     +
                   </Button>
                 </div>
-                <div className="text-center py-3 bg-white dark:bg-gray-800 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Valor por pessoa</p>
-                  <p className="text-2xl font-bold text-primary">
+                <div className="text-center py-4 bg-white dark:bg-gray-800 rounded-xl">
+                  <p className="text-sm text-muted-foreground mb-1">Valor por pessoa</p>
+                  <p className="text-3xl font-bold text-primary">
                     {formatCurrency(perPersonAmount)}
                   </p>
                 </div>
@@ -441,8 +520,10 @@ export function CloseTableModal({
             {/* Item Selection */}
             {splitMode === 'by-item' && (
               <div className="space-y-3">
-                <Label className="font-semibold">Selecione os Itens para Pagamento</Label>
-                <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Selecione os Itens
+                </Label>
+                <div className="border rounded-xl divide-y max-h-56 overflow-y-auto">
                   {allItems.map((item) => {
                     const isSelected = selectedItems.some(si => si.itemId === item.id);
                     const selectedItem = selectedItems.find(si => si.itemId === item.id);
@@ -450,22 +531,23 @@ export function CloseTableModal({
                     return (
                       <div
                         key={item.id}
-                        className={`flex items-center gap-3 p-3 transition-colors ${
+                        className={`flex items-center gap-3 p-4 transition-colors cursor-pointer hover:bg-muted/50 ${
                           isSelected ? 'bg-primary/5' : ''
                         }`}
+                        onClick={() => toggleItemSelection(item)}
                       >
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleItemSelection(item)}
                         />
-                        <div className="flex-1">
-                          <p className="font-medium">{item.product_name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.product_name}</p>
                           <p className="text-sm text-muted-foreground">
                             {formatCurrency(item.product_price)} cada
                           </p>
                         </div>
                         {isSelected && selectedItem && (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                             <Button
                               type="button"
                               variant="outline"
@@ -475,7 +557,7 @@ export function CloseTableModal({
                             >
                               -
                             </Button>
-                            <span className="w-8 text-center">{selectedItem.quantity}</span>
+                            <span className="w-8 text-center font-medium">{selectedItem.quantity}</span>
                             <Button
                               type="button"
                               variant="outline"
@@ -488,7 +570,7 @@ export function CloseTableModal({
                           </div>
                         )}
                         {!isSelected && (
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm font-medium text-muted-foreground">
                             {item.quantity}x
                           </span>
                         )}
@@ -497,8 +579,9 @@ export function CloseTableModal({
                   })}
                 </div>
                 {selectedItems.length > 0 && (
-                  <div className="text-right font-semibold">
-                    Subtotal Selecionado: {formatCurrency(selectedTotal)}
+                  <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl border border-primary/20">
+                    <span className="font-medium">Subtotal Selecionado</span>
+                    <span className="text-xl font-bold text-primary">{formatCurrency(selectedTotal)}</span>
                   </div>
                 )}
               </div>
@@ -506,71 +589,49 @@ export function CloseTableModal({
 
             {/* Payment Method */}
             <div className="space-y-3">
-              <Label className="font-semibold">Forma de Pagamento</Label>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Forma de Pagamento
+              </h3>
               <div className="grid grid-cols-5 gap-2">
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
-                  onClick={() => setPaymentMethod('cash')}
-                >
-                  <Banknote className="w-5 h-5" />
-                  <span className="text-xs">Dinheiro</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'credit' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
-                  onClick={() => setPaymentMethod('credit')}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span className="text-xs">Crédito</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'debit' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
-                  onClick={() => setPaymentMethod('debit')}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span className="text-xs">Débito</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'pix' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
-                  onClick={() => setPaymentMethod('pix')}
-                >
-                  <QrCode className="w-5 h-5" />
-                  <span className="text-xs">PIX</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant={paymentMethod === 'mixed' ? 'default' : 'outline'}
-                  className="h-auto py-3 flex flex-col gap-1"
-                  onClick={() => setPaymentMethod('mixed')}
-                >
-                  <Calculator className="w-5 h-5" />
-                  <span className="text-xs">Múltiplos</span>
-                </Button>
+                {[
+                  { key: 'cash', icon: Banknote, label: 'Dinheiro' },
+                  { key: 'credit', icon: CreditCard, label: 'Crédito' },
+                  { key: 'debit', icon: CreditCard, label: 'Débito' },
+                  { key: 'pix', icon: QrCode, label: 'PIX' },
+                  { key: 'mixed', icon: Calculator, label: 'Múltiplos' },
+                ].map(({ key, icon: Icon, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                      paymentMethod === key 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                    }`}
+                    onClick={() => setPaymentMethod(key as PaymentMethod)}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Cash Change Calculator */}
             {paymentMethod === 'cash' && (
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 space-y-3">
-                <Label>Valor Recebido</Label>
+              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-5 space-y-4 border border-green-200 dark:border-green-800">
+                <Label className="text-sm font-medium">Valor Recebido</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
                   value={cashReceived || ''}
                   onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                  className="text-lg"
+                  className="text-xl h-14 font-semibold"
                 />
                 {cashReceived > 0 && (
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-muted-foreground">Troco:</span>
-                    <span className={`text-xl font-bold ${change >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  <div className="flex justify-between items-center py-3 px-4 bg-white dark:bg-gray-800 rounded-xl">
+                    <span className="text-muted-foreground font-medium">Troco:</span>
+                    <span className={`text-2xl font-bold ${change >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {formatCurrency(change)}
                     </span>
                   </div>
@@ -581,11 +642,11 @@ export function CloseTableModal({
         </ScrollArea>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t mt-4">
+        <div className="flex gap-3 p-6 border-t bg-muted/30">
           <Button
             type="button"
             variant="outline"
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 h-12"
             onClick={handlePrintReceipt}
             disabled={printingReceipt}
           >
@@ -598,7 +659,7 @@ export function CloseTableModal({
           </Button>
           <Button
             type="button"
-            className="flex-1 gap-2"
+            className="flex-1 gap-2 h-12 text-base font-semibold"
             onClick={handleCloseTable}
             disabled={loading || (splitMode === 'by-item' && selectedItems.length === 0)}
           >

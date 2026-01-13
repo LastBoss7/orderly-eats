@@ -1,13 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Restaurant POS Design System - Anota AI Style */
+/* Restaurant POS Design System - Modern Clean Style */
 
 @layer base {
   :root {
-    /* Base colors - Clean white background */
-    --background: 210 20% 98%;
+    /* Base colors - Modern warm white */
+    --background: 40 20% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -16,11 +18,11 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary - Bright blue like Anota AI */
-    --primary: 207 90% 54%;
+    /* Primary - Vibrant blue */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Light gray */
+    /* Secondary - Warm gray */
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
 
@@ -28,45 +30,45 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    /* Accent */
-    --accent: 220 14% 96%;
-    --accent-foreground: 222 47% 11%;
+    /* Accent - Soft indigo */
+    --accent: 243 75% 59%;
+    --accent-foreground: 0 0% 100%;
 
-    /* Status colors - Anota AI style */
-    --success: 142 76% 36%;
+    /* Status colors */
+    --success: 152 69% 41%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 25 95% 53%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     /* Kanban column colors */
-    --column-analysis: 25 95% 53%;
+    --column-analysis: 38 92% 50%;
     --column-production: 0 72% 51%;
-    --column-ready: 220 14% 96%;
+    --column-ready: 152 69% 41%;
 
     /* Table status colors */
-    --table-available: 142 76% 36%;
-    --table-occupied: 0 84% 60%;
+    --table-available: 152 69% 41%;
+    --table-occupied: 0 72% 51%;
     --table-closing: 38 92% 50%;
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 207 90% 54%;
+    --ring: 221 83% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    /* Sidebar - Dark blue like Anota AI */
-    --sidebar-background: 210 29% 24%;
+    /* Sidebar - Deep navy */
+    --sidebar-background: 222 47% 11%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 207 90% 54%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 29% 30%;
+    --sidebar-accent: 217 33% 17%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 210 29% 30%;
-    --sidebar-ring: 207 90% 54%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 221 83% 53%;
   }
 
   .dark {
@@ -79,7 +81,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 207 90% 54%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 17%;
@@ -88,38 +90,38 @@
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 263 70% 58%;
+    --accent-foreground: 0 0% 100%;
 
-    --success: 142 76% 36%;
+    --success: 152 69% 41%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 25 95% 53%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 50%;
     --destructive-foreground: 210 40% 98%;
 
-    --column-analysis: 25 95% 53%;
-    --column-production: 0 72% 51%;
-    --column-ready: 217 33% 17%;
+    --column-analysis: 38 92% 50%;
+    --column-production: 0 62% 50%;
+    --column-ready: 152 69% 41%;
 
-    --table-available: 142 76% 36%;
-    --table-occupied: 0 72% 51%;
+    --table-available: 152 69% 41%;
+    --table-occupied: 0 62% 50%;
     --table-closing: 38 92% 50%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 207 90% 54%;
+    --ring: 217 91% 60%;
 
-    --sidebar-background: 222 47% 6%;
+    --sidebar-background: 222 47% 4%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 207 90% 54%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 12%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 12%;
-    --sidebar-ring: 207 90% 54%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -128,15 +130,26 @@
     @apply border-border;
   }
 
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    letter-spacing: -0.011em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
   }
 
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
@@ -144,31 +157,33 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
   }
 }
 
 @layer components {
   /* Kanban Column Header */
   .kanban-header {
-    @apply px-4 py-3 rounded-t-lg font-semibold text-white flex items-center justify-between;
+    @apply px-5 py-4 rounded-t-2xl font-semibold text-white flex items-center justify-between;
   }
 
   .kanban-header.analysis {
-    background: hsl(var(--column-analysis));
+    background: linear-gradient(135deg, hsl(var(--column-analysis)), hsl(var(--column-analysis) / 0.85));
   }
 
   .kanban-header.production {
-    background: hsl(var(--column-production));
+    background: linear-gradient(135deg, hsl(var(--column-production)), hsl(var(--column-production) / 0.85));
   }
 
   .kanban-header.ready {
-    @apply bg-muted text-foreground;
+    background: linear-gradient(135deg, hsl(var(--column-ready)), hsl(var(--column-ready) / 0.85));
+    @apply text-white;
   }
 
   /* Order Card */
   .order-card {
-    @apply bg-white rounded-lg border shadow-sm p-4 space-y-3 transition-all hover:shadow-md;
+    @apply bg-card rounded-2xl border shadow-sm p-5 space-y-4 transition-all duration-300;
+    @apply hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5;
   }
 
   .order-card-header {
@@ -176,92 +191,98 @@
   }
 
   .order-number {
-    @apply flex items-center gap-2 font-semibold text-foreground;
+    @apply flex items-center gap-2 font-bold text-foreground text-lg;
   }
 
   .order-time {
-    @apply text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full flex items-center gap-1;
+    @apply text-xs font-medium text-muted-foreground bg-muted px-3 py-1.5 rounded-full flex items-center gap-1.5;
   }
 
   .order-status-bar {
-    @apply py-1.5 px-3 rounded text-xs font-medium text-center text-white;
+    @apply py-2 px-4 rounded-xl text-xs font-semibold text-center text-white uppercase tracking-wide;
   }
 
   .order-status-bar.delayed {
-    background: hsl(var(--column-production));
+    background: linear-gradient(135deg, hsl(var(--column-production)), hsl(var(--column-production) / 0.8));
   }
 
   .order-status-bar.preparing {
-    background: hsl(var(--column-analysis));
+    background: linear-gradient(135deg, hsl(var(--column-analysis)), hsl(var(--column-analysis) / 0.8));
   }
 
   .order-status-bar.ready {
-    @apply bg-success;
+    @apply bg-gradient-to-r from-success to-success/80;
   }
 
   /* Menu Item Style */
   .sidebar-menu-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 transition-all;
-    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground;
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/70 transition-all duration-200;
+    @apply hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-1;
   }
 
   .sidebar-menu-item.active {
-    @apply bg-sidebar-primary text-sidebar-primary-foreground font-medium;
+    @apply bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-lg shadow-primary/20;
   }
 
   .sidebar-menu-badge {
-    @apply ml-auto bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center;
+    @apply ml-auto bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-full min-w-[24px] text-center;
   }
 
   .sidebar-menu-badge.animated {
-    @apply animate-pulse;
     animation: badge-pulse 1.5s ease-in-out infinite;
   }
 
   @keyframes badge-pulse {
     0%, 100% {
       transform: scale(1);
-      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7);
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5);
     }
     50% {
       transform: scale(1.1);
-      box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+      box-shadow: 0 0 0 10px hsl(var(--primary) / 0);
     }
   }
 
   /* POS Product Grid Item */
   .pos-product-card {
-    @apply relative flex flex-col items-center justify-center p-4 bg-card rounded-xl border-2 border-transparent cursor-pointer transition-all duration-200;
-    @apply hover:border-primary hover:shadow-lg hover:scale-[1.02];
-    @apply active:scale-[0.98];
+    @apply relative flex flex-col items-center justify-center p-5 bg-card rounded-2xl border-2 border-transparent cursor-pointer transition-all duration-300;
+    @apply hover:border-primary hover:shadow-xl hover:shadow-primary/10 hover:scale-[1.03];
+    @apply active:scale-[0.97];
   }
 
   .pos-product-card.selected {
-    @apply border-primary bg-primary/5 ring-2 ring-primary/20;
+    @apply border-primary bg-primary/5 ring-4 ring-primary/20 shadow-lg shadow-primary/20;
   }
 
   /* Table Card Variants */
   .table-card {
-    @apply relative flex flex-col items-center justify-center p-6 rounded-2xl cursor-pointer transition-all duration-300;
-    @apply hover:scale-105 hover:shadow-xl;
+    @apply relative flex flex-col items-center justify-center p-8 rounded-3xl cursor-pointer transition-all duration-300;
+    @apply hover:scale-105 hover:shadow-2xl;
     @apply active:scale-95;
+    min-height: 140px;
   }
 
   .table-card.available {
-    @apply bg-gradient-to-br from-success/90 to-success text-success-foreground shadow-success/25 shadow-lg;
+    @apply text-white shadow-xl;
+    background: linear-gradient(145deg, hsl(var(--table-available)), hsl(152 69% 35%));
+    box-shadow: 0 10px 40px -10px hsl(var(--table-available) / 0.5);
   }
 
   .table-card.occupied {
-    @apply bg-gradient-to-br from-destructive/90 to-destructive text-destructive-foreground shadow-destructive/25 shadow-lg;
+    @apply text-white shadow-xl;
+    background: linear-gradient(145deg, hsl(var(--table-occupied)), hsl(0 72% 45%));
+    box-shadow: 0 10px 40px -10px hsl(var(--table-occupied) / 0.5);
   }
 
   .table-card.closing {
-    @apply bg-gradient-to-br from-warning/90 to-warning text-warning-foreground shadow-warning/25 shadow-lg;
+    @apply text-white shadow-xl;
+    background: linear-gradient(145deg, hsl(var(--table-closing)), hsl(38 92% 44%));
+    box-shadow: 0 10px 40px -10px hsl(var(--table-closing) / 0.5);
   }
 
   /* Order Status Badges */
   .status-badge {
-    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide;
   }
 
   .status-badge.pending {
@@ -269,42 +290,52 @@
   }
 
   .status-badge.preparing {
-    @apply bg-warning/15 text-warning;
+    @apply bg-warning/15 text-warning border border-warning/30;
   }
 
   .status-badge.ready {
-    @apply bg-success/15 text-success;
+    @apply bg-success/15 text-success border border-success/30;
   }
 
   .status-badge.delivered {
-    @apply bg-primary/15 text-primary;
+    @apply bg-primary/15 text-primary border border-primary/30;
+  }
+
+  .status-badge.cancelled {
+    @apply bg-destructive/15 text-destructive border border-destructive/30;
   }
 
   /* Stats Card */
   .stats-card {
-    @apply relative overflow-hidden bg-card rounded-xl p-5 border shadow-sm;
-    @apply transition-all duration-300 hover:shadow-md;
+    @apply relative overflow-hidden bg-card rounded-2xl p-6 border shadow-sm;
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+
+  .stats-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none;
   }
 
   /* Top action bar button */
   .top-action-btn {
-    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all;
-    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+    @apply inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-200;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20;
+    @apply hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5;
   }
 
   /* Filter tabs */
   .filter-tab {
-    @apply px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer;
-    @apply text-muted-foreground hover:bg-muted;
+    @apply px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer;
+    @apply text-muted-foreground hover:bg-muted hover:text-foreground;
   }
 
   .filter-tab.active {
-    @apply bg-primary text-primary-foreground;
+    @apply bg-primary text-primary-foreground shadow-lg shadow-primary/25;
   }
 
   /* NFC Badge */
   .nfc-badge {
-    @apply inline-flex items-center justify-center px-2 py-1 bg-slate-800 text-white text-xs font-bold rounded;
+    @apply inline-flex items-center justify-center px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg;
   }
 
   /* KDS Card styles */
@@ -313,7 +344,39 @@
   }
 
   .kds-card:hover {
-    @apply scale-[1.02];
+    @apply scale-[1.02] shadow-xl;
+  }
+
+  /* Page container */
+  .page-container {
+    @apply p-6 md:p-8 max-w-7xl mx-auto space-y-6;
+  }
+
+  /* Page header */
+  .page-header {
+    @apply flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8;
+  }
+
+  .page-title {
+    @apply text-3xl font-bold tracking-tight text-foreground;
+  }
+
+  .page-description {
+    @apply text-muted-foreground text-base;
+  }
+
+  /* Modern input styling */
+  .input-modern {
+    @apply h-12 px-4 rounded-xl border-2 border-border bg-background;
+    @apply focus:border-primary focus:ring-4 focus:ring-primary/10;
+    @apply transition-all duration-200;
+  }
+
+  /* Button variants */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-primary to-accent text-white font-semibold;
+    @apply shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30;
+    @apply transition-all duration-200 hover:-translate-y-0.5;
   }
 }
 
@@ -325,17 +388,50 @@
 
   /* Glass effect */
   .glass {
-    @apply bg-background/80 backdrop-blur-xl;
+    @apply bg-background/80 backdrop-blur-xl border border-white/20;
   }
 
   /* Gradient text */
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent;
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
 
   /* Kanban scroll container */
   .kanban-scroll {
     @apply overflow-x-auto pb-4;
     scrollbar-width: thin;
+  }
+
+  /* Shine effect */
+  .shine {
+    @apply relative overflow-hidden;
+  }
+
+  .shine::after {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    transform: translateX(-100%);
+    animation: shine 3s ease-in-out infinite;
+  }
+
+  @keyframes shine {
+    100% { transform: translateX(100%); }
+  }
+
+  /* Smooth shadow */
+  .shadow-smooth {
+    box-shadow: 
+      0 1px 2px hsl(var(--foreground) / 0.02),
+      0 2px 4px hsl(var(--foreground) / 0.02),
+      0 4px 8px hsl(var(--foreground) / 0.02),
+      0 8px 16px hsl(var(--foreground) / 0.02),
+      0 16px 32px hsl(var(--foreground) / 0.02);
   }
 }
