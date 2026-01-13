@@ -53,108 +53,139 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
               margin: 0;
               padding: 0;
               box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             body {
-              font-family: 'Courier New', monospace;
-              font-size: 14px;
-              line-height: 1.5;
-              padding: 10px;
+              font-family: 'Courier New', 'Lucida Console', Monaco, monospace;
+              font-size: 16px;
+              font-weight: bold;
+              line-height: 1.6;
+              padding: 8px;
               max-width: 80mm;
               margin: 0 auto;
+              color: #000 !important;
+              background: #fff !important;
+              -webkit-font-smoothing: none;
+              text-rendering: geometricPrecision;
+            }
+            /* Force all text to be bold and black for thermal printers */
+            p, span, div {
+              color: #000 !important;
+              font-weight: bold !important;
             }
             .header {
               text-align: center;
-              border-bottom: 2px solid #000;
-              padding-bottom: 10px;
-              margin-bottom: 15px;
+              border-bottom: 4px solid #000;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
             }
             .order-type {
-              font-size: 18px;
-              font-weight: bold;
-              background: #000;
-              color: #fff;
-              padding: 5px 15px;
+              font-size: 22px;
+              font-weight: 900 !important;
+              background: #000 !important;
+              color: #fff !important;
+              padding: 8px 20px;
               display: inline-block;
-              margin-bottom: 10px;
+              margin-bottom: 12px;
+              letter-spacing: 2px;
             }
             .order-info {
               display: flex;
               justify-content: space-between;
-              font-size: 16px;
-              font-weight: bold;
+              font-size: 20px;
+              font-weight: 900 !important;
+              align-items: center;
             }
             .order-number {
-              font-size: 24px;
-              font-weight: bold;
+              font-size: 28px;
+              font-weight: 900 !important;
             }
             .customer-name {
-              font-size: 14px;
-              margin-top: 5px;
-              padding: 5px;
-              background: #f0f0f0;
+              font-size: 18px;
+              font-weight: 900 !important;
+              margin-top: 10px;
+              padding: 8px;
+              background: #d0d0d0 !important;
               text-align: center;
+              border: 2px solid #000;
             }
             .items-section {
-              margin: 15px 0;
+              margin: 16px 0;
             }
             .item {
               display: flex;
               align-items: flex-start;
-              padding: 8px 0;
-              border-bottom: 1px dashed #ccc;
+              padding: 10px 0;
+              border-bottom: 2px dashed #000;
             }
             .item:last-child {
               border-bottom: none;
             }
             .item-qty {
-              font-size: 20px;
-              font-weight: bold;
-              min-width: 40px;
+              font-size: 24px;
+              font-weight: 900 !important;
+              min-width: 50px;
               text-align: center;
-              background: #000;
-              color: #fff;
-              padding: 2px 8px;
-              margin-right: 10px;
+              background: #000 !important;
+              color: #fff !important;
+              padding: 4px 10px;
+              margin-right: 12px;
             }
             .item-name {
-              font-size: 16px;
-              font-weight: bold;
+              font-size: 20px;
+              font-weight: 900 !important;
               flex: 1;
             }
+            .item-notes {
+              font-size: 14px;
+              font-weight: bold !important;
+              font-style: italic;
+              margin-top: 4px;
+              padding-left: 62px;
+              color: #333 !important;
+            }
             .notes {
-              background: #fff3cd;
-              border: 2px solid #ffc107;
-              padding: 10px;
-              margin-top: 15px;
+              background: #ffeb3b !important;
+              border: 3px solid #000;
+              padding: 12px;
+              margin-top: 16px;
             }
             .notes-title {
-              font-weight: bold;
-              font-size: 14px;
-              margin-bottom: 5px;
+              font-weight: 900 !important;
+              font-size: 18px;
+              margin-bottom: 8px;
               text-transform: uppercase;
             }
             .notes-content {
-              font-size: 14px;
-              font-weight: bold;
+              font-size: 18px;
+              font-weight: 900 !important;
             }
             .footer {
               text-align: center;
               margin-top: 20px;
-              padding-top: 10px;
-              border-top: 2px solid #000;
-              font-size: 12px;
+              padding-top: 12px;
+              border-top: 4px solid #000;
+              font-size: 16px;
+              font-weight: bold !important;
             }
             .time-stamp {
-              font-size: 16px;
-              font-weight: bold;
+              font-size: 20px;
+              font-weight: 900 !important;
             }
             @media print {
               body {
                 padding: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
               @page {
-                margin: 3mm;
+                margin: 2mm;
                 size: 80mm auto;
+              }
+              /* Extra bold for thermal printers */
+              * {
+                text-shadow: 0 0 0 #000 !important;
               }
             }
           </style>
