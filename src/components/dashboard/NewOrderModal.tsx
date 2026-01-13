@@ -240,7 +240,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         .from('orders')
         .insert({
           restaurant_id: restaurant?.id,
-          customer_name: customerName || `Pedido #${newOrderNumber}`,
+          customer_name: customerName || null,
           delivery_phone: customerPhone || null,
           delivery_address: orderType === 'delivery' ? deliveryAddress : null,
           table_id: orderType === 'table' ? selectedTable : null,
@@ -249,6 +249,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           print_status: autoPrint ? 'pending' : 'disabled',
           total: cartTotal,
           notes: notes || null,
+          order_number: newOrderNumber,
         })
         .select()
         .single();
