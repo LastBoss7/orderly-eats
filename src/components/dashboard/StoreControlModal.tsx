@@ -10,8 +10,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Store, Power, PowerOff, Loader2 } from 'lucide-react';
+import { Store, Power, PowerOff, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchDailyReportData, printDailyReport } from './PrintDailyReport';
 
 interface StoreControlModalProps {
   open: boolean;
@@ -36,6 +37,25 @@ export function StoreControlModal({
     try {
       const newIsOpen = !isOpen;
       
+      // If closing the store, print the daily report first
+      if (!newIsOpen) {
+        // Fetch last_opened_at for the report
+        const { data: settings } = await supabase
+          .from('salon_settings')
+          .select('last_opened_at')
+          .eq('restaurant_id', restaurant.id)
+          .maybeSingle();
+
+        // Fetch and print daily report
+        const reportData = await fetchDailyReportData(
+          restaurant.id,
+          restaurant.name,
+          settings?.last_opened_at || null
+        );
+        
+        printDailyReport(reportData);
+      }
+      
       // If opening the store, reset the daily order counter
       const updateData: { is_open: boolean; last_opened_at?: string; daily_order_counter?: number } = {
         is_open: newIsOpen,
@@ -54,10 +74,41 @@ export function StoreControlModal({
       if (error) throw error;
 
       onStoreStatusChange(newIsOpen);
-      toast.success(newIsOpen ? 'Loja aberta! Contador de pedidos reiniciado.' : 'Loja fechada com sucesso!');
+      toast.success(
+        newIsOpen 
+          ? 'Loja aberta! Contador de pedidos reiniciado.' 
+          : 'Loja fechada! Relatório de conferência impresso.'
+      );
       onOpenChange(false);
     } catch (error: any) {
       toast.error('Erro ao alterar status da loja');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrintReport = async () => {
+    if (!restaurant?.id) return;
+
+    setLoading(true);
+    try {
+      const { data: settings } = await supabase
+        .from('salon_settings')
+        .select('last_opened_at')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
+
+      const reportData = await fetchDailyReportData(
+        restaurant.id,
+        restaurant.name,
+        settings?.last_opened_at || null
+      );
+      
+      printDailyReport(reportData);
+      toast.success('Relatório enviado para impressão!');
+    } catch (error) {
+      toast.error('Erro ao gerar relatório');
       console.error(error);
     } finally {
       setLoading(false);
@@ -100,9 +151,22 @@ export function StoreControlModal({
               </span>
             )}
           </div>
+
+          {/* Print report button (only when store is open) */}
+          {isOpen && (
+            <Button 
+              variant="outline" 
+              className="w-full mt-4 gap-2"
+              onClick={handlePrintReport}
+              disabled={loading}
+            >
+              <FileText className="w-4 h-4" />
+              Imprimir Relatório Parcial
+            </Button>
+          )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -119,7 +183,7 @@ export function StoreControlModal({
             ) : (
               <Power className="w-4 h-4 mr-2" />
             )}
-            {isOpen ? 'Fechar Loja' : 'Abrir Loja'}
+            {isOpen ? 'Fechar Loja e Imprimir Relatório' : 'Abrir Loja'}
           </Button>
         </DialogFooter>
       </DialogContent>
