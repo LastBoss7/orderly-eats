@@ -7,7 +7,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
-import { useAutoPrint } from '@/hooks/useAutoPrint';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -21,7 +20,6 @@ import {
   Send,
   Package,
   MessageSquare,
-  Printer,
 } from 'lucide-react';
 
 interface Category {
@@ -74,7 +72,6 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
   const { restaurant } = useAuth();
   const { toast } = useToast();
   const { shouldAutoPrint } = usePrintSettings();
-  const { autoPrintTableOrder } = useAutoPrint();
   const searchInputRef = useRef<HTMLInputElement>(null);
   
   const [categories, setCategories] = useState<Category[]>([]);
@@ -268,31 +265,11 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       if (itemsError) throw itemsError;
 
       // Note: Table occupation is now handled automatically by database trigger
-
-      // Auto print if enabled
-      if (shouldPrint) {
-        const printItems = cart.map(item => ({
-          product_name: item.product.name,
-          quantity: item.quantity,
-          product_price: item.product.price,
-          notes: item.notes || null,
-        }));
-
-        await autoPrintTableOrder(
-          order.id,
-          targetNumber || 0,
-          printItems,
-          cartTotal,
-          null,
-          null
-        );
-      }
+      // Note: Print is handled automatically by backend service when print_status = 'pending'
 
       toast({
         title: 'Pedido enviado!',
-        description: shouldPrint 
-          ? `Pedido da ${targetLabel} enviado para a cozinha e impressão.`
-          : `Pedido da ${targetLabel} enviado para a cozinha.`,
+        description: `Pedido da ${targetLabel} enviado para a cozinha.`,
       });
 
       // Clear cart and notify parent
