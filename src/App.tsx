@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
+import { AnimatePresence, motion } from "framer-motion";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import POS from "./pages/POS";
@@ -27,6 +28,69 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    y: 12,
+  },
+  in: {
+    opacity: 1,
+    y: 0,
+  },
+  out: {
+    opacity: 0,
+    y: -12,
+  },
+};
+
+const pageTransition = {
+  type: "tween" as const,
+  ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
+  duration: 0.25,
+};
+
+const AnimatedRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={location.pathname}
+        initial="initial"
+        animate="in"
+        exit="out"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="h-full w-full"
+      >
+        <Routes location={location}>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/pos" element={<POS />} />
+          <Route path="/tables" element={<Tables />} />
+          <Route path="/products" element={<Products />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/menu-images" element={<MenuImages />} />
+          <Route path="/bulk-edit" element={<BulkEdit />} />
+          <Route path="/deliveries" element={<Deliveries />} />
+          <Route path="/waiter" element={<Waiter />} />
+          <Route path="/waiter-app" element={<WaiterApp />} />
+          <Route path="/kitchen" element={<Kitchen />} />
+          <Route path="/salon-settings" element={<SalonSettings />} />
+          <Route path="/salon-settings/dados" element={<SalonData />} />
+          <Route path="/salon-settings/garcons" element={<WaiterManagement />} />
+          <Route path="/salon-settings/areas" element={<SalonAreas />} />
+          <Route path="/salon-settings/layout" element={<TableLayout />} />
+          <Route path="/print-logs" element={<PrintLogs />} />
+          <Route path="/printers" element={<Printers />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -34,29 +98,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/pos" element={<POS />} />
-            <Route path="/tables" element={<Tables />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/menu-images" element={<MenuImages />} />
-            <Route path="/bulk-edit" element={<BulkEdit />} />
-            <Route path="/deliveries" element={<Deliveries />} />
-            <Route path="/waiter" element={<Waiter />} />
-            <Route path="/waiter-app" element={<WaiterApp />} />
-            <Route path="/kitchen" element={<Kitchen />} />
-            <Route path="/salon-settings" element={<SalonSettings />} />
-            <Route path="/salon-settings/dados" element={<SalonData />} />
-            <Route path="/salon-settings/garcons" element={<WaiterManagement />} />
-            <Route path="/salon-settings/areas" element={<SalonAreas />} />
-            <Route path="/salon-settings/layout" element={<TableLayout />} />
-            <Route path="/print-logs" element={<PrintLogs />} />
-            <Route path="/printers" element={<Printers />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AnimatedRoutes />
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
