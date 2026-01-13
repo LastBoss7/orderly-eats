@@ -707,67 +707,91 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0">
-          <DialogTitle className="text-xl">Novo Pedido</DialogTitle>
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-4 pb-0 border-b">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl">Novo Pedido</DialogTitle>
+            {/* Order Type Pills */}
+            <div className="flex gap-1 bg-muted p-1 rounded-lg">
+              <Button
+                size="sm"
+                variant={orderType === 'counter' ? 'default' : 'ghost'}
+                className="gap-1.5 h-8"
+                onClick={() => setOrderType('counter')}
+              >
+                <Store className="w-4 h-4" />
+                Balcão
+              </Button>
+              <Button
+                size="sm"
+                variant={orderType === 'takeaway' ? 'default' : 'ghost'}
+                className="gap-1.5 h-8"
+                onClick={() => setOrderType('takeaway')}
+              >
+                <PackageCheck className="w-4 h-4" />
+                Retirada
+              </Button>
+              <Button
+                size="sm"
+                variant={orderType === 'table' ? 'default' : 'ghost'}
+                className="gap-1.5 h-8"
+                onClick={() => setOrderType('table')}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                Local
+              </Button>
+              <Button
+                size="sm"
+                variant={orderType === 'delivery' ? 'default' : 'ghost'}
+                className="gap-1.5 h-8"
+                onClick={() => setOrderType('delivery')}
+              >
+                <MapPin className="w-4 h-4" />
+                Entrega
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Products */}
-          <div className="flex-1 flex flex-col p-4 border-r overflow-hidden">
-            {/* Order Type Tabs */}
-            <Tabs value={orderType} onValueChange={(v) => setOrderType(v as OrderType)} className="mb-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="counter" className="gap-1 text-xs sm:text-sm">
-                  <Store className="w-4 h-4" />
-                  <span className="hidden sm:inline">Balcão</span>
-                </TabsTrigger>
-                <TabsTrigger value="takeaway" className="gap-1 text-xs sm:text-sm">
-                  <PackageCheck className="w-4 h-4" />
-                  <span className="hidden sm:inline">Retirada</span>
-                </TabsTrigger>
-                <TabsTrigger value="table" className="gap-1 text-xs sm:text-sm">
-                  <UtensilsCrossed className="w-4 h-4" />
-                  <span className="hidden sm:inline">Local</span>
-                </TabsTrigger>
-                <TabsTrigger value="delivery" className="gap-1 text-xs sm:text-sm">
-                  <MapPin className="w-4 h-4" />
-                  <span className="hidden sm:inline">Entrega</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <div className="flex-1 flex flex-col p-4 border-r overflow-hidden bg-muted/20">
 
             {/* Search */}
-            <div className="relative mb-4">
+            <div className="relative mb-3">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar produto..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-background"
               />
             </div>
 
             {/* Categories */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-2 flex-shrink-0">
-              <Button
-                variant={selectedCategory === null ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedCategory(null)}
-              >
-                Todos
-              </Button>
-              {categories.map((category) => (
+            <ScrollArea className="flex-shrink-0 mb-3">
+              <div className="flex gap-2 pb-2">
                 <Button
-                  key={category.id}
-                  variant={selectedCategory === category.id ? 'default' : 'outline'}
+                  variant={selectedCategory === null ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedCategory(category.id)}
+                  className="flex-shrink-0"
+                  onClick={() => setSelectedCategory(null)}
                 >
-                  {category.name}
+                  Todos
                 </Button>
-              ))}
-            </div>
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-shrink-0"
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    {category.name}
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
 
             {/* Products Grid */}
             <ScrollArea className="flex-1">
@@ -781,15 +805,15 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                   <p>Nenhum produto encontrado</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                   {filteredProducts.map((product) => (
                     <div
                       key={product.id}
-                      className="p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                      className="p-3 bg-background border rounded-lg cursor-pointer hover:border-primary hover:shadow-sm transition-all group"
                       onClick={() => addToCart(product)}
                     >
-                      <p className="font-medium text-sm truncate">{product.name}</p>
-                      <p className="text-sm text-primary font-semibold">
+                      <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{product.name}</p>
+                      <p className="text-sm text-primary font-bold">
                         {formatCurrency(product.price)}
                       </p>
                     </div>
@@ -800,10 +824,10 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           </div>
 
           {/* Right Panel - Cart & Details */}
-          <div className="w-96 flex flex-col overflow-hidden">
+          <div className="w-[420px] flex flex-col overflow-hidden bg-background">
             {/* Order Details */}
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-3">
+              <div className="p-4 space-y-4">
                 {/* Phone field - always shown for delivery */}
                 {orderType === 'delivery' && (
                   <div className="space-y-2">
@@ -1024,12 +1048,46 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                       </div>
                     </div>
 
-                    {/* Delivery Fee */}
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <span className="text-sm font-medium">Taxa de entrega:</span>
-                      <span className="text-lg font-bold text-primary">
-                        {formatCurrency(deliveryFee)}
-                      </span>
+                    {/* Delivery Fee - Editable */}
+                    <div className="space-y-2">
+                      <Label>Taxa de Entrega</Label>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0,00"
+                            value={deliveryFee || ''}
+                            onChange={(e) => setDeliveryFee(parseFloat(e.target.value) || 0)}
+                            className="pl-10"
+                          />
+                        </div>
+                        {deliveryFees.length > 0 && (
+                          <Select 
+                            value="" 
+                            onValueChange={(val) => setDeliveryFee(parseFloat(val))}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue placeholder="Pré-definido" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Grátis</SelectItem>
+                              {deliveryFees.map((fee) => (
+                                <SelectItem key={fee.id} value={fee.fee.toString()}>
+                                  {fee.neighborhood} - {formatCurrency(fee.fee)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      {neighborhood && !deliveryFees.some(f => f.neighborhood.toLowerCase() === neighborhood.toLowerCase()) && (
+                        <p className="text-xs text-amber-600">
+                          Bairro sem taxa cadastrada. Defina manualmente.
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
@@ -1121,35 +1179,35 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
             </ScrollArea>
 
             {/* Total & Submit */}
-            <div className="p-4 border-t space-y-3">
-              {orderType === 'delivery' && deliveryFee > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span>Subtotal:</span>
-                  <span>{formatCurrency(cartTotal)}</span>
-                </div>
+            <div className="p-4 border-t bg-muted/30 space-y-2">
+              {orderType === 'delivery' && (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(cartTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Taxa de entrega</span>
+                    <span>{formatCurrency(deliveryFee)}</span>
+                  </div>
+                </>
               )}
-              {orderType === 'delivery' && deliveryFee > 0 && (
-                <div className="flex items-center justify-between text-sm">
-                  <span>Taxa de entrega:</span>
-                  <span>{formatCurrency(deliveryFee)}</span>
-                </div>
-              )}
-              <Separator />
-              <div className="flex items-center justify-between">
-                <span className="font-semibold">Total</span>
-                <span className="text-lg font-bold text-primary">
+              <div className="flex items-center justify-between pt-2 border-t">
+                <span className="text-lg font-semibold">Total</span>
+                <span className="text-2xl font-bold text-primary">
                   {formatCurrency(orderTotal)}
                 </span>
               </div>
               <Button
-                className="w-full"
+                className="w-full h-12 text-base"
+                size="lg"
                 disabled={cart.length === 0 || submitting}
                 onClick={handleSubmit}
               >
                 {submitting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 ) : (
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-5 h-5 mr-2" />
                 )}
                 Criar Pedido
               </Button>
