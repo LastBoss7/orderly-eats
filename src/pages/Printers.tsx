@@ -27,6 +27,9 @@ export default function Printers() {
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  
+  // URL do executável no bucket de storage
+  const executableUrl = `${supabaseUrl}/storage/v1/object/public/printer-downloads/ImpressoraPedidos.zip`;
 
   // Gera o conteúdo do config.ini com os dados do restaurante
   const configContent = `[GERAL]
@@ -135,11 +138,7 @@ LARGURA_PAPEL = 48
               <CardContent className="space-y-4">
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button className="flex-1" size="lg" asChild>
-                    <a 
-                      href="https://github.com/seu-usuario/print-service/releases/latest/download/ImpressoraPedidos.zip" 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a href={executableUrl} download>
                       <Download className="w-5 h-5 mr-2" />
                       Baixar ImpressoraPedidos.zip
                     </a>
