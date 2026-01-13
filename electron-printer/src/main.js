@@ -296,6 +296,10 @@ ipcMain.handle('get-config', () => {
     autoStart: store.get('autoStart'),
     minimizeToTray: store.get('minimizeToTray'),
     soundNotification: store.get('soundNotification'),
+    useEscPos: store.get('useEscPos'),
+    usbPrinter: store.get('usbPrinter'),
+    autoCut: store.get('autoCut'),
+    openDrawer: store.get('openDrawer'),
     layout: store.get('layout') || defaultLayout,
   };
 });
@@ -308,7 +312,6 @@ ipcMain.handle('save-config', async (event, config) => {
   });
   
   await initializeSupabase();
-  
   return { success: true };
 });
 
@@ -317,8 +320,79 @@ ipcMain.handle('save-layout', async (event, layout) => {
   return { success: true };
 });
 
-ipcMain.handle('get-printers', async () => {
-  return await printerService.getAvailablePrinters();
+ipcMain.handle('get-system-printers', async () => {
+  return await printerService.getSystemPrinters();
+});
+
+ipcMain.handle('get-usb-printers', async () => {
+  if (printerService.usbPrinter) {
+    return printerService.usbPrinter.listPrinters();
+  }
+  return [];
+});
+
+ipcMain.handle('test-usb-connection', async (event, vendorId, productId) => {
+  try {
+    await printerService.connectUSB(vendorId, productId);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('test-print', async () => {
+  try {
+    const layout = store.get('layout') || defaultLayout;
+    const useEscPos = store.get('useEscPos');
+    const usbPrinter = store.get('usbPrinter');
+    
+    let printerInfo = null;
+    if (useEscPos && usbPrinter) {
+      const [vendorId, productId] = usbPrinter.split(':');
+      printerInfo = { type: 'usb', vendorId, productId };
+    }
+    
+    await printerService.printTest({
+      layout,
+      printerName: store.get('printerName'),
+      useEscPos,
+      printerInfo,
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('test-print-layout', async (event, layout) => {
+  try {
+    const useEscPos = store.get('useEscPos');
+    const usbPrinter = store.get('usbPrinter');
+    
+    let printerInfo = null;
+    if (useEscPos && usbPrinter) {
+      const [vendorId, productId] = usbPrinter.split(':');
+      printerInfo = { type: 'usb', vendorId, productId };
+    }
+    
+    await printerService.printTestWithLayout({
+      layout,
+      printerName: store.get('printerName'),
+      useEscPos,
+      printerInfo,
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-stats', () => {
+  return { printedCount, isConnected };
+});
+
+ipcMain.handle('reconnect', async () => {
+  return await initializeSupabase();
 });
 
 ipcMain.handle('test-print', async () => {

@@ -59,6 +59,8 @@ function updateStats(stats) {
 // ============================================
 // CONFIG
 // ============================================
+let usbPrinters = [];
+
 async function loadConfig() {
   try {
     const config = await window.electronAPI.getConfig();
@@ -72,6 +74,12 @@ async function loadConfig() {
     document.getElementById('minimizeToTray').checked = config.minimizeToTray !== false;
     document.getElementById('autoStart').checked = config.autoStart === true;
     document.getElementById('soundNotification').checked = config.soundNotification !== false;
+    document.getElementById('useEscPos').checked = config.useEscPos === true;
+    document.getElementById('autoCut').checked = config.autoCut !== false;
+    document.getElementById('openDrawer').checked = config.openDrawer === true;
+    
+    // Show correct printer section
+    togglePrinterMode();
     
     // Layout config
     if (config.layout) {
@@ -80,6 +88,12 @@ async function loadConfig() {
     
     // Load printers list
     await loadPrinters();
+    await loadUSBPrinters();
+    
+    // Restore USB printer selection
+    if (config.usbPrinter) {
+      document.getElementById('usbPrinterSelect').value = config.usbPrinter;
+    }
     
     // Load stats
     const stats = await window.electronAPI.getStats();
@@ -138,7 +152,7 @@ function loadLayoutConfig(layout) {
 
 async function loadPrinters() {
   try {
-    const printers = await window.electronAPI.getPrinters();
+    const printers = await window.electronAPI.getSystemPrinters();
     const select = document.getElementById('printerName');
     const currentValue = select.value;
     
@@ -162,8 +176,90 @@ async function loadPrinters() {
   }
 }
 
+async function loadUSBPrinters() {
+  try {
+    usbPrinters = await window.electronAPI.getUSBPrinters();
+    const select = document.getElementById('usbPrinterSelect');
+    const currentValue = select.value;
+    
+    select.innerHTML = '<option value="">Selecione uma impressora USB...</option>';
+    
+    usbPrinters.forEach(printer => {
+      const option = document.createElement('option');
+      option.value = `${printer.vendorId}:${printer.productId}`;
+      option.textContent = printer.name;
+      select.appendChild(option);
+    });
+    
+    if (currentValue) {
+      select.value = currentValue;
+    }
+    
+    if (usbPrinters.length === 0) {
+      showUSBStatus('Nenhuma impressora USB encontrada', 'warning');
+    } else {
+      hideUSBStatus();
+    }
+    
+  } catch (error) {
+    showUSBStatus('Erro ao listar impressoras USB: ' + error.message, 'error');
+  }
+}
+
+async function refreshUSBPrinters() {
+  addLog('Atualizando lista de impressoras USB...', 'info');
+  await loadUSBPrinters();
+  addLog(`Encontradas ${usbPrinters.length} impressoras USB`, 'info');
+}
+
+async function testUSBConnection() {
+  const select = document.getElementById('usbPrinterSelect');
+  const value = select.value;
+  
+  if (!value) {
+    showUSBStatus('Selecione uma impressora primeiro', 'warning');
+    return;
+  }
+  
+  const [vendorId, productId] = value.split(':');
+  
+  try {
+    showUSBStatus('Testando conexão...', 'info');
+    const result = await window.electronAPI.testUSBConnection(vendorId, productId);
+    
+    if (result.success) {
+      showUSBStatus('✓ Conexão USB estabelecida com sucesso!', 'success');
+      addLog('✓ Impressora USB conectada', 'success');
+    } else {
+      showUSBStatus('✗ ' + result.error, 'error');
+    }
+  } catch (error) {
+    showUSBStatus('✗ Erro: ' + error.message, 'error');
+  }
+}
+
+function togglePrinterMode() {
+  const useEscPos = document.getElementById('useEscPos').checked;
+  document.getElementById('systemPrinterSection').style.display = useEscPos ? 'none' : 'block';
+  document.getElementById('usbPrinterSection').style.display = useEscPos ? 'block' : 'none';
+}
+
+function showUSBStatus(message, type) {
+  const status = document.getElementById('usbStatus');
+  status.style.display = 'block';
+  status.className = `message ${type}`;
+  status.textContent = message;
+}
+
+function hideUSBStatus() {
+  document.getElementById('usbStatus').style.display = 'none';
+}
+
 async function saveConfig() {
   try {
+    const useEscPos = document.getElementById('useEscPos').checked;
+    const usbPrinterValue = document.getElementById('usbPrinterSelect').value;
+    
     const config = {
       supabaseUrl: document.getElementById('supabaseUrl').value.trim(),
       supabaseKey: document.getElementById('supabaseKey').value.trim(),
@@ -173,6 +269,10 @@ async function saveConfig() {
       minimizeToTray: document.getElementById('minimizeToTray').checked,
       autoStart: document.getElementById('autoStart').checked,
       soundNotification: document.getElementById('soundNotification').checked,
+      useEscPos,
+      usbPrinter: usbPrinterValue,
+      autoCut: document.getElementById('autoCut').checked,
+      openDrawer: document.getElementById('openDrawer').checked,
     };
     
     await window.electronAPI.saveConfig(config);
