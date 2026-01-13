@@ -37,27 +37,33 @@ export function StoreControlModal({
     try {
       const newIsOpen = !isOpen;
       
-      // If closing the store, print the daily report first
-      if (!newIsOpen) {
-        // Fetch last_opened_at for the report
-        const { data: settings } = await supabase
-          .from('salon_settings')
-          .select('last_opened_at')
-          .eq('restaurant_id', restaurant.id)
-          .maybeSingle();
+      // Check if salon_settings exists for this restaurant
+      const { data: existingSettings } = await supabase
+        .from('salon_settings')
+        .select('id, last_opened_at')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
 
+      // If closing the store, print the daily report first
+      if (!newIsOpen && existingSettings) {
         // Fetch and print daily report
         const reportData = await fetchDailyReportData(
           restaurant.id,
           restaurant.name,
-          settings?.last_opened_at || null
+          existingSettings.last_opened_at || null
         );
         
         printDailyReport(reportData);
       }
       
-      // If opening the store, reset the daily order counter
-      const updateData: { is_open: boolean; last_opened_at?: string; daily_order_counter?: number } = {
+      // Prepare update data
+      const updateData: { 
+        restaurant_id: string;
+        is_open: boolean; 
+        last_opened_at?: string; 
+        daily_order_counter?: number 
+      } = {
+        restaurant_id: restaurant.id,
         is_open: newIsOpen,
       };
 
@@ -66,10 +72,26 @@ export function StoreControlModal({
         updateData.daily_order_counter = 0;
       }
 
-      const { error } = await supabase
-        .from('salon_settings')
-        .update(updateData)
-        .eq('restaurant_id', restaurant.id);
+      let error;
+      
+      if (existingSettings) {
+        // Update existing record
+        const result = await supabase
+          .from('salon_settings')
+          .update({
+            is_open: updateData.is_open,
+            last_opened_at: updateData.last_opened_at,
+            daily_order_counter: updateData.daily_order_counter,
+          })
+          .eq('restaurant_id', restaurant.id);
+        error = result.error;
+      } else {
+        // Insert new record
+        const result = await supabase
+          .from('salon_settings')
+          .insert(updateData);
+        error = result.error;
+      }
 
       if (error) throw error;
 
