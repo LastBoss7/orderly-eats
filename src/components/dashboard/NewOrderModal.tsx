@@ -423,6 +423,16 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       return;
     }
 
+    // Validate payment method
+    if (!paymentMethod) {
+      toast({
+        variant: 'destructive',
+        title: 'Forma de pagamento obrigatória',
+        description: 'Selecione uma forma de pagamento para o pedido.',
+      });
+      return;
+    }
+
     // Validate dine-in selection
     if (orderType === 'table') {
       if (dineInType === 'table' && !selectedTable) {
