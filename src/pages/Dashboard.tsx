@@ -13,6 +13,7 @@ import { NewOrderModal } from '@/components/dashboard/NewOrderModal';
 import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
+import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import {
   Dialog,
   DialogContent,
@@ -66,6 +67,9 @@ import {
   Package,
   Trash2,
   CheckCircle,
+  Store,
+  Power,
+  PowerOff,
 } from 'lucide-react';
 
 interface PrepTimeSettings {
@@ -116,11 +120,13 @@ export default function Dashboard() {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
   const [showPrepTimeModal, setShowPrepTimeModal] = useState(false);
   const [showPrintSettingsModal, setShowPrintSettingsModal] = useState(false);
+  const [showStoreControlModal, setShowStoreControlModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showMoveToTableModal, setShowMoveToTableModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
@@ -147,14 +153,14 @@ export default function Dashboard() {
     })
   );
 
-  // Load prep times from database
+  // Load prep times and store status from database
   useEffect(() => {
-    const fetchPrepTimes = async () => {
+    const fetchSettings = async () => {
       if (!restaurant?.id) return;
 
       const { data } = await supabase
         .from('salon_settings')
-        .select('counter_prep_min, counter_prep_max, delivery_prep_min, delivery_prep_max')
+        .select('counter_prep_min, counter_prep_max, delivery_prep_min, delivery_prep_max, is_open')
         .eq('restaurant_id', restaurant.id)
         .maybeSingle();
 
@@ -165,10 +171,11 @@ export default function Dashboard() {
           delivery_min: data.delivery_prep_min ?? 25,
           delivery_max: data.delivery_prep_max ?? 80,
         });
+        setIsStoreOpen(data.is_open ?? false);
       }
     };
 
-    fetchPrepTimes();
+    fetchSettings();
   }, [restaurant?.id]);
 
   useEffect(() => {
@@ -621,6 +628,34 @@ export default function Dashboard() {
         <div className="bg-card border-b px-4 py-3">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
+
+            {/* Store Logo & Status */}
+            <button
+              onClick={() => setShowStoreControlModal(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                isStoreOpen 
+                  ? 'bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20' 
+                  : 'bg-muted border-muted-foreground/20 text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {restaurant?.logo_url ? (
+                <img 
+                  src={restaurant.logo_url} 
+                  alt={restaurant.name} 
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <Store className="w-5 h-5" />
+              )}
+              <span className="text-sm font-medium">
+                {isStoreOpen ? 'Aberta' : 'Fechada'}
+              </span>
+              {isStoreOpen ? (
+                <Power className="w-4 h-4" />
+              ) : (
+                <PowerOff className="w-4 h-4" />
+              )}
+            </button>
             
             {/* Filter tabs */}
             <div className="flex items-center gap-1 bg-muted p-1 rounded-full">
@@ -1021,6 +1056,14 @@ export default function Dashboard() {
             setShowOrderDetailModal(false);
             setSelectedOrder(null);
           }}
+        />
+
+        {/* Store Control Modal */}
+        <StoreControlModal
+          open={showStoreControlModal}
+          onOpenChange={setShowStoreControlModal}
+          isOpen={isStoreOpen}
+          onStoreStatusChange={setIsStoreOpen}
         />
       </div>
     </DashboardLayout>

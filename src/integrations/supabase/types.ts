@@ -586,11 +586,14 @@ export type Database = {
           counter_prep_max: number | null
           counter_prep_min: number | null
           created_at: string
+          daily_order_counter: number | null
           delivery_prep_max: number | null
           delivery_prep_min: number | null
           has_dining_room: boolean | null
           has_waiters: boolean | null
           id: string
+          is_open: boolean | null
+          last_opened_at: string | null
           operation_type: string | null
           order_tab_count: number | null
           restaurant_id: string
@@ -608,11 +611,14 @@ export type Database = {
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string
+          daily_order_counter?: number | null
           delivery_prep_max?: number | null
           delivery_prep_min?: number | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string
+          is_open?: boolean | null
+          last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
           restaurant_id: string
@@ -630,11 +636,14 @@ export type Database = {
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string
+          daily_order_counter?: number | null
           delivery_prep_max?: number | null
           delivery_prep_min?: number | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string
+          is_open?: boolean | null
+          last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
           restaurant_id?: string
