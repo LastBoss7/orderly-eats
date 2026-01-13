@@ -110,12 +110,13 @@ interface NewOrderModalProps {
   onOpenChange: (open: boolean) => void;
   onOrderCreated: () => void;
   shouldAutoPrint?: (orderType: string) => boolean;
+  initialOrderType?: OrderType;
 }
 
-export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPrint }: NewOrderModalProps) {
+export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPrint, initialOrderType }: NewOrderModalProps) {
   const { restaurant } = useAuth();
   const { toast } = useToast();
-  const [orderType, setOrderType] = useState<OrderType>('counter');
+  const [orderType, setOrderType] = useState<OrderType>(initialOrderType || 'counter');
   const [dineInType, setDineInType] = useState<DineInType>('table');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -156,8 +157,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   useEffect(() => {
     if (open) {
       fetchData();
+      // Set initial order type when modal opens
+      if (initialOrderType) {
+        setOrderType(initialOrderType);
+      }
     }
-  }, [open, restaurant?.id]);
+  }, [open, restaurant?.id, initialOrderType]);
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
