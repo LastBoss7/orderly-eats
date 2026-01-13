@@ -104,18 +104,28 @@ export default function Dashboard() {
     })
   );
 
-  // Load prep times from localStorage
+  // Load prep times from database
   useEffect(() => {
-    if (restaurant?.id) {
-      const saved = localStorage.getItem(`prep_times_${restaurant.id}`);
-      if (saved) {
-        try {
-          setPrepTimes(JSON.parse(saved));
-        } catch (e) {
-          console.error('Error loading prep times:', e);
-        }
+    const fetchPrepTimes = async () => {
+      if (!restaurant?.id) return;
+
+      const { data } = await supabase
+        .from('salon_settings')
+        .select('counter_prep_min, counter_prep_max, delivery_prep_min, delivery_prep_max')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
+
+      if (data) {
+        setPrepTimes({
+          counter_min: data.counter_prep_min ?? 10,
+          counter_max: data.counter_prep_max ?? 50,
+          delivery_min: data.delivery_prep_min ?? 25,
+          delivery_max: data.delivery_prep_max ?? 80,
+        });
       }
-    }
+    };
+
+    fetchPrepTimes();
   }, [restaurant?.id]);
 
   useEffect(() => {

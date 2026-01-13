@@ -489,7 +489,11 @@ export type Database = {
       }
       salon_settings: {
         Row: {
+          counter_prep_max: number | null
+          counter_prep_min: number | null
           created_at: string
+          delivery_prep_max: number | null
+          delivery_prep_min: number | null
           has_dining_room: boolean | null
           has_waiters: boolean | null
           id: string
@@ -504,7 +508,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          counter_prep_max?: number | null
+          counter_prep_min?: number | null
           created_at?: string
+          delivery_prep_max?: number | null
+          delivery_prep_min?: number | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string
@@ -519,7 +527,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          counter_prep_max?: number | null
+          counter_prep_min?: number | null
           created_at?: string
+          delivery_prep_max?: number | null
+          delivery_prep_min?: number | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string

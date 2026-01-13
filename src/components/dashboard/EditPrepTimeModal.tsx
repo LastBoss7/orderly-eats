@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Clock, Store, MapPin } from 'lucide-react';
 
-interface PrepTimeSettings {
+export interface PrepTimeSettings {
   counter_min: number;
   counter_max: number;
   delivery_min: number;
@@ -76,18 +76,40 @@ export function EditPrepTimeModal({
     setLoading(true);
 
     try {
-      // Save to salon_settings table
-      const { error } = await supabase
+      // Check if salon_settings exists for this restaurant
+      const { data: existing } = await supabase
         .from('salon_settings')
-        .upsert({
-          restaurant_id: restaurant?.id,
-          // Store in a JSON-compatible way using existing columns or we can use a workaround
-          // Since salon_settings doesn't have these fields, we'll store in localStorage for now
-          // and update the table structure later if needed
-        }, { onConflict: 'restaurant_id' });
+        .select('id')
+        .eq('restaurant_id', restaurant?.id)
+        .maybeSingle();
 
-      // For now, store in localStorage as a quick solution
-      localStorage.setItem(`prep_times_${restaurant?.id}`, JSON.stringify(values));
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from('salon_settings')
+          .update({
+            counter_prep_min: values.counter_min,
+            counter_prep_max: values.counter_max,
+            delivery_prep_min: values.delivery_min,
+            delivery_prep_max: values.delivery_max,
+          })
+          .eq('restaurant_id', restaurant?.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('salon_settings')
+          .insert({
+            restaurant_id: restaurant?.id,
+            counter_prep_min: values.counter_min,
+            counter_prep_max: values.counter_max,
+            delivery_prep_min: values.delivery_min,
+            delivery_prep_max: values.delivery_max,
+          });
+
+        if (error) throw error;
+      }
 
       toast({
         title: 'Tempos salvos!',
