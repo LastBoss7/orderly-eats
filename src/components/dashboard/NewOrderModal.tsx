@@ -42,6 +42,8 @@ import {
   Smartphone,
   PackageCheck,
   ClipboardList,
+  Bike,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Category {
@@ -93,6 +95,14 @@ interface DeliveryFee {
   fee: number;
 }
 
+interface DeliveryDriver {
+  id: string;
+  name: string;
+  phone: string | null;
+  vehicle_type: string | null;
+  status: string | null;
+}
+
 type OrderType = 'counter' | 'table' | 'delivery' | 'takeaway';
 type DineInType = 'table' | 'tab';
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
@@ -123,6 +133,8 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [tables, setTables] = useState<Table[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
+  const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
+  const [selectedDriver, setSelectedDriver] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   
@@ -170,12 +182,13 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setLoading(true);
 
     try {
-      const [categoriesRes, productsRes, tablesRes, tabsRes, feesRes] = await Promise.all([
+      const [categoriesRes, productsRes, tablesRes, tabsRes, feesRes, driversRes] = await Promise.all([
         supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
         supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
         supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
         supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).in('status', ['available', 'occupied']).order('number'),
         supabase.from('delivery_fees').select('*').eq('restaurant_id', restaurant.id).eq('is_active', true),
+        supabase.from('delivery_drivers').select('*').eq('restaurant_id', restaurant.id).eq('status', 'active'),
       ]);
 
       setCategories(categoriesRes.data || []);
@@ -183,6 +196,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       setTables(tablesRes.data || []);
       setTabs(tabsRes.data || []);
       setDeliveryFees(feesRes.data || []);
+      setDrivers(driversRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -206,6 +220,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setCity('');
     setState('');
     setDeliveryFee(0);
+    setSelectedDriver('');
     setSelectedTable('');
     setSelectedTab('');
     setNotes('');
@@ -493,6 +508,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setCart(prev => prev.filter(item => item.product.id !== productId));
   };
 
+  const updateItemNotes = (productId: string, notes: string) => {
+    setCart(prev => prev.map(item =>
+      item.product.id === productId ? { ...item, notes } : item
+    ));
+  };
+
   const cartTotal = cart.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0
@@ -665,6 +686,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
           table_id: orderType === 'table' && dineInType === 'table' ? selectedTable : null,
           tab_id: orderType === 'table' && dineInType === 'tab' ? selectedTab : null,
+          driver_id: orderType === 'delivery' && selectedDriver ? selectedDriver : null,
           order_type: orderType === 'table' ? (dineInType === 'tab' ? 'tab' : 'table') : orderType,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
@@ -1099,6 +1121,32 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                         </p>
                       )}
                     </div>
+
+                    {/* Driver Selection */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Bike className="w-4 h-4" />
+                        Motoboy
+                      </Label>
+                      <Select value={selectedDriver} onValueChange={setSelectedDriver}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o motoboy" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Não definido</SelectItem>
+                          {drivers.map((driver) => (
+                            <SelectItem key={driver.id} value={driver.id}>
+                              {driver.name} {driver.vehicle_type && `(${driver.vehicle_type})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {drivers.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhum motoboy ativo cadastrado.
+                        </p>
+                      )}
+                    </div>
                   </>
                 )}
 
@@ -1194,44 +1242,56 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                     <p className="text-sm">Carrinho vazio</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {cart.map((item) => (
                       <div
                         key={item.product.id}
-                        className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
+                        className="p-2 bg-muted/50 rounded-lg space-y-2"
                       >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{item.product.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(item.product.price)}
-                          </p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{item.product.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(item.product.price)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => updateQuantity(item.product.id, -1)}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </Button>
+                            <span className="w-6 text-center text-sm">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => updateQuantity(item.product.id, 1)}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive"
+                              onClick={() => removeFromCart(item.product.id)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.product.id, -1)}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <span className="w-6 text-center text-sm">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => updateQuantity(item.product.id, 1)}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive"
-                            onClick={() => removeFromCart(item.product.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                        {/* Item Notes */}
+                        <div className="relative">
+                          <MessageSquare className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Obs: sem cebola, bem passado..."
+                            value={item.notes || ''}
+                            onChange={(e) => updateItemNotes(item.product.id, e.target.value)}
+                            className="h-7 text-xs pl-7 bg-background"
+                          />
                         </div>
                       </div>
                     ))}
