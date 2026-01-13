@@ -14,6 +14,7 @@ import { EditPrepTimeModal } from '@/components/dashboard/EditPrepTimeModal';
 import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
+import { PrintReceipt } from '@/components/PrintReceipt';
 import {
   Dialog,
   DialogContent,
@@ -981,7 +982,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            <DialogFooter className="flex gap-2 sm:gap-0">
+            <DialogFooter className="flex flex-wrap gap-2 sm:gap-2">
               <Button
                 variant="destructive"
                 onClick={() => {
@@ -992,6 +993,19 @@ export default function Dashboard() {
                 <Trash2 className="w-4 h-4 mr-2" />
                 Cancelar
               </Button>
+              {selectedOrder && (
+                <PrintReceipt 
+                  order={{
+                    ...selectedOrder,
+                    order_items: selectedOrder.order_items?.map(item => ({
+                      product_name: item.product_name,
+                      quantity: item.quantity,
+                      product_price: item.product_price,
+                    })),
+                  }} 
+                  restaurantName={restaurant?.name} 
+                />
+              )}
               {selectedOrder?.order_type === 'counter' && !selectedOrder?.table_id && (
                 <Button
                   variant="outline"
