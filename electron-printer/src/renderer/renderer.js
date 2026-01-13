@@ -1,18 +1,23 @@
 // Tab Navigation
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    // Remove active from all tabs and contents
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
-    // Add active to clicked tab and corresponding content
     tab.classList.add('active');
     const tabId = tab.dataset.tab;
     document.getElementById(tabId).classList.add('active');
+    
+    // Update preview when switching to layout tab
+    if (tabId === 'layout') {
+      updatePreview();
+    }
   });
 });
 
-// Logs
+// ============================================
+// LOGS
+// ============================================
 function addLog(message, type = 'info') {
   const logPanel = document.getElementById('logPanel');
   const now = new Date().toLocaleTimeString('pt-BR');
@@ -24,7 +29,6 @@ function addLog(message, type = 'info') {
   logPanel.appendChild(entry);
   logPanel.scrollTop = logPanel.scrollHeight;
   
-  // Limitar a 100 entradas
   while (logPanel.children.length > 100) {
     logPanel.removeChild(logPanel.firstChild);
   }
@@ -35,7 +39,9 @@ function clearLogs() {
   logPanel.innerHTML = '<div class="log-entry info">Log limpo</div>';
 }
 
-// Status
+// ============================================
+// STATUS
+// ============================================
 function updateStatus(connected, message) {
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
@@ -50,19 +56,27 @@ function updateStats(stats) {
   document.getElementById('printedCount').textContent = stats.printedCount || 0;
 }
 
-// Load Config
+// ============================================
+// CONFIG
+// ============================================
 async function loadConfig() {
   try {
     const config = await window.electronAPI.getConfig();
     
+    // Connection config
     document.getElementById('supabaseUrl').value = config.supabaseUrl || '';
     document.getElementById('supabaseKey').value = config.supabaseKey || '';
     document.getElementById('restaurantId').value = config.restaurantId || '';
     document.getElementById('printerName').value = config.printerName || '';
-    document.getElementById('paperWidth').value = config.paperWidth || 48;
     document.getElementById('checkInterval').value = config.checkInterval || 5;
     document.getElementById('minimizeToTray').checked = config.minimizeToTray !== false;
     document.getElementById('autoStart').checked = config.autoStart === true;
+    document.getElementById('soundNotification').checked = config.soundNotification !== false;
+    
+    // Layout config
+    if (config.layout) {
+      loadLayoutConfig(config.layout);
+    }
     
     // Load printers list
     await loadPrinters();
@@ -71,9 +85,55 @@ async function loadConfig() {
     const stats = await window.electronAPI.getStats();
     updateStats(stats);
     
+    // Update preview
+    updatePreview();
+    
   } catch (error) {
     addLog('Erro ao carregar configurações: ' + error.message, 'error');
   }
+}
+
+function loadLayoutConfig(layout) {
+  // Paper
+  document.getElementById('layoutPaperSize').value = layout.paperSize || '58mm';
+  document.getElementById('layoutWidth').value = layout.paperWidth || 48;
+  document.getElementById('layoutWidthValue').textContent = layout.paperWidth || 48;
+  
+  // Logo
+  document.getElementById('showLogo').checked = layout.showLogo === true;
+  if (layout.logoData) {
+    showLogoPreview(layout.logoData);
+  }
+  
+  // Header
+  document.getElementById('showRestaurantName').checked = layout.showRestaurantName !== false;
+  document.getElementById('showAddress').checked = layout.showAddress === true;
+  document.getElementById('showPhone').checked = layout.showPhone === true;
+  document.getElementById('showCnpj').checked = layout.showCnpj === true;
+  document.getElementById('receiptTitle').value = layout.receiptTitle || '*** PEDIDO ***';
+  
+  // Order Info
+  document.getElementById('showOrderNumber').checked = layout.showOrderNumber !== false;
+  document.getElementById('showOrderType').checked = layout.showOrderType !== false;
+  document.getElementById('showTable').checked = layout.showTable !== false;
+  document.getElementById('showItemPrices').checked = layout.showItemPrices !== false;
+  document.getElementById('showItemNotes').checked = layout.showItemNotes !== false;
+  
+  // Customer Info
+  document.getElementById('showCustomerName').checked = layout.showCustomerName !== false;
+  document.getElementById('showCustomerPhone').checked = layout.showCustomerPhone !== false;
+  document.getElementById('showDeliveryAddress').checked = layout.showDeliveryAddress !== false;
+  
+  // Footer
+  document.getElementById('showDateTime').checked = layout.showDateTime !== false;
+  document.getElementById('showTotals').checked = layout.showTotals !== false;
+  document.getElementById('showDeliveryFee').checked = layout.showDeliveryFee !== false;
+  document.getElementById('footerMessage').value = layout.footerMessage || 'Obrigado pela preferência!';
+  
+  // Font
+  document.getElementById('fontSize').value = layout.fontSize || 12;
+  document.getElementById('fontSizeValue').textContent = layout.fontSize || 12;
+  document.getElementById('boldTotal').checked = layout.boldTotal !== false;
 }
 
 async function loadPrinters() {
@@ -82,7 +142,6 @@ async function loadPrinters() {
     const select = document.getElementById('printerName');
     const currentValue = select.value;
     
-    // Clear existing options except default
     select.innerHTML = '<option value="">Padrão do Sistema</option>';
     
     printers.forEach(printer => {
@@ -92,7 +151,6 @@ async function loadPrinters() {
       select.appendChild(option);
     });
     
-    // Restore previous selection
     if (currentValue) {
       select.value = currentValue;
     }
@@ -111,10 +169,10 @@ async function saveConfig() {
       supabaseKey: document.getElementById('supabaseKey').value.trim(),
       restaurantId: document.getElementById('restaurantId').value.trim(),
       printerName: document.getElementById('printerName').value,
-      paperWidth: parseInt(document.getElementById('paperWidth').value),
       checkInterval: parseInt(document.getElementById('checkInterval').value),
       minimizeToTray: document.getElementById('minimizeToTray').checked,
       autoStart: document.getElementById('autoStart').checked,
+      soundNotification: document.getElementById('soundNotification').checked,
     };
     
     await window.electronAPI.saveConfig(config);
@@ -125,6 +183,227 @@ async function saveConfig() {
   }
 }
 
+// ============================================
+// LAYOUT
+// ============================================
+let currentLogoData = null;
+
+function getLayoutConfig() {
+  return {
+    // Paper
+    paperSize: document.getElementById('layoutPaperSize').value,
+    paperWidth: parseInt(document.getElementById('layoutWidth').value),
+    
+    // Logo
+    showLogo: document.getElementById('showLogo').checked,
+    logoData: currentLogoData,
+    
+    // Header
+    showRestaurantName: document.getElementById('showRestaurantName').checked,
+    showAddress: document.getElementById('showAddress').checked,
+    showPhone: document.getElementById('showPhone').checked,
+    showCnpj: document.getElementById('showCnpj').checked,
+    receiptTitle: document.getElementById('receiptTitle').value,
+    
+    // Order Info
+    showOrderNumber: document.getElementById('showOrderNumber').checked,
+    showOrderType: document.getElementById('showOrderType').checked,
+    showTable: document.getElementById('showTable').checked,
+    showItemPrices: document.getElementById('showItemPrices').checked,
+    showItemNotes: document.getElementById('showItemNotes').checked,
+    
+    // Customer Info
+    showCustomerName: document.getElementById('showCustomerName').checked,
+    showCustomerPhone: document.getElementById('showCustomerPhone').checked,
+    showDeliveryAddress: document.getElementById('showDeliveryAddress').checked,
+    
+    // Footer
+    showDateTime: document.getElementById('showDateTime').checked,
+    showTotals: document.getElementById('showTotals').checked,
+    showDeliveryFee: document.getElementById('showDeliveryFee').checked,
+    footerMessage: document.getElementById('footerMessage').value,
+    
+    // Font
+    fontSize: parseInt(document.getElementById('fontSize').value),
+    boldTotal: document.getElementById('boldTotal').checked,
+  };
+}
+
+async function saveLayout() {
+  try {
+    const layout = getLayoutConfig();
+    await window.electronAPI.saveLayout(layout);
+    addLog('✓ Layout salvo com sucesso', 'success');
+  } catch (error) {
+    addLog('Erro ao salvar layout: ' + error.message, 'error');
+  }
+}
+
+function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    currentLogoData = e.target.result;
+    showLogoPreview(currentLogoData);
+    updatePreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function showLogoPreview(dataUrl) {
+  const container = document.getElementById('logoPreviewContainer');
+  container.innerHTML = `<img src="${dataUrl}" class="logo-preview" alt="Logo">`;
+}
+
+function updatePreview() {
+  const config = getLayoutConfig();
+  const preview = document.getElementById('receiptPreview');
+  
+  // Update paper size class
+  preview.className = `receipt-preview paper-${config.paperSize}`;
+  preview.style.fontSize = `${config.fontSize}px`;
+  
+  // Generate preview content
+  const width = config.paperWidth;
+  const divider = '='.repeat(Math.min(width, 32));
+  const thinDivider = '-'.repeat(Math.min(width, 32));
+  
+  let html = '';
+  
+  // Header
+  html += '<div class="receipt-header">';
+  
+  if (config.showLogo && currentLogoData) {
+    html += `<img src="${currentLogoData}" class="receipt-logo" alt="Logo">`;
+  }
+  
+  if (config.showRestaurantName) {
+    html += '<div class="receipt-restaurant-name">MEU RESTAURANTE</div>';
+  }
+  
+  if (config.showAddress) {
+    html += '<div>Rua Exemplo, 123 - Centro</div>';
+  }
+  
+  if (config.showPhone) {
+    html += '<div>Tel: (11) 99999-9999</div>';
+  }
+  
+  if (config.showCnpj) {
+    html += '<div>CNPJ: 12.345.678/0001-90</div>';
+  }
+  
+  html += '</div>';
+  
+  // Title
+  html += `<div style="text-align:center; font-weight:bold; margin: 8px 0;">${config.receiptTitle}</div>`;
+  html += `<div class="receipt-divider-double"></div>`;
+  
+  // Order info
+  if (config.showOrderNumber) {
+    html += '<div style="text-align:center; font-size:1.2em; font-weight:bold;">#A1B2C3D4</div>';
+  }
+  
+  if (config.showOrderType) {
+    html += '<div>Tipo: ENTREGA</div>';
+  }
+  
+  if (config.showTable) {
+    html += '<div>Mesa: 5</div>';
+  }
+  
+  // Customer info
+  if (config.showCustomerName || config.showCustomerPhone || config.showDeliveryAddress) {
+    html += `<div class="receipt-divider"></div>`;
+    
+    if (config.showCustomerName) {
+      html += '<div>Cliente: João Silva</div>';
+    }
+    
+    if (config.showCustomerPhone) {
+      html += '<div>Tel: (11) 98888-7777</div>';
+    }
+    
+    if (config.showDeliveryAddress) {
+      html += '<div>End: Av. Brasil, 456, Ap 12</div>';
+    }
+  }
+  
+  // Items
+  html += `<div class="receipt-divider-double"></div>`;
+  html += '<div class="receipt-section-title">ITENS:</div>';
+  html += `<div class="receipt-divider"></div>`;
+  
+  // Sample items
+  const items = [
+    { qty: 2, name: 'X-Burguer Especial', price: 29.90 },
+    { qty: 1, name: 'Batata Frita G', price: 18.50, notes: 'Sem sal' },
+    { qty: 2, name: 'Refrigerante 350ml', price: 6.00 },
+  ];
+  
+  items.forEach(item => {
+    html += `<div>${item.qty}x ${item.name}</div>`;
+    if (config.showItemPrices) {
+      html += `<div style="text-align:right">R$ ${(item.price * item.qty).toFixed(2)}</div>`;
+    }
+    if (config.showItemNotes && item.notes) {
+      html += `<div style="padding-left:12px; font-style:italic">Obs: ${item.notes}</div>`;
+    }
+  });
+  
+  // Totals
+  if (config.showTotals) {
+    html += `<div class="receipt-divider"></div>`;
+    
+    const subtotal = items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    html += `<div class="receipt-item"><span>Subtotal:</span><span>R$ ${subtotal.toFixed(2)}</span></div>`;
+    
+    if (config.showDeliveryFee) {
+      html += `<div class="receipt-item"><span>Taxa de entrega:</span><span>R$ 8.00</span></div>`;
+    }
+    
+    const total = subtotal + (config.showDeliveryFee ? 8 : 0);
+    const totalStyle = config.boldTotal ? 'font-weight:bold;font-size:1.1em;' : '';
+    html += `<div class="receipt-item receipt-total" style="${totalStyle}"><span>TOTAL:</span><span>R$ ${total.toFixed(2)}</span></div>`;
+  }
+  
+  // Footer
+  html += `<div class="receipt-divider-double"></div>`;
+  
+  if (config.showDateTime) {
+    const now = new Date();
+    html += `<div style="text-align:center">${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR')}</div>`;
+  }
+  
+  if (config.footerMessage) {
+    html += `<div class="receipt-footer">${config.footerMessage}</div>`;
+  }
+  
+  preview.innerHTML = html;
+}
+
+async function testPrintLayout() {
+  addLog('Imprimindo preview do layout...', 'info');
+  
+  try {
+    const layout = getLayoutConfig();
+    const result = await window.electronAPI.testPrintLayout(layout);
+    
+    if (result.success) {
+      addLog('✓ Preview impresso com sucesso!', 'success');
+    } else {
+      addLog('✗ Erro ao imprimir: ' + result.error, 'error');
+    }
+  } catch (error) {
+    addLog('✗ Erro: ' + error.message, 'error');
+  }
+}
+
+// ============================================
+// ACTIONS
+// ============================================
 async function reconnect() {
   addLog('Reconectando...', 'info');
   document.getElementById('statusDot').className = 'status-dot connecting';
@@ -151,7 +430,9 @@ async function testPrint() {
   }
 }
 
-// Event Listeners from Main Process
+// ============================================
+// EVENT LISTENERS
+// ============================================
 window.electronAPI.onConnectionStatus((data) => {
   updateStatus(data.connected, data.message);
 });
@@ -170,7 +451,9 @@ window.electronAPI.onStats((data) => {
   updateStats(data);
 });
 
-// Initialize
+// ============================================
+// INIT
+// ============================================
 document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   addLog('Aplicativo iniciado', 'info');

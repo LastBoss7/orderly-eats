@@ -5,6 +5,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   
+  // Layout
+  saveLayout: (layout) => ipcRenderer.invoke('save-layout', layout),
+  testPrintLayout: (layout) => ipcRenderer.invoke('test-print-layout', layout),
+  
   // Impressoras
   getPrinters: () => ipcRenderer.invoke('get-printers'),
   testPrint: () => ipcRenderer.invoke('test-print'),
