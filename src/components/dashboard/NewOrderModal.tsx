@@ -205,7 +205,6 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setSelectedCategory(null);
     setPaymentMethod(null);
   };
-  };
 
   // Format phone number
   const formatPhone = (value: string) => {
