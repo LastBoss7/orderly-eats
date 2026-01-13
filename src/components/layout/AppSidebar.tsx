@@ -13,6 +13,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   ChefHat,
   ShoppingCart,
@@ -39,6 +45,7 @@ import {
   Settings,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Image,
   Edit3,
   Printer,
@@ -46,6 +53,8 @@ import {
   History,
   UserCircle,
   Settings2,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -77,6 +86,8 @@ export function AppSidebar() {
   const location = useLocation();
   const { profile, restaurant, signOut } = useAuth();
   const { newDeliveriesCount, markDeliveriesAsViewed } = useSidebarBadges();
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === 'collapsed';
   
   // Check if any cardapio route is active
   const isCardapioActive = cardapioSubmenu.some(item => location.pathname === item.url);
@@ -96,89 +107,167 @@ export function AppSidebar() {
 
   const isActive = (url: string) => location.pathname === url;
 
-  return (
-    <Sidebar className="border-r-0 bg-sidebar-background">
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
-        {/* Caixa status */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-sidebar-accent flex items-center justify-center">
-            <ShoppingCart className="w-5 h-5 text-sidebar-foreground" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-sidebar-foreground text-sm">Caixa</span>
-              <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0">
-                Aberto
+  // Render menu item with tooltip when collapsed
+  const renderMenuItem = (item: { title: string; url: string; icon: any }, badgeCount?: number) => {
+    const Icon = item.icon;
+    const content = (
+      <SidebarMenuButton
+        asChild
+        className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
+      >
+        <Link to={item.url}>
+          <Icon className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="flex-1">{item.title}</span>}
+          {!isCollapsed && badgeCount !== undefined && badgeCount > 0 && (
+            <span className="sidebar-menu-badge">{badgeCount > 99 ? '99+' : badgeCount}</span>
+          )}
+        </Link>
+      </SidebarMenuButton>
+    );
+
+    if (isCollapsed) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {content}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="bg-popover">
+            <span>{item.title}</span>
+            {badgeCount !== undefined && badgeCount > 0 && (
+              <Badge className="ml-2 bg-primary text-primary-foreground text-[10px]">
+                {badgeCount > 99 ? '99+' : badgeCount}
               </Badge>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-sidebar-foreground/50" />
+            )}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return content;
+  };
+
+  return (
+    <Sidebar collapsible="icon" className="border-r-0 bg-sidebar-background">
+      <SidebarHeader className={`border-b border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
+        {/* Collapse toggle button */}
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-2`}>
+          {!isCollapsed && (
+            <span className="text-xs text-sidebar-foreground/50 uppercase tracking-wider">Menu</span>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              >
+                {isCollapsed ? (
+                  <PanelLeft className="w-4 h-4" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/50" />
-          <Input 
-            placeholder="Procurando por algo?" 
-            className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50 h-9"
-          />
-        </div>
+        {/* Caixa status - hidden when collapsed */}
+        {!isCollapsed && (
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-sidebar-accent flex items-center justify-center">
+              <ShoppingCart className="w-5 h-5 text-sidebar-foreground" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sidebar-foreground text-sm">Caixa</span>
+                <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0">
+                  Aberto
+                </Badge>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-sidebar-foreground/50" />
+          </div>
+        )}
+
+        {/* Search - hidden when collapsed */}
+        {!isCollapsed && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/50" />
+            <Input 
+              placeholder="Procurando por algo?" 
+              className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50 h-9"
+            />
+          </div>
+        )}
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className={`${isCollapsed ? 'px-1' : 'px-3'} py-4`}>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
-            Seu dia a dia
-          </SidebarGroupLabel>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
+              Seu dia a dia
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
-                  >
-                    <Link to={item.url}>
-                      <item.icon className="w-5 h-5" />
-                      <span className="flex-1">{item.title}</span>
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <span className="sidebar-menu-badge">{item.badge}</span>
-                      )}
-                    </Link>
-                  </SidebarMenuButton>
+                  {renderMenuItem(item, item.badge)}
                 </SidebarMenuItem>
               ))}
 
-              {/* Gestor de cardápio - Collapsible */}
+              {/* Gestor de cardápio - Collapsible (hidden when collapsed, show icon only) */}
               <SidebarMenuItem>
-                <Collapsible open={cardapioOpen} onOpenChange={setCardapioOpen}>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      className={`sidebar-menu-item w-full cursor-pointer ${isCardapioActive ? 'active' : ''}`}
-                    >
-                      <UtensilsCrossed className="w-5 h-5" />
-                      <span className="flex-1">Gestor de cardápio</span>
-                      {cardapioOpen ? (
-                        <ChevronDown className="w-4 h-4 opacity-50 transition-transform" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 opacity-50 transition-transform" />
-                      )}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4 mt-1 space-y-1 overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
-                    {cardapioSubmenu.map((subItem) => (
+                {isCollapsed ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                       <SidebarMenuButton
-                        key={subItem.title}
                         asChild
-                        className={`sidebar-menu-item text-sm ${isActive(subItem.url) ? 'active' : ''}`}
+                        className={`sidebar-menu-item ${isCardapioActive ? 'active' : ''}`}
                       >
-                        <Link to={subItem.url} className="animate-fade-in">
-                          <span className="flex-1 ml-5">{subItem.title}</span>
+                        <Link to="/products">
+                          <UtensilsCrossed className="w-5 h-5 flex-shrink-0" />
                         </Link>
                       </SidebarMenuButton>
-                    ))}
-                  </CollapsibleContent>
-                </Collapsible>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="bg-popover">
+                      Gestor de cardápio
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Collapsible open={cardapioOpen} onOpenChange={setCardapioOpen}>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton
+                        className={`sidebar-menu-item w-full cursor-pointer ${isCardapioActive ? 'active' : ''}`}
+                      >
+                        <UtensilsCrossed className="w-5 h-5" />
+                        <span className="flex-1">Gestor de cardápio</span>
+                        {cardapioOpen ? (
+                          <ChevronDown className="w-4 h-4 opacity-50 transition-transform" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 opacity-50 transition-transform" />
+                        )}
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pl-4 mt-1 space-y-1 overflow-hidden data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up">
+                      {cardapioSubmenu.map((subItem) => (
+                        <SidebarMenuButton
+                          key={subItem.title}
+                          asChild
+                          className={`sidebar-menu-item text-sm ${isActive(subItem.url) ? 'active' : ''}`}
+                        >
+                          <Link to={subItem.url} className="animate-fade-in">
+                            <span className="flex-1 ml-5">{subItem.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
               </SidebarMenuItem>
 
               {bottomMenuItems.map((item) => {
@@ -187,20 +276,7 @@ export function AppSidebar() {
                 
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      className={`sidebar-menu-item ${isActive(item.url) ? 'active' : ''}`}
-                    >
-                      <Link to={item.url}>
-                        <item.icon className="w-5 h-5" />
-                        <span className="flex-1">{item.title}</span>
-                        {badgeCount > 0 && (
-                          <span className={`sidebar-menu-badge ${isDeliveries ? 'animated' : ''}`}>
-                            {badgeCount > 99 ? '99+' : badgeCount}
-                          </span>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
+                    {renderMenuItem(item, badgeCount)}
                   </SidebarMenuItem>
                 );
               })}
@@ -209,57 +285,113 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
-            Meu Salão
-          </SidebarGroupLabel>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
+              Meu Salão
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  className={`sidebar-menu-item ${isActive('/salon-settings') ? 'active' : ''}`}
-                >
-                  <Link to="/salon-settings">
-                    <Settings className="w-5 h-5" />
-                    <span className="flex-1">Gestão de salão</span>
-                    <Badge variant="outline" className="text-[10px] border-success text-success">
-                      Grátis
-                    </Badge>
-                  </Link>
-                </SidebarMenuButton>
+                {isCollapsed ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton
+                        asChild
+                        className={`sidebar-menu-item ${isActive('/salon-settings') ? 'active' : ''}`}
+                      >
+                        <Link to="/salon-settings">
+                          <Settings className="w-5 h-5 flex-shrink-0" />
+                        </Link>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="bg-popover">
+                      Gestão de salão
+                      <Badge variant="outline" className="ml-2 text-[10px] border-success text-success">
+                        Grátis
+                      </Badge>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <SidebarMenuButton
+                    asChild
+                    className={`sidebar-menu-item ${isActive('/salon-settings') ? 'active' : ''}`}
+                  >
+                    <Link to="/salon-settings">
+                      <Settings className="w-5 h-5" />
+                      <span className="flex-1">Gestão de salão</span>
+                      <Badge variant="outline" className="text-[10px] border-success text-success">
+                        Grátis
+                      </Badge>
+                    </Link>
+                  </SidebarMenuButton>
+                )}
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
-          <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
-            <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
-              {getInitials(profile?.full_name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
-              {restaurant?.name || 'Restaurante'}
-            </p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">
-              {profile?.full_name}
-            </p>
-            <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0 mt-1">
-              ABERTO
-            </Badge>
+      <SidebarFooter className={`border-t border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
+        {isCollapsed ? (
+          <div className="flex flex-col items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
+                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
+                    {getInitials(profile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-popover">
+                <p className="font-medium">{restaurant?.name || 'Restaurante'}</p>
+                <p className="text-xs text-muted-foreground">{profile?.full_name}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  onClick={signOut}
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-popover">
+                Sair
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-            onClick={signOut}
-          >
-            <LogOut className="w-4 h-4" />
-          </Button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
+            <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
+              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
+                {getInitials(profile?.full_name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">
+                {restaurant?.name || 'Restaurante'}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60 truncate">
+                {profile?.full_name}
+              </p>
+              <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0 mt-1">
+                ABERTO
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={signOut}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
