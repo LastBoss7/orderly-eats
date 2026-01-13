@@ -297,20 +297,13 @@ export default function Dashboard() {
   const readyOrders = orders.filter(o => o.status === 'ready');
 
   const updateOrderStatus = async (orderId: string, status: string) => {
-    const order = orders.find(o => o.id === orderId);
-    
     await supabase.from('orders').update({ status }).eq('id', orderId);
     
-    // If finalizing order and it's a table order, update table status to available
-    if (status === 'delivered' && order?.table_id) {
-      await supabase
-        .from('tables')
-        .update({ status: 'available' })
-        .eq('id', order.table_id);
-    }
+    // Note: "delivered" status just removes the order from dashboard display
+    // It does NOT close the table - that happens when the bill is paid via "Fechar Conta"
     
     fetchOrders();
-    toast.success(`Pedido ${status === 'delivered' ? 'finalizado' : 'atualizado'} com sucesso!`);
+    toast.success(`Pedido ${status === 'delivered' ? 'marcado como entregue' : 'atualizado'} com sucesso!`);
   };
 
   const handleCancelOrder = async () => {
@@ -553,7 +546,7 @@ export default function Dashboard() {
             }}
           >
             <CheckCircle className="w-4 h-4 mr-2" />
-            Finalizar pedido
+            Produto Entregue
           </Button>
         )}
       </div>
