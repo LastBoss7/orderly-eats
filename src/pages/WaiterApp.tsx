@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { 
@@ -19,13 +20,17 @@ import {
   Send,
   ChefHat,
   ClipboardList,
-  CheckCircle2,
   RefreshCw,
   MessageSquare,
   LogOut,
   Menu,
   Bike,
   Users,
+  MapPin,
+  Phone,
+  User,
+  Package,
+  Home,
 } from 'lucide-react';
 
 interface Waiter {
@@ -71,6 +76,9 @@ interface Order {
   created_at: string;
   notes: string | null;
   customer_name: string | null;
+  delivery_address: string | null;
+  delivery_phone: string | null;
+  delivery_fee: number | null;
   order_items?: OrderItem[];
   tables?: { number: number } | null;
 }
@@ -83,7 +91,32 @@ interface OrderItem {
   notes: string | null;
 }
 
-type AppView = 'login' | 'tables' | 'comandas' | 'order' | 'order-detail';
+interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address: string | null;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  city: string | null;
+  cep: string | null;
+}
+
+interface DeliveryForm {
+  customerName: string;
+  customerPhone: string;
+  address: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  cep: string;
+  deliveryFee: number;
+}
+
+type AppView = 'login' | 'tables' | 'comandas' | 'order' | 'order-detail' | 'delivery' | 'delivery-order';
+type OrderMode = 'table' | 'delivery' | 'takeaway';
 
 export default function WaiterApp() {
   const { restaurant, signOut } = useAuth();
@@ -108,6 +141,24 @@ export default function WaiterApp() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderNotes, setOrderNotes] = useState('');
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
+  
+  // Delivery states
+  const [orderMode, setOrderMode] = useState<OrderMode>('table');
+  const [deliveryForm, setDeliveryForm] = useState<DeliveryForm>({
+    customerName: '',
+    customerPhone: '',
+    address: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    cep: '',
+    deliveryFee: 0,
+  });
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [searchingCustomer, setSearchingCustomer] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -149,7 +200,6 @@ export default function WaiterApp() {
           tables (number)
         `)
         .in('status', ['pending', 'preparing', 'ready'])
-        .eq('order_type', 'table')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -214,6 +264,43 @@ export default function WaiterApp() {
     };
   }, [restaurant?.id]);
 
+  // Search customers by phone
+  const searchCustomers = async (phone: string) => {
+    if (!restaurant?.id || phone.length < 3) {
+      setCustomers([]);
+      return;
+    }
+
+    setSearchingCustomer(true);
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .or(`phone.ilike.%${phone}%,name.ilike.%${phone}%`)
+        .limit(5);
+
+      if (error) throw error;
+      setCustomers((data || []) as Customer[]);
+    } catch (error) {
+      console.error('Error searching customers:', error);
+    } finally {
+      setSearchingCustomer(false);
+    }
+  };
+
+  // Handle customer phone search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (customerSearchTerm.length >= 3) {
+        searchCustomers(customerSearchTerm);
+      } else {
+        setCustomers([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [customerSearchTerm, restaurant?.id]);
+
   const filteredTables = tables.filter(t => {
     if (!tableSearchTerm) return true;
     return t.number.toString().includes(tableSearchTerm) ||
@@ -235,11 +322,69 @@ export default function WaiterApp() {
 
   const handleSelectTable = (table: Table) => {
     setSelectedTable(table);
+    setOrderMode('table');
     setView('order');
     setCart([]);
     setSearchTerm('');
     setSelectedCategory(null);
     setOrderNotes('');
+  };
+
+  const handleStartDelivery = (mode: 'delivery' | 'takeaway') => {
+    setOrderMode(mode);
+    setView('delivery');
+    setCart([]);
+    setSearchTerm('');
+    setSelectedCategory(null);
+    setOrderNotes('');
+    setDeliveryForm({
+      customerName: '',
+      customerPhone: '',
+      address: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      cep: '',
+      deliveryFee: 0,
+    });
+    setSelectedCustomer(null);
+    setCustomerSearchTerm('');
+    setCustomers([]);
+  };
+
+  const handleSelectCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setDeliveryForm({
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      address: customer.address || '',
+      number: customer.number || '',
+      complement: customer.complement || '',
+      neighborhood: customer.neighborhood || '',
+      city: customer.city || '',
+      cep: customer.cep || '',
+      deliveryFee: deliveryForm.deliveryFee,
+    });
+    setCustomerSearchTerm('');
+    setCustomers([]);
+  };
+
+  const handleProceedToOrder = () => {
+    // Validate required fields
+    if (!deliveryForm.customerName.trim()) {
+      toast.error('Nome do cliente é obrigatório');
+      return;
+    }
+    if (!deliveryForm.customerPhone.trim()) {
+      toast.error('Telefone do cliente é obrigatório');
+      return;
+    }
+    if (orderMode === 'delivery' && !deliveryForm.address.trim()) {
+      toast.error('Endereço é obrigatório para delivery');
+      return;
+    }
+    setView('delivery-order');
   };
 
   const addToCart = (product: Product) => {
@@ -285,6 +430,8 @@ export default function WaiterApp() {
     0
   );
 
+  const orderTotal = cartTotal + (orderMode === 'delivery' ? deliveryForm.deliveryFee : 0);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -304,29 +451,78 @@ export default function WaiterApp() {
   };
 
   const handleSubmitOrder = async () => {
-    if (!selectedTable || cart.length === 0) return;
+    if (orderMode === 'table' && (!selectedTable || cart.length === 0)) return;
+    if ((orderMode === 'delivery' || orderMode === 'takeaway') && cart.length === 0) return;
 
     setSubmitting(true);
 
     try {
-      // Update table status
-      await supabase
-        .from('tables')
-        .update({ status: 'occupied' })
-        .eq('id', selectedTable.id);
+      if (orderMode === 'table' && selectedTable) {
+        // Update table status
+        await supabase
+          .from('tables')
+          .update({ status: 'occupied' })
+          .eq('id', selectedTable.id);
+      }
 
-      const autoPrint = shouldAutoPrint('table');
+      const autoPrint = shouldAutoPrint(orderMode === 'table' ? 'table' : 'delivery');
+
+      // Build address string for delivery
+      let fullAddress = '';
+      if (orderMode === 'delivery') {
+        const addressParts = [
+          deliveryForm.address,
+          deliveryForm.number && `Nº ${deliveryForm.number}`,
+          deliveryForm.complement,
+          deliveryForm.neighborhood,
+          deliveryForm.city,
+          deliveryForm.cep && `CEP: ${deliveryForm.cep}`,
+        ].filter(Boolean);
+        fullAddress = addressParts.join(', ');
+      }
+
+      // Create or update customer if delivery/takeaway
+      let customerId = selectedCustomer?.id || null;
+      if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer) {
+        // Create new customer
+        const { data: newCustomer, error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            restaurant_id: restaurant?.id,
+            name: deliveryForm.customerName.trim(),
+            phone: deliveryForm.customerPhone.trim(),
+            address: deliveryForm.address.trim() || null,
+            number: deliveryForm.number.trim() || null,
+            complement: deliveryForm.complement.trim() || null,
+            neighborhood: deliveryForm.neighborhood.trim() || null,
+            city: deliveryForm.city.trim() || null,
+            cep: deliveryForm.cep.trim() || null,
+          })
+          .select()
+          .single();
+
+        if (customerError) {
+          console.error('Error creating customer:', customerError);
+        } else {
+          customerId = newCustomer?.id;
+        }
+      }
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           restaurant_id: restaurant?.id,
-          table_id: selectedTable.id,
-          order_type: 'table',
+          table_id: orderMode === 'table' ? selectedTable?.id : null,
+          order_type: orderMode,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
-          total: cartTotal,
+          total: orderTotal,
           notes: orderNotes || null,
+          customer_id: customerId,
+          customer_name: orderMode !== 'table' ? deliveryForm.customerName : null,
+          delivery_address: orderMode === 'delivery' ? fullAddress : null,
+          delivery_phone: orderMode !== 'table' ? deliveryForm.customerPhone : null,
+          delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
         })
         .select()
         .single();
@@ -349,7 +545,13 @@ export default function WaiterApp() {
 
       if (itemsError) throw itemsError;
 
-      toast.success(`Pedido da Mesa ${selectedTable.number} enviado!`);
+      const successMessage = orderMode === 'table'
+        ? `Pedido da Mesa ${selectedTable?.number} enviado!`
+        : orderMode === 'delivery'
+          ? `Pedido delivery para ${deliveryForm.customerName} enviado!`
+          : `Pedido para levar de ${deliveryForm.customerName} enviado!`;
+
+      toast.success(successMessage);
 
       // Refresh tables
       const { data } = await supabase.from('tables').select('*').order('number');
@@ -360,6 +562,18 @@ export default function WaiterApp() {
       setSelectedTable(null);
       setCart([]);
       setOrderNotes('');
+      setDeliveryForm({
+        customerName: '',
+        customerPhone: '',
+        address: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        cep: '',
+        deliveryFee: 0,
+      });
+      setSelectedCustomer(null);
     } catch (error: any) {
       toast.error('Erro ao enviar pedido: ' + error.message);
     } finally {
@@ -383,6 +597,15 @@ export default function WaiterApp() {
       delivered: 'Entregue',
     };
     return labels[status] || status;
+  };
+
+  const getOrderTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      table: 'Mesa',
+      delivery: 'Delivery',
+      takeaway: 'Para Levar',
+    };
+    return labels[type] || type;
   };
 
   if (loading) {
@@ -448,6 +671,216 @@ export default function WaiterApp() {
     );
   }
 
+  // Delivery Form View
+  if (view === 'delivery') {
+    return (
+      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={() => setView('tables')}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="font-bold">
+                {orderMode === 'delivery' ? 'Novo Pedido Delivery' : 'Pedido Para Levar'}
+              </h1>
+              <p className="text-xs opacity-80">Dados do cliente</p>
+            </div>
+          </div>
+        </header>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {/* Customer Search */}
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <Label className="text-sm font-medium text-gray-700 flex items-center gap-2 mb-2">
+                <Search className="w-4 h-4" />
+                Buscar cliente existente
+              </Label>
+              <Input
+                placeholder="Buscar por nome ou telefone..."
+                value={customerSearchTerm}
+                onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                className="bg-gray-50"
+              />
+              
+              {/* Customer Results */}
+              {customers.length > 0 && (
+                <div className="mt-2 border rounded-lg divide-y">
+                  {customers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      onClick={() => handleSelectCustomer(customer)}
+                      className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <p className="font-medium text-gray-900">{customer.name}</p>
+                      <p className="text-sm text-gray-500">{customer.phone}</p>
+                      {customer.address && (
+                        <p className="text-xs text-gray-400 truncate">{customer.address}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {searchingCustomer && (
+                <div className="mt-2 flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                </div>
+              )}
+            </div>
+
+            {/* Customer Info */}
+            <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Dados do Cliente
+              </h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm text-gray-600">Nome *</Label>
+                  <Input
+                    placeholder="Nome do cliente"
+                    value={deliveryForm.customerName}
+                    onChange={(e) => setDeliveryForm(prev => ({ ...prev, customerName: e.target.value }))}
+                    className="bg-gray-50"
+                    maxLength={100}
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-sm text-gray-600">Telefone *</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      placeholder="(00) 00000-0000"
+                      value={deliveryForm.customerPhone}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                      className="pl-10 bg-gray-50"
+                      maxLength={20}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Address (only for delivery) */}
+            {orderMode === 'delivery' && (
+              <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Endereço de Entrega
+                </h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-sm text-gray-600">CEP</Label>
+                    <Input
+                      placeholder="00000-000"
+                      value={deliveryForm.cep}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, cep: e.target.value }))}
+                      className="bg-gray-50"
+                      maxLength={10}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">Endereço *</Label>
+                    <Input
+                      placeholder="Rua, Avenida..."
+                      value={deliveryForm.address}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, address: e.target.value }))}
+                      className="bg-gray-50"
+                      maxLength={200}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm text-gray-600">Número</Label>
+                      <Input
+                        placeholder="Nº"
+                        value={deliveryForm.number}
+                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, number: e.target.value }))}
+                        className="bg-gray-50"
+                        maxLength={20}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm text-gray-600">Complemento</Label>
+                      <Input
+                        placeholder="Apto, Bloco..."
+                        value={deliveryForm.complement}
+                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, complement: e.target.value }))}
+                        className="bg-gray-50"
+                        maxLength={50}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">Bairro</Label>
+                    <Input
+                      placeholder="Bairro"
+                      value={deliveryForm.neighborhood}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, neighborhood: e.target.value }))}
+                      className="bg-gray-50"
+                      maxLength={100}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">Cidade</Label>
+                    <Input
+                      placeholder="Cidade"
+                      value={deliveryForm.city}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, city: e.target.value }))}
+                      className="bg-gray-50"
+                      maxLength={100}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm text-gray-600">Taxa de Entrega</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                      <Input
+                        type="number"
+                        placeholder="0,00"
+                        value={deliveryForm.deliveryFee || ''}
+                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
+                        className="pl-10 bg-gray-50"
+                        min={0}
+                        step={0.01}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Continue Button */}
+        <div className="p-4 bg-white border-t">
+          <Button
+            className="w-full h-14 bg-[#2d5a87] hover:bg-[#1e3a5f] text-white gap-2 text-base font-semibold"
+            onClick={handleProceedToOrder}
+          >
+            <ClipboardList className="w-5 h-5" />
+            Adicionar Produtos
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // Order Detail View
   if (view === 'order-detail' && selectedOrder) {
     return (
@@ -463,8 +896,14 @@ export default function WaiterApp() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-bold">Mesa {selectedOrder.tables?.number || '-'}</h1>
-              <p className="text-xs opacity-80">{formatTime(selectedOrder.created_at)}</p>
+              <h1 className="font-bold">
+                {selectedOrder.order_type === 'table' 
+                  ? `Mesa ${selectedOrder.tables?.number || '-'}`
+                  : selectedOrder.customer_name || 'Pedido'}
+              </h1>
+              <p className="text-xs opacity-80">
+                {getOrderTypeLabel(selectedOrder.order_type || 'table')} • {formatTime(selectedOrder.created_at)}
+              </p>
             </div>
           </div>
         </header>
@@ -472,16 +911,50 @@ export default function WaiterApp() {
         <div className="flex-1 p-4">
           <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
             <div className="flex items-center justify-between mb-4">
-              <Badge className={`${
-                selectedOrder.status === 'ready' ? 'bg-green-500' :
-                selectedOrder.status === 'preparing' ? 'bg-orange-500' : 'bg-yellow-500'
-              } text-white border-0 text-sm px-3 py-1`}>
-                {getStatusLabel(selectedOrder.status)}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={`${
+                  selectedOrder.status === 'ready' ? 'bg-green-500' :
+                  selectedOrder.status === 'preparing' ? 'bg-orange-500' : 'bg-yellow-500'
+                } text-white border-0 text-sm px-3 py-1`}>
+                  {getStatusLabel(selectedOrder.status)}
+                </Badge>
+                <Badge variant="outline" className="text-sm">
+                  {getOrderTypeLabel(selectedOrder.order_type || 'table')}
+                </Badge>
+              </div>
               <span className="text-xl font-bold text-[#1e3a5f]">
                 {formatCurrency(selectedOrder.total || 0)}
               </span>
             </div>
+
+            {/* Customer info for delivery/takeaway */}
+            {selectedOrder.order_type !== 'table' && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg space-y-1">
+                {selectedOrder.customer_name && (
+                  <p className="text-sm flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    {selectedOrder.customer_name}
+                  </p>
+                )}
+                {selectedOrder.delivery_phone && (
+                  <p className="text-sm flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    {selectedOrder.delivery_phone}
+                  </p>
+                )}
+                {selectedOrder.delivery_address && (
+                  <p className="text-sm flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    {selectedOrder.delivery_address}
+                  </p>
+                )}
+                {selectedOrder.delivery_fee && selectedOrder.delivery_fee > 0 && (
+                  <p className="text-sm text-gray-500">
+                    Taxa de entrega: {formatCurrency(selectedOrder.delivery_fee)}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-3">
               {selectedOrder.order_items?.map((item) => (
@@ -518,7 +991,222 @@ export default function WaiterApp() {
     );
   }
 
-  // Order View (New Order)
+  // Delivery Order View (Add products)
+  if (view === 'delivery-order') {
+    return (
+      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={() => { setView('delivery'); }}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="font-bold">
+                {orderMode === 'delivery' ? 'Delivery' : 'Para Levar'} - {deliveryForm.customerName}
+              </h1>
+              <p className="text-xs opacity-80">
+                {cart.length > 0 ? `${cart.length} itens no pedido` : 'Adicionar itens'}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        {/* Search */}
+        <div className="p-3 bg-white border-b">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Buscar produtos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-11 bg-gray-50 border-gray-200"
+            />
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="px-3 py-2 bg-white border-b overflow-x-auto">
+          <div className="flex gap-2">
+            <Button
+              variant={selectedCategory === null ? 'default' : 'outline'}
+              size="sm"
+              className={`h-9 px-4 shrink-0 ${selectedCategory === null ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+              onClick={() => setSelectedCategory(null)}
+            >
+              Todos
+            </Button>
+            {categories.map((category) => (
+              <Button
+                key={category.id}
+                variant={selectedCategory === category.id ? 'default' : 'outline'}
+                size="sm"
+                className={`h-9 px-4 whitespace-nowrap shrink-0 ${selectedCategory === category.id ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+                onClick={() => setSelectedCategory(category.id)}
+              >
+                {category.icon && <span className="mr-1">{category.icon}</span>}
+                {category.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Products */}
+        <ScrollArea className="flex-1">
+          <div className="p-3 grid gap-2">
+            {filteredProducts.map((product) => {
+              const cartItem = cart.find(item => item.product.id === product.id);
+              const quantity = cartItem?.quantity || 0;
+              
+              return (
+                <button
+                  key={product.id}
+                  className={`relative flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left transition-all active:scale-[0.99] ${
+                    quantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
+                  }`}
+                  onClick={() => addToCart(product)}
+                >
+                  <div className="flex-1 min-w-0 pr-3">
+                    <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                    <p className="text-[#2d5a87] font-bold">
+                      {formatCurrency(product.price)}
+                    </p>
+                  </div>
+                  
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all ${
+                    quantity > 0 
+                      ? 'bg-[#2d5a87] text-white' 
+                      : 'bg-gray-100 text-gray-400'
+                  }`}>
+                    {quantity > 0 ? (
+                      <span className="text-lg font-bold">{quantity}</span>
+                    ) : (
+                      <Plus className="w-5 h-5" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+
+        {/* Cart Summary */}
+        {cart.length > 0 && (
+          <div className="sticky bottom-0 bg-white border-t shadow-lg">
+            <ScrollArea className="max-h-48 p-3">
+              <div className="space-y-2">
+                {cart.map((item) => (
+                  <div key={item.product.id} className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-gray-900">{item.product.name}</p>
+                        <p className="text-sm text-gray-500">
+                          {formatCurrency(item.product.price)} cada
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, -1); }}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <span className="w-8 text-center font-bold">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, 1); }}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-red-500"
+                          onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id); }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {editingItemNotes === item.product.id ? (
+                      <Input
+                        placeholder="Observações do item..."
+                        value={item.notes}
+                        onChange={(e) => updateItemNotes(item.product.id, e.target.value)}
+                        onBlur={() => setEditingItemNotes(null)}
+                        autoFocus
+                        className="h-9 text-sm"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setEditingItemNotes(item.product.id)}
+                        className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        {item.notes || 'Adicionar observação'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+
+            <div className="p-3 pt-0">
+              <Textarea
+                placeholder="Observações gerais do pedido..."
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                className="mb-3 min-h-[60px]"
+              />
+              
+              {/* Order Summary */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span>{formatCurrency(cartTotal)}</span>
+                </div>
+                {orderMode === 'delivery' && deliveryForm.deliveryFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Taxa de entrega</span>
+                    <span>{formatCurrency(deliveryForm.deliveryFee)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-lg pt-1 border-t">
+                  <span>Total</span>
+                  <span className="text-[#1e3a5f]">{formatCurrency(orderTotal)}</span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full h-14 text-lg gap-2 bg-[#2d5a87] hover:bg-[#1e3a5f]"
+                disabled={submitting}
+                onClick={handleSubmitOrder}
+              >
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Enviar Pedido
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Order View (New Order - Table)
   if (view === 'order') {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
@@ -849,7 +1537,9 @@ export default function WaiterApp() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-gray-900">
-                          Mesa {order.tables?.number || '-'}
+                          {order.order_type === 'table' 
+                            ? `Mesa ${order.tables?.number || '-'}`
+                            : order.customer_name || 'Pedido'}
                         </span>
                         <Badge className={`${
                           order.status === 'ready' ? 'bg-green-500' :
@@ -858,7 +1548,14 @@ export default function WaiterApp() {
                           {getStatusLabel(order.status)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 flex items-center gap-2">
+                        {order.order_type !== 'table' && (
+                          <span className="inline-flex items-center gap-1">
+                            {order.order_type === 'delivery' ? <Bike className="w-3 h-3" /> : <Package className="w-3 h-3" />}
+                            {getOrderTypeLabel(order.order_type || 'table')}
+                            •
+                          </span>
+                        )}
                         {formatTime(order.created_at)}
                       </p>
                     </div>
@@ -891,15 +1588,24 @@ export default function WaiterApp() {
         )}
       </ScrollArea>
 
-      {/* Bottom Button */}
-      <div className="p-3 bg-white border-t">
-        <Button 
-          className="w-full h-14 bg-[#2d5a87] hover:bg-[#1e3a5f] text-white gap-2 text-base font-semibold"
-          onClick={() => toast.info('Funcionalidade de delivery em breve!')}
-        >
-          <Bike className="w-5 h-5" />
-          Delivery/Para Levar
-        </Button>
+      {/* Bottom Buttons */}
+      <div className="p-3 bg-white border-t space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Button 
+            className="h-12 bg-[#2d5a87] hover:bg-[#1e3a5f] text-white gap-2 font-semibold"
+            onClick={() => handleStartDelivery('delivery')}
+          >
+            <Bike className="w-5 h-5" />
+            Delivery
+          </Button>
+          <Button 
+            className="h-12 bg-green-600 hover:bg-green-700 text-white gap-2 font-semibold"
+            onClick={() => handleStartDelivery('takeaway')}
+          >
+            <Package className="w-5 h-5" />
+            Para Levar
+          </Button>
+        </div>
       </div>
     </div>
   );
