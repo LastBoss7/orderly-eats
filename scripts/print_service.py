@@ -151,6 +151,39 @@ def mark_order_printed(order_id: str) -> bool:
         return False
 
 
+def log_print_event(order: Dict, event_type: str, status: str, error_message: str = None) -> bool:
+    """Registra um log de impressão no banco de dados."""
+    endpoint = f"{SUPABASE_URL}/rest/v1/print_logs"
+    
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    
+    items = order.get('order_items', [])
+    
+    data = {
+        "restaurant_id": RESTAURANT_ID,
+        "order_id": order.get('id'),
+        "event_type": event_type,
+        "status": status,
+        "printer_name": PRINTER_NAME,
+        "error_message": error_message,
+        "order_number": order.get('id', '')[:8],
+        "items_count": len(items) if isinstance(items, list) else 0
+    }
+    
+    try:
+        response = requests.post(endpoint, json=data, headers=headers, timeout=10)
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        print(f"[AVISO] Falha ao registrar log: {e}")
+        return False
+
+
 # ============ FORMATAÇÃO DO RECIBO ============
 def format_receipt(order: Dict) -> str:
     """Formata o pedido para impressão térmica."""
@@ -332,10 +365,13 @@ def main():
                     
                     if print_raw(texto):
                         if mark_order_printed(order_id):
+                            log_print_event(order, 'print', 'success')
                             print(f"    [OK] Impresso e marcado com sucesso")
                         else:
+                            log_print_event(order, 'print', 'success', 'Falha ao atualizar status no banco')
                             print(f"    [AVISO] Impresso, mas falhou ao marcar no banco")
                     else:
+                        log_print_event(order, 'print', 'failed', 'Falha na impressão')
                         print(f"    [ERRO] Falha na impressão")
                 
                 consecutive_errors = 0
