@@ -32,8 +32,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Search, 
   Plus, 
@@ -43,7 +51,10 @@ import {
   Phone, 
   MapPin,
   RefreshCw,
-  X
+  X,
+  History,
+  ShoppingBag,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -63,6 +74,16 @@ interface Customer {
   updated_at: string;
 }
 
+interface CustomerOrder {
+  id: string;
+  order_number: number | null;
+  order_type: string | null;
+  status: string | null;
+  total: number | null;
+  created_at: string;
+  payment_method: string | null;
+}
+
 export default function Customers() {
   const { restaurant } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -74,6 +95,12 @@ export default function Customers() {
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Order history state
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<CustomerOrder[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -276,6 +303,76 @@ export default function Customers() {
     return parts.join(', ') || '-';
   };
 
+  const fetchCustomerOrders = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setIsHistoryOpen(true);
+    setIsLoadingOrders(true);
+    setCustomerOrders([]);
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('id, order_number, order_type, status, total, created_at, payment_method')
+        .eq('customer_id', customer.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setCustomerOrders(data || []);
+    } catch (error: any) {
+      toast.error('Erro ao carregar pedidos', { description: error.message });
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
+
+  const getOrderTypeLabel = (type: string | null) => {
+    switch (type) {
+      case 'delivery': return 'Entrega';
+      case 'counter': return 'Balcão';
+      case 'table': return 'Mesa';
+      default: return type || '-';
+    }
+  };
+
+  const getStatusLabel = (status: string | null) => {
+    switch (status) {
+      case 'pending': return 'Pendente';
+      case 'preparing': return 'Preparando';
+      case 'ready': return 'Pronto';
+      case 'delivered': return 'Entregue';
+      case 'completed': return 'Finalizado';
+      case 'cancelled': return 'Cancelado';
+      default: return status || '-';
+    }
+  };
+
+  const getStatusColor = (status: string | null) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20';
+      case 'preparing': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      case 'ready': return 'bg-green-500/10 text-green-600 border-green-500/20';
+      case 'delivered':
+      case 'completed': return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+      case 'cancelled': return 'bg-red-500/10 text-red-600 border-red-500/20';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const formatCurrency = (value: number | null) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value || 0);
+  };
+
+  const totalSpent = customerOrders.reduce((sum, order) => {
+    if (order.status !== 'cancelled') {
+      return sum + (order.total || 0);
+    }
+    return sum;
+  }, 0);
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -398,6 +495,14 @@ export default function Customers() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => fetchCustomerOrders(customer)}
+                            title="Ver histórico de pedidos"
+                          >
+                            <History className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -580,6 +685,89 @@ export default function Customers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Order History Sheet */}
+      <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <SheetContent className="w-full sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Histórico de Pedidos
+            </SheetTitle>
+            <SheetDescription>
+              {selectedCustomer?.name} • {formatPhone(selectedCustomer?.phone || '')}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4">
+            {/* Summary */}
+            {!isLoadingOrders && customerOrders.length > 0 && (
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg mb-4">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Total de pedidos:</span>{' '}
+                  <span className="font-semibold">{customerOrders.length}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Valor total:</span>{' '}
+                  <span className="font-semibold text-primary">{formatCurrency(totalSpent)}</span>
+                </div>
+              </div>
+            )}
+
+            <ScrollArea className="h-[calc(100vh-220px)]">
+              {isLoadingOrders ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : customerOrders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <ShoppingBag className="w-12 h-12 mb-2 opacity-50" />
+                  <p>Nenhum pedido encontrado</p>
+                </div>
+              ) : (
+                <div className="space-y-3 pr-4">
+                  {customerOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="p-3 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">
+                              #{order.order_number || '-'}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {getOrderTypeLabel(order.order_type)}
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${getStatusColor(order.status)}`}
+                            >
+                              {getStatusLabel(order.status)}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {format(new Date(order.created_at), "dd/MM/yyyy 'às' HH:mm", {
+                              locale: ptBR,
+                            })}
+                            {order.payment_method && (
+                              <> • {order.payment_method}</>
+                            )}
+                          </p>
+                        </div>
+                        <span className="font-semibold text-sm whitespace-nowrap">
+                          {formatCurrency(order.total)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </SheetContent>
+      </Sheet>
     </DashboardLayout>
   );
 }
