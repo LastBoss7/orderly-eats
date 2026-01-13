@@ -311,10 +311,16 @@ export function printDailyReport(data: DailyReportData) {
         ${printContent}
         <script>
           window.onload = function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
+            setTimeout(function() {
+              try {
+                window.print();
+              } catch(e) {
+                console.error('Print error:', e);
+              }
+              setTimeout(function() {
+                window.close();
+              }, 1000);
+            }, 300);
           };
         <\/script>
       </body>
