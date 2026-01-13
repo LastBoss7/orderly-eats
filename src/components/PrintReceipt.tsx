@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
+import { useReceiptSettings } from '@/hooks/useReceiptSettings';
 
 interface OrderItem {
   product_name: string;
@@ -11,6 +12,8 @@ interface OrderItem {
 interface PrintReceiptProps {
   order: {
     id: string;
+    order_number?: number | null;
+    order_type?: string | null;
     customer_name: string | null;
     delivery_phone: string | null;
     delivery_address: string | null;
@@ -28,6 +31,7 @@ interface PrintReceiptProps {
 
 export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { settings, restaurantInfo } = useReceiptSettings();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -48,6 +52,30 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
     return order.order_items.reduce((sum, item) => sum + item.product_price * item.quantity, 0);
   };
 
+  const getOrderTypeLabel = (type: string | null | undefined) => {
+    const labels: Record<string, string> = {
+      'counter': '🏪 BALCÃO',
+      'table': '🍽️ MESA',
+      'tab': '📋 COMANDA',
+      'delivery': '🛵 ENTREGA',
+      'takeaway': '🥡 RETIRADA',
+    };
+    return labels[type || ''] || '📋 PEDIDO';
+  };
+
+  const getPaymentLabel = (method: string | null | undefined) => {
+    const labels: Record<string, string> = {
+      'pix': 'PIX',
+      'cash': 'DINHEIRO',
+      'credit': 'CRÉDITO',
+      'debit': 'DÉBITO',
+      'voucher': 'VALE REFEIÇÃO',
+    };
+    return labels[method || ''] || method?.toUpperCase() || '';
+  };
+
+  const displayName = restaurantInfo?.name || restaurantName || 'Restaurante';
+
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
@@ -62,7 +90,7 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Comanda #${order.id.slice(0, 8)}</title>
+          <title>Comanda #${order.order_number || order.id.slice(0, 8)}</title>
           <style>
             * {
               margin: 0;
@@ -84,7 +112,6 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               -webkit-font-smoothing: none;
               text-rendering: geometricPrecision;
             }
-            /* Force all text to be bold and black for thermal printers */
             p, span, div {
               color: #000 !important;
               font-weight: bold !important;
@@ -95,12 +122,31 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               padding-bottom: 12px;
               margin-bottom: 12px;
             }
+            .logo {
+              max-width: 120px;
+              max-height: 60px;
+              margin: 0 auto 8px;
+              display: block;
+            }
             .restaurant-name {
               font-size: 20px;
               font-weight: 900 !important;
-              margin-bottom: 8px;
+              margin-bottom: 4px;
               text-transform: uppercase;
               letter-spacing: 1px;
+            }
+            .restaurant-info {
+              font-size: 11px;
+              margin-bottom: 8px;
+              line-height: 1.4;
+            }
+            .custom-header {
+              font-size: 12px;
+              font-style: italic;
+              margin: 8px 0;
+              padding: 6px;
+              background: #f0f0f0 !important;
+              white-space: pre-wrap;
             }
             .order-type {
               font-size: 18px;
@@ -201,6 +247,12 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               border-top: 3px dashed #000;
               font-size: 14px;
             }
+            .custom-footer {
+              font-size: 12px;
+              font-style: italic;
+              margin-top: 8px;
+              white-space: pre-wrap;
+            }
             .datetime {
               margin-top: 8px;
               font-size: 14px;
@@ -215,7 +267,6 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
                 margin: 3mm;
                 size: 80mm auto;
               }
-              /* Extra bold for thermal printers */
               * {
                 text-shadow: 0 0 0 #000 !important;
               }
@@ -254,17 +305,46 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
       <div style={{ display: 'none' }}>
         <div ref={printRef}>
           <div className="header">
-            <div className="restaurant-name">{restaurantName || 'Restaurante'}</div>
-            <div className="order-type">🛵 ENTREGA</div>
-            <div className="order-number">Pedido #{order.id.slice(0, 8).toUpperCase()}</div>
+            {/* Logo */}
+            {restaurantInfo?.logo_url && (
+              <img src={restaurantInfo.logo_url} alt="Logo" className="logo" />
+            )}
+            
+            {/* Restaurant Name */}
+            <div className="restaurant-name">{displayName}</div>
+            
+            {/* Restaurant Info */}
+            <div className="restaurant-info">
+              {settings.show_address_on_receipt && restaurantInfo?.address && (
+                <div>{restaurantInfo.address}</div>
+              )}
+              {settings.show_phone_on_receipt && restaurantInfo?.phone && (
+                <div>Tel: {restaurantInfo.phone}</div>
+              )}
+              {settings.show_cnpj_on_receipt && restaurantInfo?.cnpj && (
+                <div>CNPJ: {restaurantInfo.cnpj}</div>
+              )}
+            </div>
+
+            {/* Custom Header */}
+            {settings.receipt_header && (
+              <div className="custom-header">{settings.receipt_header}</div>
+            )}
+
+            <div className="order-type">{getOrderTypeLabel(order.order_type)}</div>
+            <div className="order-number">
+              Pedido #{order.order_number || order.id.slice(0, 8).toUpperCase()}
+            </div>
             <div className="datetime">{formatDate(order.created_at)}</div>
           </div>
 
-          <div className="section customer-info">
-            <div className="section-title">📋 Cliente</div>
-            <p className="customer-name">{order.customer_name}</p>
-            {order.delivery_phone && <p>📞 {order.delivery_phone}</p>}
-          </div>
+          {order.customer_name && (
+            <div className="section customer-info">
+              <div className="section-title">📋 Cliente</div>
+              <p className="customer-name">{order.customer_name}</p>
+              {order.delivery_phone && <p>📞 {order.delivery_phone}</p>}
+            </div>
+          )}
 
           {order.delivery_address && (
             <div className="section">
@@ -293,10 +373,12 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               <span>Subtotal:</span>
               <span>{formatCurrency(calculateSubtotal())}</span>
             </div>
-            <div className="total-row">
-              <span>Taxa de Entrega:</span>
-              <span>{formatCurrency(order.delivery_fee || 0)}</span>
-            </div>
+            {order.delivery_fee && order.delivery_fee > 0 && (
+              <div className="total-row">
+                <span>Taxa de Entrega:</span>
+                <span>{formatCurrency(order.delivery_fee)}</span>
+              </div>
+            )}
             <div className="total-row grand-total">
               <span>TOTAL:</span>
               <span>{formatCurrency(order.total || 0)}</span>
@@ -304,13 +386,7 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
             {order.payment_method && (
               <div className="total-row" style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #000' }}>
                 <span>💳 Pagamento:</span>
-                <span style={{ fontWeight: 'bold' }}>
-                  {order.payment_method === 'pix' && 'PIX'}
-                  {order.payment_method === 'cash' && 'DINHEIRO'}
-                  {order.payment_method === 'credit' && 'CRÉDITO'}
-                  {order.payment_method === 'debit' && 'DÉBITO'}
-                  {order.payment_method === 'voucher' && 'VALE REFEIÇÃO'}
-                </span>
+                <span style={{ fontWeight: 'bold' }}>{getPaymentLabel(order.payment_method)}</span>
               </div>
             )}
           </div>
@@ -323,8 +399,14 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
           )}
 
           <div className="footer">
-            <p>Obrigado pela preferência!</p>
-            <p>Volte sempre 😊</p>
+            {settings.receipt_footer ? (
+              <div className="custom-footer">{settings.receipt_footer}</div>
+            ) : (
+              <>
+                <p>Obrigado pela preferência!</p>
+                <p>Volte sempre 😊</p>
+              </>
+            )}
           </div>
         </div>
       </div>
