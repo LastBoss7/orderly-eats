@@ -41,6 +41,7 @@ import {
   ChevronDown,
   Image,
   Edit3,
+  Printer,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -61,7 +62,7 @@ const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
-  { title: 'Logs de Impressão', url: '/print-logs', icon: ClipboardList },
+  { title: 'Impressora', url: '/printers', icon: Printer },
 ];
 
 export function AppSidebar() {
