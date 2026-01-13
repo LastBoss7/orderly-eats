@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CloseTabModal } from './CloseTabModal';
 import { 
   Plus, 
   Search, 
@@ -91,6 +92,10 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
   // Edit tab dialog
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editTabName, setEditTabName] = useState('');
+  
+  // Close tab modal
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [closeTabOrders, setCloseTabOrders] = useState<Order[]>([]);
 
   const fetchTabs = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -157,6 +162,19 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
   const handleTabClick = async (tab: Tab) => {
     setSelectedTab(tab);
     await fetchTabOrders(tab.id);
+  };
+
+  const handleOpenCloseModal = async () => {
+    if (!selectedTab) return;
+    // Fetch active orders for closing
+    const orders = await fetchTabOrders(selectedTab.id);
+    setCloseTabOrders(tabOrders);
+    setShowCloseModal(true);
+  };
+
+  const handleTabClosed = () => {
+    setSelectedTab(null);
+    fetchTabs();
   };
 
   const handleCreateTab = async () => {
@@ -525,6 +543,7 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
               <Button
                 className="w-full gap-2 h-14 text-base font-semibold shadow-lg"
                 variant="default"
+                onClick={handleOpenCloseModal}
               >
                 <DollarSign className="w-5 h-5" />
                 Fechar Comanda
@@ -618,6 +637,15 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Close Tab Modal */}
+      <CloseTabModal
+        open={showCloseModal}
+        onClose={() => setShowCloseModal(false)}
+        tab={selectedTab}
+        orders={closeTabOrders}
+        onTabClosed={handleTabClosed}
+      />
     </>
   );
 }
