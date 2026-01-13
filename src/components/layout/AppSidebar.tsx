@@ -80,6 +80,7 @@ const bottomMenuItems = [
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
+  { title: 'Meu Estabelecimento', url: '/restaurant-settings', icon: Settings2 },
 ];
 
 export function AppSidebar() {

@@ -653,11 +653,16 @@ export type Database = {
           last_opened_at: string | null
           operation_type: string | null
           order_tab_count: number | null
+          receipt_footer: string | null
+          receipt_header: string | null
           restaurant_id: string
           service_counter: boolean | null
           service_individual: boolean | null
           service_self: boolean | null
           service_table: boolean | null
+          show_address_on_receipt: boolean | null
+          show_cnpj_on_receipt: boolean | null
+          show_phone_on_receipt: boolean | null
           table_count: number | null
           updated_at: string
         }
@@ -678,11 +683,16 @@ export type Database = {
           last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
           restaurant_id: string
           service_counter?: boolean | null
           service_individual?: boolean | null
           service_self?: boolean | null
           service_table?: boolean | null
+          show_address_on_receipt?: boolean | null
+          show_cnpj_on_receipt?: boolean | null
+          show_phone_on_receipt?: boolean | null
           table_count?: number | null
           updated_at?: string
         }
@@ -703,11 +713,16 @@ export type Database = {
           last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
+          receipt_footer?: string | null
+          receipt_header?: string | null
           restaurant_id?: string
           service_counter?: boolean | null
           service_individual?: boolean | null
           service_self?: boolean | null
           service_table?: boolean | null
+          show_address_on_receipt?: boolean | null
+          show_cnpj_on_receipt?: boolean | null
+          show_phone_on_receipt?: boolean | null
           table_count?: number | null
           updated_at?: string
         }
