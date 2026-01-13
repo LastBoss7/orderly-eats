@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { CloseTableModal } from '@/components/tables/CloseTableModal';
 import { 
   Plus, 
   Users, 
@@ -29,6 +30,7 @@ import {
   ChefHat,
   CheckCircle2,
   Utensils,
+  DollarSign,
 } from 'lucide-react';
 
 interface Table {
@@ -51,6 +53,7 @@ interface OrderItem {
   product_name: string;
   product_price: number;
   quantity: number;
+  notes: string | null;
 }
 
 export default function Tables() {
@@ -64,8 +67,10 @@ export default function Tables() {
   const [newTableNumber, setNewTableNumber] = useState('');
   const [newTableCapacity, setNewTableCapacity] = useState('4');
   const [adding, setAdding] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [allTableOrders, setAllTableOrders] = useState<Order[]>([]);
 
-  const fetchTables = async () => {
+  const fetchTables = useCallback(async () => {
     if (!restaurant?.id) return;
 
     try {
@@ -81,34 +86,84 @@ export default function Tables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [restaurant?.id]);
 
   useEffect(() => {
     fetchTables();
-  }, [restaurant?.id]);
+  }, [fetchTables]);
 
-  const fetchTableOrders = async (tableId: string) => {
+  // Realtime subscription for tables
+  useEffect(() => {
+    if (!restaurant?.id) return;
+
+    const channel = supabase
+      .channel('tables-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tables',
+        },
+        () => {
+          fetchTables();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurant?.id, fetchTables]);
+
+  const fetchTableOrders = async (tableId: string, includeDelivered = false) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('orders')
         .select(`
           *,
           order_items (*)
         `)
-        .eq('table_id', tableId)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: false });
+        .eq('table_id', tableId);
+
+      if (includeDelivered) {
+        // For close modal, include all orders except cancelled
+        query = query.in('status', ['pending', 'preparing', 'ready', 'delivered']);
+      } else {
+        // For sheet display, only active orders
+        query = query.in('status', ['pending', 'preparing', 'ready']);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTableOrders(data || []);
+      return data || [];
     } catch (error) {
       console.error('Error fetching orders:', error);
+      return [];
     }
   };
 
   const handleTableClick = async (table: Table) => {
     setSelectedTable(table);
-    await fetchTableOrders(table.id);
+    const orders = await fetchTableOrders(table.id);
+    setTableOrders(orders);
+    // Also fetch all orders for close modal (including delivered ones for accounting)
+    const allOrders = await fetchTableOrders(table.id, false);
+    setAllTableOrders(allOrders);
+  };
+
+  const handleOpenCloseModal = async () => {
+    if (!selectedTable) return;
+    // Fetch active orders for closing
+    const orders = await fetchTableOrders(selectedTable.id);
+    setAllTableOrders(orders);
+    setShowCloseModal(true);
+  };
+
+  const handleTableClosed = () => {
+    setSelectedTable(null);
+    fetchTables();
   };
 
   const handleAddTable = async () => {
@@ -368,13 +423,25 @@ export default function Tables() {
                 </Button>
               </div>
 
+              {/* Close Table Button */}
+              {tableOrders.length > 0 && (
+                <Button
+                  className="w-full gap-2"
+                  variant="default"
+                  onClick={handleOpenCloseModal}
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Fechar Mesa
+                </Button>
+              )}
+
               {/* Orders */}
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <Receipt className="w-4 h-4" />
                   Pedidos da Mesa
                 </h3>
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[350px]">
                   {tableOrders.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
                       Nenhum pedido aberto nesta mesa
@@ -457,6 +524,15 @@ export default function Tables() {
             </div>
           </SheetContent>
         </Sheet>
+
+        {/* Close Table Modal */}
+        <CloseTableModal
+          open={showCloseModal}
+          onClose={() => setShowCloseModal(false)}
+          table={selectedTable}
+          orders={allTableOrders}
+          onTableClosed={handleTableClosed}
+        />
       </div>
     </DashboardLayout>
   );
