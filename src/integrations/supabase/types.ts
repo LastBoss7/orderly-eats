@@ -489,6 +489,9 @@ export type Database = {
       }
       salon_settings: {
         Row: {
+          auto_print_counter: boolean | null
+          auto_print_delivery: boolean | null
+          auto_print_table: boolean | null
           counter_prep_max: number | null
           counter_prep_min: number | null
           created_at: string
@@ -508,6 +511,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_print_counter?: boolean | null
+          auto_print_delivery?: boolean | null
+          auto_print_table?: boolean | null
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string
@@ -527,6 +533,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_print_counter?: boolean | null
+          auto_print_delivery?: boolean | null
+          auto_print_table?: boolean | null
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string

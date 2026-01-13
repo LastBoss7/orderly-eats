@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { 
   Search, 
   Plus, 
@@ -60,6 +61,7 @@ const paymentMethods: { id: PaymentMethod; label: string; icon: React.ReactNode 
 export default function POS() {
   const { restaurant } = useAuth();
   const { toast } = useToast();
+  const { shouldAutoPrint } = usePrintSettings();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -192,6 +194,8 @@ export default function POS() {
 
     try {
       // Create order with payment method in notes
+      const autoPrint = shouldAutoPrint('counter');
+      
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -199,7 +203,7 @@ export default function POS() {
           customer_name: customerName || null,
           order_type: 'counter',
           status: 'pending',
-          print_status: 'pending', // Impressão automática
+          print_status: autoPrint ? 'pending' : 'disabled',
           total: cartTotal,
           notes: `Pagamento: ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
         })
