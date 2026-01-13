@@ -101,6 +101,80 @@ export default function SalonData() {
     setSettings(prev => ({ ...prev, order_tab_count: Math.max(0, prev.order_tab_count + delta) }));
   };
 
+  const syncTables = async (targetCount: number) => {
+    if (!restaurant?.id) return;
+
+    try {
+      // Get current tables
+      const { data: currentTables, error: fetchError } = await supabase
+        .from('tables')
+        .select('id, number')
+        .eq('restaurant_id', restaurant.id)
+        .order('number');
+
+      if (fetchError) throw fetchError;
+
+      const existingCount = currentTables?.length || 0;
+
+      if (targetCount > existingCount) {
+        // Need to create more tables
+        const tablesToCreate = [];
+        const existingNumbers = new Set(currentTables?.map(t => t.number) || []);
+        
+        let nextNumber = 1;
+        for (let i = 0; i < targetCount - existingCount; i++) {
+          // Find next available number
+          while (existingNumbers.has(nextNumber)) {
+            nextNumber++;
+          }
+          tablesToCreate.push({
+            restaurant_id: restaurant.id,
+            number: nextNumber,
+            capacity: 4,
+            status: 'available',
+          });
+          existingNumbers.add(nextNumber);
+          nextNumber++;
+        }
+
+        if (tablesToCreate.length > 0) {
+          const { error: insertError } = await supabase
+            .from('tables')
+            .insert(tablesToCreate);
+
+          if (insertError) throw insertError;
+        }
+      } else if (targetCount < existingCount) {
+        // Need to remove tables (only those with status 'available')
+        const tablesToRemove = existingCount - targetCount;
+        
+        // Get available tables to remove (from highest number first)
+        const { data: availableTables, error: availableError } = await supabase
+          .from('tables')
+          .select('id')
+          .eq('restaurant_id', restaurant.id)
+          .eq('status', 'available')
+          .order('number', { ascending: false })
+          .limit(tablesToRemove);
+
+        if (availableError) throw availableError;
+
+        if (availableTables && availableTables.length > 0) {
+          const idsToDelete = availableTables.map(t => t.id);
+          const { error: deleteError } = await supabase
+            .from('tables')
+            .delete()
+            .in('id', idsToDelete);
+
+          if (deleteError) throw deleteError;
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing tables:', error);
+      throw error;
+    }
+  };
+
   const handleSave = async () => {
     if (!restaurant?.id) return;
 
@@ -140,9 +214,14 @@ export default function SalonData() {
         setSettings(prev => ({ ...prev, id: data.id }));
       }
 
+      // Sync tables based on table_count
+      if (settings.has_dining_room && settings.table_count > 0) {
+        await syncTables(settings.table_count);
+      }
+
       toast({
         title: 'Configurações salvas',
-        description: 'As configurações do salão foram atualizadas com sucesso.',
+        description: `As configurações do salão foram atualizadas. ${settings.table_count} mesas configuradas.`,
       });
     } catch (error: any) {
       toast({
