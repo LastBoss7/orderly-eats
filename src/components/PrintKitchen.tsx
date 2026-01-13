@@ -1,16 +1,20 @@
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChefHat } from 'lucide-react';
+import { useReceiptSettings } from '@/hooks/useReceiptSettings';
 
 interface OrderItem {
   product_name: string;
   quantity: number;
   product_price: number;
+  notes?: string | null;
 }
 
 interface PrintKitchenProps {
   order: {
     id: string;
+    order_number?: number | null;
+    order_type?: string | null;
     customer_name: string | null;
     created_at: string;
     notes: string | null;
@@ -21,6 +25,7 @@ interface PrintKitchenProps {
 
 export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
   const printRef = useRef<HTMLDivElement>(null);
+  const { settings, restaurantInfo } = useReceiptSettings();
 
   const formatTime = (date: string) => {
     return new Date(date).toLocaleString('pt-BR', {
@@ -36,6 +41,17 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
     });
   };
 
+  const getOrderTypeLabel = (type: string | null | undefined) => {
+    const labels: Record<string, string> = {
+      'counter': '🏪 BALCÃO',
+      'table': '🍽️ MESA',
+      'tab': '📋 COMANDA',
+      'delivery': '🛵 ENTREGA',
+      'takeaway': '🥡 RETIRADA',
+    };
+    return labels[type || ''] || '📋 PEDIDO';
+  };
+
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
@@ -47,7 +63,7 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Cozinha #${order.id.slice(0, 8)}</title>
+          <title>Cozinha #${order.order_number || order.id.slice(0, 8)}</title>
           <style>
             * {
               margin: 0;
@@ -69,7 +85,6 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
               -webkit-font-smoothing: none;
               text-rendering: geometricPrecision;
             }
-            /* Force all text to be bold and black for thermal printers */
             p, span, div {
               color: #000 !important;
               font-weight: bold !important;
@@ -79,6 +94,12 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
               border-bottom: 4px solid #000;
               padding-bottom: 12px;
               margin-bottom: 16px;
+            }
+            .restaurant-name {
+              font-size: 16px;
+              font-weight: 900 !important;
+              margin-bottom: 8px;
+              text-transform: uppercase;
             }
             .order-type {
               font-size: 22px;
@@ -183,7 +204,6 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
                 margin: 2mm;
                 size: 80mm auto;
               }
-              /* Extra bold for thermal printers */
               * {
                 text-shadow: 0 0 0 #000 !important;
               }
@@ -217,9 +237,16 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
       <div style={{ display: 'none' }}>
         <div ref={printRef}>
           <div className="header">
-            <div className="order-type">🛵 ENTREGA</div>
+            {/* Restaurant name for kitchen */}
+            {restaurantInfo?.name && (
+              <div className="restaurant-name">{restaurantInfo.name}</div>
+            )}
+            
+            <div className="order-type">{getOrderTypeLabel(order.order_type)}</div>
             <div className="order-info">
-              <span className="order-number">#{order.id.slice(0, 6).toUpperCase()}</span>
+              <span className="order-number">
+                #{order.order_number || orderNumber || order.id.slice(0, 6).toUpperCase()}
+              </span>
               <span className="time-stamp">{formatTime(order.created_at)}</span>
             </div>
             {order.customer_name && (
@@ -231,9 +258,14 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
 
           <div className="items-section">
             {order.order_items?.map((item, index) => (
-              <div className="item" key={index}>
-                <span className="item-qty">{item.quantity}x</span>
-                <span className="item-name">{item.product_name}</span>
+              <div key={index}>
+                <div className="item">
+                  <span className="item-qty">{item.quantity}x</span>
+                  <span className="item-name">{item.product_name}</span>
+                </div>
+                {item.notes && (
+                  <div className="item-notes">→ {item.notes}</div>
+                )}
               </div>
             ))}
           </div>
