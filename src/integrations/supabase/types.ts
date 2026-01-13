@@ -97,6 +97,50 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_drivers: {
+        Row: {
+          created_at: string
+          id: string
+          license_plate: string | null
+          name: string
+          phone: string | null
+          restaurant_id: string
+          status: string | null
+          updated_at: string
+          vehicle_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          license_plate?: string | null
+          name: string
+          phone?: string | null
+          restaurant_id: string
+          status?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          license_plate?: string | null
+          name?: string
+          phone?: string | null
+          restaurant_id?: string
+          status?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_drivers_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_fees: {
         Row: {
           city: string | null

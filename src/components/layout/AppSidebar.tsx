@@ -45,6 +45,7 @@ import {
   Clock,
   History,
   UserCircle,
+  Settings2,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -63,6 +64,7 @@ const cardapioSubmenu = [
 
 const bottomMenuItems = [
   { title: 'Entregas', url: '/deliveries', icon: Truck },
+  { title: 'Config. Entregas', url: '/delivery-settings', icon: Settings2 },
   { title: 'Clientes', url: '/customers', icon: UserCircle },
   { title: 'Histórico Vendas', url: '/tab-history', icon: History },
   { title: 'Tempo de Preparo', url: '/prep-time-report', icon: Clock },
