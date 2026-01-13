@@ -19,12 +19,14 @@ interface PrintReceiptProps {
     notes: string | null;
     created_at: string;
     payment_method?: string | null;
+    print_count?: number | null;
     order_items?: OrderItem[];
   };
   restaurantName?: string;
+  onPrint?: () => void;
 }
 
-export function PrintReceipt({ order, restaurantName }: PrintReceiptProps) {
+export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
   const formatCurrency = (value: number) => {
@@ -49,6 +51,9 @@ export function PrintReceipt({ order, restaurantName }: PrintReceiptProps) {
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
+
+    // Call onPrint callback to increment counter
+    onPrint?.();
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -200,6 +205,11 @@ export function PrintReceipt({ order, restaurantName }: PrintReceiptProps) {
       <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
         <Printer className="w-4 h-4" />
         Imprimir
+        {order.print_count && order.print_count > 0 && (
+          <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
+            {order.print_count}x
+          </span>
+        )}
       </Button>
 
       {/* Hidden print content */}
