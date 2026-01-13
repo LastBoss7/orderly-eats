@@ -205,6 +205,34 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setSubmitting(true);
 
     try {
+      // Get and increment daily order counter
+      const { data: settings, error: settingsError } = await supabase
+        .from('salon_settings')
+        .select('daily_order_counter, is_open')
+        .eq('restaurant_id', restaurant?.id)
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+
+      // Check if store is open
+      if (!settings?.is_open) {
+        toast({
+          variant: 'destructive',
+          title: 'Loja fechada',
+          description: 'Abra a loja antes de criar novos pedidos.',
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const newOrderNumber = (settings?.daily_order_counter ?? 0) + 1;
+
+      // Update the counter
+      await supabase
+        .from('salon_settings')
+        .update({ daily_order_counter: newOrderNumber })
+        .eq('restaurant_id', restaurant?.id);
+
       // Determine print status based on settings
       const autoPrint = shouldAutoPrint ? shouldAutoPrint(orderType) : true;
       
@@ -212,7 +240,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         .from('orders')
         .insert({
           restaurant_id: restaurant?.id,
-          customer_name: customerName || null,
+          customer_name: customerName || `Pedido #${newOrderNumber}`,
           delivery_phone: customerPhone || null,
           delivery_address: orderType === 'delivery' ? deliveryAddress : null,
           table_id: orderType === 'table' ? selectedTable : null,
@@ -245,7 +273,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
 
       toast({
         title: 'Pedido criado!',
-        description: `Pedido #${order.id.slice(0, 4).toUpperCase()} criado com sucesso.`,
+        description: `Pedido #${newOrderNumber} criado com sucesso.`,
       });
 
       resetForm();
