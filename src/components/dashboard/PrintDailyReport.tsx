@@ -193,81 +193,116 @@ export function printDailyReport(data: DailyReportData) {
             box-sizing: border-box;
           }
           body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            line-height: 1.4;
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
             padding: 10px;
             max-width: 80mm;
             margin: 0 auto;
+            color: #000;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           .header {
             text-align: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
+            border-bottom: 3px solid #000;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
           }
           .restaurant-name {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .report-title {
-            font-size: 14px;
-            font-weight: bold;
-            background: #000;
-            color: #fff;
-            padding: 5px 10px;
-            margin: 8px 0;
-          }
-          .date {
-            font-size: 12px;
-            margin-top: 5px;
-          }
-          .section {
-            border-bottom: 1px dashed #000;
-            padding: 10px 0;
-          }
-          .section-title {
-            font-weight: bold;
+            font-size: 20px;
+            font-weight: 900;
             margin-bottom: 8px;
             text-transform: uppercase;
-            font-size: 11px;
-            background: #f0f0f0;
-            padding: 3px 5px;
+            letter-spacing: 1px;
+          }
+          .report-title {
+            font-size: 16px;
+            font-weight: 900;
+            background: #000;
+            color: #fff;
+            padding: 8px 12px;
+            margin: 10px 0;
+            letter-spacing: 1px;
+          }
+          .date {
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 8px;
+          }
+          .section {
+            border-bottom: 2px dashed #000;
+            padding: 12px 0;
+          }
+          .section-title {
+            font-weight: 900;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-size: 13px;
+            background: #e0e0e0;
+            padding: 6px 8px;
+            border: 1px solid #000;
           }
           .info-row {
             display: flex;
             justify-content: space-between;
-            margin: 4px 0;
-            padding: 2px 0;
+            margin: 6px 0;
+            padding: 4px 0;
+            font-weight: 600;
+          }
+          .info-row span:first-child {
+            font-weight: 600;
+          }
+          .info-row span:last-child {
+            font-weight: 800;
           }
           .info-row.grand-total {
-            font-size: 14px;
-            font-weight: bold;
-            border-top: 1px solid #000;
-            padding-top: 8px;
-            margin-top: 8px;
+            font-size: 18px;
+            font-weight: 900;
+            border-top: 3px solid #000;
+            padding-top: 12px;
+            margin-top: 12px;
+            background: #f5f5f5;
+            padding: 12px 8px;
+            border: 2px solid #000;
           }
           .empty {
             font-style: italic;
-            color: #666;
+            color: #444;
             text-align: center;
-            padding: 5px;
+            padding: 8px;
+            font-weight: 600;
           }
           .footer {
             text-align: center;
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 2px solid #000;
-            font-size: 10px;
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 3px solid #000;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .footer p {
+            margin: 4px 0;
           }
           @media print {
             body {
               padding: 0;
+              font-size: 14px;
             }
             @page {
-              margin: 5mm;
+              margin: 3mm;
               size: 80mm auto;
+            }
+            .report-title {
+              background: #000 !important;
+              color: #fff !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .section-title {
+              background: #e0e0e0 !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
           }
         </style>
@@ -281,7 +316,7 @@ export function printDailyReport(data: DailyReportData) {
               window.close();
             };
           };
-        </script>
+        <\/script>
       </body>
     </html>
   `);
