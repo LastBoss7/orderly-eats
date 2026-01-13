@@ -68,55 +68,73 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               margin: 0;
               padding: 0;
               box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             body {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.4;
-              padding: 10px;
+              font-family: 'Courier New', 'Lucida Console', Monaco, monospace;
+              font-size: 14px;
+              font-weight: bold;
+              line-height: 1.5;
+              padding: 8px;
               max-width: 80mm;
               margin: 0 auto;
+              color: #000 !important;
+              background: #fff !important;
+              -webkit-font-smoothing: none;
+              text-rendering: geometricPrecision;
+            }
+            /* Force all text to be bold and black for thermal printers */
+            p, span, div {
+              color: #000 !important;
+              font-weight: bold !important;
             }
             .header {
               text-align: center;
-              border-bottom: 1px dashed #000;
-              padding-bottom: 10px;
-              margin-bottom: 10px;
+              border-bottom: 3px solid #000;
+              padding-bottom: 12px;
+              margin-bottom: 12px;
             }
             .restaurant-name {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 5px;
+              font-size: 20px;
+              font-weight: 900 !important;
+              margin-bottom: 8px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
             }
             .order-type {
-              font-size: 14px;
-              font-weight: bold;
-              background: #000;
-              color: #fff;
-              padding: 3px 10px;
+              font-size: 18px;
+              font-weight: 900 !important;
+              background: #000 !important;
+              color: #fff !important;
+              padding: 6px 16px;
               display: inline-block;
-              margin: 5px 0;
+              margin: 8px 0;
+              letter-spacing: 1px;
             }
             .order-number {
-              font-size: 14px;
-              margin-top: 5px;
+              font-size: 18px;
+              font-weight: 900 !important;
+              margin-top: 8px;
             }
             .section {
-              border-bottom: 1px dashed #000;
-              padding: 10px 0;
+              border-bottom: 2px dashed #000;
+              padding: 12px 0;
             }
             .section-title {
-              font-weight: bold;
-              margin-bottom: 5px;
+              font-weight: 900 !important;
+              margin-bottom: 8px;
               text-transform: uppercase;
-              font-size: 11px;
+              font-size: 14px;
+              letter-spacing: 0.5px;
             }
             .customer-info p {
-              margin: 2px 0;
+              margin: 4px 0;
+              font-size: 14px;
             }
             .customer-name {
-              font-weight: bold;
-              font-size: 14px;
+              font-weight: 900 !important;
+              font-size: 18px;
             }
             .items-table {
               width: 100%;
@@ -124,62 +142,82 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
             .item-row {
               display: flex;
               justify-content: space-between;
-              margin: 3px 0;
+              margin: 6px 0;
+              font-size: 14px;
             }
             .item-qty {
-              width: 25px;
-              text-align: right;
-              margin-right: 5px;
+              min-width: 35px;
+              text-align: left;
+              font-weight: 900 !important;
+              font-size: 16px;
             }
             .item-name {
               flex: 1;
+              font-size: 14px;
+              font-weight: bold !important;
             }
             .item-price {
               text-align: right;
-              min-width: 60px;
+              min-width: 70px;
+              font-weight: bold !important;
             }
             .totals {
-              padding: 10px 0;
+              padding: 12px 0;
             }
             .total-row {
               display: flex;
               justify-content: space-between;
-              margin: 3px 0;
+              margin: 6px 0;
+              font-size: 14px;
             }
             .total-row.grand-total {
-              font-size: 16px;
-              font-weight: bold;
-              border-top: 1px solid #000;
-              padding-top: 5px;
-              margin-top: 5px;
+              font-size: 20px;
+              font-weight: 900 !important;
+              border-top: 3px solid #000;
+              padding-top: 8px;
+              margin-top: 8px;
+            }
+            .total-row.grand-total span {
+              font-weight: 900 !important;
             }
             .notes {
-              background: #f0f0f0;
-              padding: 8px;
-              margin-top: 10px;
-              border-radius: 4px;
+              background: #e0e0e0 !important;
+              padding: 10px;
+              margin-top: 12px;
+              border: 2px solid #000;
             }
             .notes-title {
-              font-weight: bold;
-              margin-bottom: 3px;
+              font-weight: 900 !important;
+              margin-bottom: 6px;
+              font-size: 14px;
+            }
+            .notes p {
+              font-size: 14px;
             }
             .footer {
               text-align: center;
-              margin-top: 15px;
-              padding-top: 10px;
-              border-top: 1px dashed #000;
-              font-size: 10px;
+              margin-top: 16px;
+              padding-top: 12px;
+              border-top: 3px dashed #000;
+              font-size: 14px;
             }
             .datetime {
-              margin-top: 5px;
+              margin-top: 8px;
+              font-size: 14px;
             }
             @media print {
               body {
                 padding: 0;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
               @page {
-                margin: 5mm;
+                margin: 3mm;
                 size: 80mm auto;
+              }
+              /* Extra bold for thermal printers */
+              * {
+                text-shadow: 0 0 0 #000 !important;
               }
             }
           </style>
