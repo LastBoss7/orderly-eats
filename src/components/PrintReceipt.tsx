@@ -18,6 +18,7 @@ interface PrintReceiptProps {
     total: number | null;
     notes: string | null;
     created_at: string;
+    payment_method?: string | null;
     order_items?: OrderItem[];
   };
   restaurantName?: string;
@@ -252,6 +253,18 @@ export function PrintReceipt({ order, restaurantName }: PrintReceiptProps) {
               <span>TOTAL:</span>
               <span>{formatCurrency(order.total || 0)}</span>
             </div>
+            {order.payment_method && (
+              <div className="total-row" style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #000' }}>
+                <span>💳 Pagamento:</span>
+                <span style={{ fontWeight: 'bold' }}>
+                  {order.payment_method === 'pix' && 'PIX'}
+                  {order.payment_method === 'cash' && 'DINHEIRO'}
+                  {order.payment_method === 'credit' && 'CRÉDITO'}
+                  {order.payment_method === 'debit' && 'DÉBITO'}
+                  {order.payment_method === 'voucher' && 'VALE REFEIÇÃO'}
+                </span>
+              </div>
+            )}
           </div>
 
           {order.notes && (

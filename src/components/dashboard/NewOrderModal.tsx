@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -36,6 +37,11 @@ import {
   Store,
   Phone,
   CheckCircle,
+  Banknote,
+  CreditCard,
+  Smartphone,
+  PackageCheck,
+  ClipboardList,
 } from 'lucide-react';
 
 interface Category {
@@ -53,6 +59,13 @@ interface Product {
 interface Table {
   id: string;
   number: number;
+}
+
+interface Tab {
+  id: string;
+  number: number;
+  customer_name: string | null;
+  status: string;
 }
 
 interface Customer {
@@ -80,7 +93,17 @@ interface DeliveryFee {
   fee: number;
 }
 
-type OrderType = 'counter' | 'table' | 'delivery';
+type OrderType = 'counter' | 'table' | 'delivery' | 'takeaway';
+type DineInType = 'table' | 'tab';
+type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
+
+const paymentMethods: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
+  { id: 'pix', label: 'Pix', icon: <Smartphone className="w-5 h-5" /> },
+  { id: 'cash', label: 'Dinheiro', icon: <Banknote className="w-5 h-5" /> },
+  { id: 'credit', label: 'Crédito', icon: <CreditCard className="w-5 h-5" /> },
+  { id: 'debit', label: 'Débito', icon: <CreditCard className="w-5 h-5" /> },
+  { id: 'voucher', label: 'Vale Refeição', icon: <CreditCard className="w-5 h-5" /> },
+];
 
 interface NewOrderModalProps {
   open: boolean;
@@ -93,9 +116,11 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const { restaurant } = useAuth();
   const { toast } = useToast();
   const [orderType, setOrderType] = useState<OrderType>('counter');
+  const [dineInType, setDineInType] = useState<DineInType>('table');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [deliveryFees, setDeliveryFees] = useState<DeliveryFee[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -119,10 +144,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [deliveryFee, setDeliveryFee] = useState(0);
   
   const [selectedTable, setSelectedTable] = useState<string>('');
+  const [selectedTab, setSelectedTab] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -135,16 +162,18 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setLoading(true);
 
     try {
-      const [categoriesRes, productsRes, tablesRes, feesRes] = await Promise.all([
+      const [categoriesRes, productsRes, tablesRes, tabsRes, feesRes] = await Promise.all([
         supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
         supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
         supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
+        supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).in('status', ['available', 'occupied']).order('number'),
         supabase.from('delivery_fees').select('*').eq('restaurant_id', restaurant.id).eq('is_active', true),
       ]);
 
       setCategories(categoriesRes.data || []);
       setProducts(productsRes.data || []);
       setTables(tablesRes.data || []);
+      setTabs(tabsRes.data || []);
       setDeliveryFees(feesRes.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -168,10 +197,14 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setState('');
     setDeliveryFee(0);
     setSelectedTable('');
+    setSelectedTab('');
     setNotes('');
     setSearchTerm('');
     setOrderType('counter');
+    setDineInType('table');
     setSelectedCategory(null);
+    setPaymentMethod(null);
+  };
   };
 
   // Format phone number
@@ -391,13 +424,24 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       return;
     }
 
-    if (orderType === 'table' && !selectedTable) {
-      toast({
-        variant: 'destructive',
-        title: 'Mesa não selecionada',
-        description: 'Selecione uma mesa para o pedido.',
-      });
-      return;
+    // Validate dine-in selection
+    if (orderType === 'table') {
+      if (dineInType === 'table' && !selectedTable) {
+        toast({
+          variant: 'destructive',
+          title: 'Mesa não selecionada',
+          description: 'Selecione uma mesa para o pedido.',
+        });
+        return;
+      }
+      if (dineInType === 'tab' && !selectedTab) {
+        toast({
+          variant: 'destructive',
+          title: 'Comanda não selecionada',
+          description: 'Selecione uma comanda para o pedido.',
+        });
+        return;
+      }
     }
 
     if (orderType === 'delivery') {
@@ -501,13 +545,15 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           delivery_phone: customerPhone.replace(/\D/g, '') || null,
           delivery_address: orderType === 'delivery' ? getFullAddress() : null,
           delivery_fee: orderType === 'delivery' ? deliveryFee : 0,
-          table_id: orderType === 'table' ? selectedTable : null,
-          order_type: orderType,
+          table_id: orderType === 'table' && dineInType === 'table' ? selectedTable : null,
+          tab_id: orderType === 'table' && dineInType === 'tab' ? selectedTab : null,
+          order_type: orderType === 'table' ? (dineInType === 'tab' ? 'tab' : 'table') : orderType,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
           total: orderTotal,
           notes: notes || null,
           order_number: newOrderNumber,
+          payment_method: paymentMethod,
         })
         .select()
         .single();
@@ -561,18 +607,22 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           <div className="flex-1 flex flex-col p-4 border-r overflow-hidden">
             {/* Order Type Tabs */}
             <Tabs value={orderType} onValueChange={(v) => setOrderType(v as OrderType)} className="mb-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="counter" className="gap-2">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="counter" className="gap-1 text-xs sm:text-sm">
                   <Store className="w-4 h-4" />
-                  Balcão
+                  <span className="hidden sm:inline">Balcão</span>
                 </TabsTrigger>
-                <TabsTrigger value="table" className="gap-2">
+                <TabsTrigger value="takeaway" className="gap-1 text-xs sm:text-sm">
+                  <PackageCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Retirada</span>
+                </TabsTrigger>
+                <TabsTrigger value="table" className="gap-1 text-xs sm:text-sm">
                   <UtensilsCrossed className="w-4 h-4" />
-                  Mesa
+                  <span className="hidden sm:inline">Local</span>
                 </TabsTrigger>
-                <TabsTrigger value="delivery" className="gap-2">
+                <TabsTrigger value="delivery" className="gap-1 text-xs sm:text-sm">
                   <MapPin className="w-4 h-4" />
-                  Delivery
+                  <span className="hidden sm:inline">Entrega</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -687,20 +737,65 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                 </div>
 
                 {orderType === 'table' && (
-                  <div className="space-y-2">
-                    <Label>Mesa</Label>
-                    <Select value={selectedTable} onValueChange={setSelectedTable}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a mesa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {tables.map((table) => (
-                          <SelectItem key={table.id} value={table.id}>
-                            Mesa {table.number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-3">
+                    {/* Dine-in type selector */}
+                    <div className="space-y-2">
+                      <Label>Tipo</Label>
+                      <RadioGroup
+                        value={dineInType}
+                        onValueChange={(v) => setDineInType(v as DineInType)}
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="table" id="table-type" />
+                          <Label htmlFor="table-type" className="flex items-center gap-1 cursor-pointer">
+                            <UtensilsCrossed className="w-4 h-4" />
+                            Mesa
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="tab" id="tab-type" />
+                          <Label htmlFor="tab-type" className="flex items-center gap-1 cursor-pointer">
+                            <ClipboardList className="w-4 h-4" />
+                            Comanda
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {dineInType === 'table' ? (
+                      <div className="space-y-2">
+                        <Label>Mesa</Label>
+                        <Select value={selectedTable} onValueChange={setSelectedTable}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a mesa" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tables.map((table) => (
+                              <SelectItem key={table.id} value={table.id}>
+                                Mesa {table.number}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label>Comanda</Label>
+                        <Select value={selectedTab} onValueChange={setSelectedTab}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a comanda" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tabs.map((tab) => (
+                              <SelectItem key={tab.id} value={tab.id}>
+                                Comanda {tab.number} {tab.customer_name ? `- ${tab.customer_name}` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -784,6 +879,26 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                     </div>
                   </>
                 )}
+
+                {/* Payment Method */}
+                <div className="space-y-2">
+                  <Label>Forma de Pagamento</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {paymentMethods.map((method) => (
+                      <Button
+                        key={method.id}
+                        type="button"
+                        variant={paymentMethod === method.id ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex flex-col items-center gap-1 h-auto py-2"
+                        onClick={() => setPaymentMethod(method.id)}
+                      >
+                        {method.icon}
+                        <span className="text-xs">{method.label}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label>Observações</Label>
