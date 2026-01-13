@@ -43,6 +43,7 @@ export default function SalonData() {
   const { restaurant } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [defaultCapacity, setDefaultCapacity] = useState(4);
   
   const [settings, setSettings] = useState<SalonSettings>({
     has_dining_room: false,
@@ -101,7 +102,11 @@ export default function SalonData() {
     setSettings(prev => ({ ...prev, order_tab_count: Math.max(0, prev.order_tab_count + delta) }));
   };
 
-  const syncTables = async (targetCount: number) => {
+  const handleDefaultCapacityChange = (delta: number) => {
+    setDefaultCapacity(prev => Math.max(1, Math.min(20, prev + delta)));
+  };
+
+  const syncTables = async (targetCount: number, capacity: number) => {
     if (!restaurant?.id) return;
 
     try {
@@ -130,7 +135,7 @@ export default function SalonData() {
           tablesToCreate.push({
             restaurant_id: restaurant.id,
             number: nextNumber,
-            capacity: 4,
+            capacity: capacity,
             status: 'available',
           });
           existingNumbers.add(nextNumber);
@@ -216,7 +221,7 @@ export default function SalonData() {
 
       // Sync tables based on table_count
       if (settings.has_dining_room && settings.table_count > 0) {
-        await syncTables(settings.table_count);
+        await syncTables(settings.table_count, defaultCapacity);
       }
 
       toast({
@@ -371,7 +376,36 @@ export default function SalonData() {
                       </p>
                     </div>
 
-                    {/* Possui Garçons */}
+                    {/* Capacidade padrão das mesas */}
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Capacidade padrão</Label>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => handleDefaultCapacityChange(-1)}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <div className="w-16 text-center text-xl font-semibold">
+                          {defaultCapacity}
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          onClick={() => handleDefaultCapacityChange(1)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Lugares por mesa (novas mesas)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Segunda linha: Possui Garçons */}
+                  <div className="mt-6">
                     <div className="space-y-3">
                       <Label className="text-base font-medium">Possui Garçons? *</Label>
                       <RadioGroup 
