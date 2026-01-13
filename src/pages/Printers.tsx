@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Download,
   Copy,
@@ -18,12 +19,16 @@ import {
   Monitor,
   Wifi,
   AlertCircle,
-  ExternalLink,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 
 export default function Printers() {
   const { profile, restaurant } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [fileExists, setFileExists] = useState(false);
+  const [checkingFile, setCheckingFile] = useState(true);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -51,6 +56,64 @@ INTERVALO = 5
 # Largura do papel em caracteres (48 para 58mm, 42 para 80mm)
 LARGURA_PAPEL = 48
 `;
+
+  // Verificar se o arquivo já existe no bucket
+  useEffect(() => {
+    const checkFileExists = async () => {
+      try {
+        const { data, error } = await supabase.storage
+          .from('printer-downloads')
+          .list('', { limit: 10 });
+        
+        if (!error && data) {
+          const exists = data.some(file => file.name === 'ImpressoraPedidos.zip');
+          setFileExists(exists);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar arquivo:', err);
+      } finally {
+        setCheckingFile(false);
+      }
+    };
+    
+    checkFileExists();
+  }, []);
+
+  const handleUploadExecutable = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.zip')) {
+      toast.error('Por favor, envie um arquivo .zip');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Remove arquivo existente se houver
+      await supabase.storage
+        .from('printer-downloads')
+        .remove(['ImpressoraPedidos.zip']);
+
+      // Upload do novo arquivo
+      const { error } = await supabase.storage
+        .from('printer-downloads')
+        .upload('ImpressoraPedidos.zip', file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      setFileExists(true);
+      toast.success('Executável enviado com sucesso!');
+    } catch (err: any) {
+      console.error('Erro no upload:', err);
+      toast.error('Erro ao enviar arquivo: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleCopyConfig = async () => {
     try {
@@ -113,6 +176,52 @@ LARGURA_PAPEL = 48
             </div>
           </CardContent>
         </Card>
+
+        {/* Admin Upload Section */}
+        {!fileExists && !checkingFile && (
+          <Card className="border-warning/50 bg-warning/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-warning">
+                <Upload className="w-5 h-5" />
+                Ação Necessária: Upload do Executável
+              </CardTitle>
+              <CardDescription>
+                O arquivo ImpressoraPedidos.zip ainda não foi enviado. Faça o upload para que seus clientes possam baixar.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <Input
+                  type="file"
+                  accept=".zip"
+                  onChange={handleUploadExecutable}
+                  disabled={uploading}
+                  className="flex-1"
+                />
+                {uploading && (
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Envie o arquivo ImpressoraPedidos.zip compilado do Python
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {fileExists && (
+          <Card className="border-green-500/50 bg-green-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="w-6 h-6 text-green-500" />
+                <div>
+                  <p className="font-medium text-foreground">Executável disponível para download</p>
+                  <p className="text-sm text-muted-foreground">Os clientes podem baixar o programa normalmente</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content */}
         <Tabs defaultValue="setup" className="space-y-4">
