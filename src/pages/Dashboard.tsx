@@ -94,6 +94,9 @@ interface Order {
   delivery_fee: number | null;
   created_by: string | null;
   order_number: number | null;
+  print_count: number | null;
+  printed_at: string | null;
+  payment_method: string | null;
   order_items?: {
     id: string;
     product_name: string;
@@ -1003,7 +1006,21 @@ export default function Dashboard() {
                       product_price: item.product_price,
                     })),
                   }} 
-                  restaurantName={restaurant?.name} 
+                  restaurantName={restaurant?.name}
+                  onPrint={async () => {
+                    const newCount = (selectedOrder.print_count || 0) + 1;
+                    await supabase
+                      .from('orders')
+                      .update({ 
+                        print_count: newCount,
+                        printed_at: new Date().toISOString()
+                      })
+                      .eq('id', selectedOrder.id);
+                    
+                    // Update local state
+                    setSelectedOrder(prev => prev ? { ...prev, print_count: newCount } : null);
+                    fetchOrders();
+                  }}
                 />
               )}
               {selectedOrder?.order_type === 'counter' && !selectedOrder?.table_id && (
