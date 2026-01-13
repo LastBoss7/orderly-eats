@@ -21,6 +21,7 @@ import WaiterManagement from "./pages/salon/WaiterManagement";
 import SalonAreas from "./pages/salon/SalonAreas";
 import TableLayout from "./pages/salon/TableLayout";
 import PrintLogs from "./pages/PrintLogs";
+import Printers from "./pages/Printers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/salon-settings/areas" element={<SalonAreas />} />
             <Route path="/salon-settings/layout" element={<TableLayout />} />
             <Route path="/print-logs" element={<PrintLogs />} />
+            <Route path="/printers" element={<Printers />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
