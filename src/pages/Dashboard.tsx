@@ -297,7 +297,14 @@ export default function Dashboard() {
   const readyOrders = orders.filter(o => o.status === 'ready');
 
   const updateOrderStatus = async (orderId: string, status: string) => {
-    await supabase.from('orders').update({ status }).eq('id', orderId);
+    const updateData: { status: string; ready_at?: string } = { status };
+    
+    // Record ready_at timestamp when order becomes ready
+    if (status === 'ready') {
+      updateData.ready_at = new Date().toISOString();
+    }
+    
+    await supabase.from('orders').update(updateData).eq('id', orderId);
     
     // Note: "delivered" status just removes the order from dashboard display
     // It does NOT close the table - that happens when the bill is paid via "Fechar Conta"
