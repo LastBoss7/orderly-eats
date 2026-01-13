@@ -1,5 +1,5 @@
 ================================================
-  IMPRESSORA DE PEDIDOS - GUIA DE INSTALACAO
+  IMPRESSORA DE PEDIDOS v3.0 - GUIA DE INSTALACAO
 ================================================
 
 REQUISITOS:
@@ -14,14 +14,22 @@ INSTALACAO:
 
 2. Baixe o arquivo 'config.ini' do sistema
    - Acesse o sistema web
-   - Vá em "Impressora" no menu lateral
+   - Vá em "Impressoras" no menu lateral
    - Clique em "Baixar config.ini"
    - Salve na mesma pasta do programa
 
 3. Execute o programa
    - Dê duplo clique em "ImpressoraPedidos.exe"
-   - Uma janela preta aparecerá mostrando o status
-   - Deixe a janela aberta enquanto trabalha
+   - A interface gráfica aparecerá
+   - O programa ficará minimizado na bandeja do sistema
+
+INTERFACE DO PROGRAMA:
+
+- Indicador verde: Conectado e funcionando
+- Indicador vermelho: Problema de conexão
+- Log de atividades: Mostra os pedidos impressos
+- Menu Opções > Testar Impressão: Imprime página de teste
+- Menu Opções > Abrir config.ini: Edita configurações
 
 CONFIGURACAO MANUAL (opcional):
 
@@ -54,6 +62,10 @@ PROBLEMAS COMUNS:
   → Verifique se a impressora está instalada no Windows
 
 "Erro de conexão"
+  → Verifique sua internet e o arquivo config.ini
+
+"Indicador vermelho"
+  → O programa não consegue conectar ao servidor
   → Verifique sua internet e o arquivo config.ini
 
 SUPORTE:
