@@ -321,7 +321,23 @@ ipcMain.handle('save-layout', async (event, layout) => {
 });
 
 ipcMain.handle('get-system-printers', async () => {
-  return await printerService.getSystemPrinters();
+  try {
+    // Use electron's built-in printer API
+    const printers = mainWindow.webContents.getPrintersAsync 
+      ? await mainWindow.webContents.getPrintersAsync()
+      : mainWindow.webContents.getPrinters();
+    
+    return printers.map(p => ({
+      name: p.name,
+      displayName: p.displayName || p.name,
+      description: p.description || '',
+      status: p.status,
+      isDefault: p.isDefault,
+    }));
+  } catch (error) {
+    console.error('Error getting printers:', error);
+    return [];
+  }
 });
 
 ipcMain.handle('get-usb-printers', async () => {
