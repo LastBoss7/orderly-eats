@@ -103,8 +103,13 @@ export function StoreControlModal({
       );
       onOpenChange(false);
     } catch (error: any) {
-      toast.error('Erro ao alterar status da loja');
-      console.error(error);
+      console.error('Erro ao alterar status da loja:', error);
+      const errorMessage = error?.message || 'Erro desconhecido';
+      const errorCode = error?.code || '';
+      toast.error('Erro ao alterar status da loja', {
+        description: `${errorMessage}${errorCode ? ` (Código: ${errorCode})` : ''}`,
+        duration: 8000,
+      });
     } finally {
       setLoading(false);
     }
@@ -129,9 +134,13 @@ export function StoreControlModal({
       
       printDailyReport(reportData);
       toast.success('Relatório enviado para impressão!');
-    } catch (error) {
-      toast.error('Erro ao gerar relatório');
-      console.error(error);
+    } catch (error: any) {
+      console.error('Erro ao gerar relatório:', error);
+      const errorMessage = error?.message || 'Erro desconhecido';
+      toast.error('Erro ao gerar relatório', {
+        description: errorMessage,
+        duration: 8000,
+      });
     } finally {
       setLoading(false);
     }
