@@ -160,8 +160,10 @@ async function loadPrinters() {
     
     printers.forEach(printer => {
       const option = document.createElement('option');
-      option.value = printer;
-      option.textContent = printer;
+      option.value = printer.name;
+      option.textContent = printer.isDefault 
+        ? `${printer.displayName} (Padrão)` 
+        : printer.displayName;
       select.appendChild(option);
     });
     
@@ -169,10 +171,15 @@ async function loadPrinters() {
       select.value = currentValue;
     }
     
-    document.getElementById('printerStatus').textContent = printers.length > 0 ? 'OK' : '!';
+    document.getElementById('printerStatus').textContent = printers.length > 0 
+      ? `${printers.length} impressora(s)` 
+      : 'Nenhuma';
+    
+    addLog(`Encontradas ${printers.length} impressora(s) do sistema`, 'info');
     
   } catch (error) {
     addLog('Erro ao listar impressoras: ' + error.message, 'error');
+    document.getElementById('printerStatus').textContent = 'Erro';
   }
 }
 
@@ -210,6 +217,11 @@ async function refreshUSBPrinters() {
   addLog('Atualizando lista de impressoras USB...', 'info');
   await loadUSBPrinters();
   addLog(`Encontradas ${usbPrinters.length} impressoras USB`, 'info');
+}
+
+async function refreshSystemPrinters() {
+  addLog('Atualizando lista de impressoras do sistema...', 'info');
+  await loadPrinters();
 }
 
 async function testUSBConnection() {

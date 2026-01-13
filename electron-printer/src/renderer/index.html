@@ -879,7 +879,15 @@
             <select id="printerName" class="form-select">
               <option value="">Padrão do Sistema</option>
             </select>
-            <p class="form-hint">Usa o driver de impressora do Windows/Mac</p>
+            <div class="btn-group" style="margin-top: 8px;">
+              <button class="btn btn-secondary btn-sm" onclick="refreshSystemPrinters()">
+                🔄 Atualizar Lista
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="testPrint()">
+                🖨️ Teste Rápido
+              </button>
+            </div>
+            <p class="form-hint" style="margin-top: 8px;">Usa o driver de impressora do Windows/Mac</p>
           </div>
         </div>
 
