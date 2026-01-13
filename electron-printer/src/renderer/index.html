@@ -861,15 +861,61 @@
       <div class="card">
         <div class="card-title">🖨️ Impressora</div>
         
-        <div class="form-group">
-          <label class="form-label">Impressora</label>
-          <select id="printerName" class="form-select">
-            <option value="">Padrão do Sistema</option>
-          </select>
-          <p class="form-hint">Deixe em branco para usar a impressora padrão</p>
+        <div class="section-toggle">
+          <span class="section-toggle-label">Usar ESC/POS (USB direto)</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="useEscPos" onchange="togglePrinterMode()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <p class="form-hint" style="margin-bottom: 12px;">
+          ESC/POS oferece melhor qualidade, fontes variadas e corte automático. Requer conexão USB direta.
+        </p>
+
+        <!-- System Printer Selection -->
+        <div id="systemPrinterSection">
+          <div class="form-group">
+            <label class="form-label">Impressora do Sistema</label>
+            <select id="printerName" class="form-select">
+              <option value="">Padrão do Sistema</option>
+            </select>
+            <p class="form-hint">Usa o driver de impressora do Windows/Mac</p>
+          </div>
         </div>
 
-        <div class="form-group">
+        <!-- USB Printer Selection -->
+        <div id="usbPrinterSection" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Impressora USB (ESC/POS)</label>
+            <select id="usbPrinterSelect" class="form-select">
+              <option value="">Selecione uma impressora USB...</option>
+            </select>
+            <div class="btn-group" style="margin-top: 8px;">
+              <button class="btn btn-secondary btn-sm" onclick="refreshUSBPrinters()">
+                🔄 Atualizar Lista
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="testUSBConnection()">
+                🔌 Testar Conexão
+              </button>
+            </div>
+          </div>
+
+          <div id="usbStatus" class="message" style="display: none;"></div>
+
+          <!-- Supported Printers Info -->
+          <div style="background: #f0f9ff; border-radius: 8px; padding: 12px; margin-top: 12px;">
+            <p style="font-size: 12px; font-weight: 500; margin-bottom: 8px;">📋 Impressoras Compatíveis:</p>
+            <ul style="font-size: 11px; color: #666; margin: 0; padding-left: 16px;">
+              <li>Epson TM-T20, TM-T88</li>
+              <li>Elgin i7, i9</li>
+              <li>Bematech MP-4200</li>
+              <li>Star Micronics</li>
+              <li>Qualquer impressora ESC/POS</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
           <label class="form-label">Intervalo de Verificação (segundos)</label>
           <input type="number" id="checkInterval" class="form-input" value="5" min="1" max="60">
         </div>
@@ -891,6 +937,16 @@
         <div class="checkbox-group">
           <input type="checkbox" id="soundNotification" checked>
           <label for="soundNotification">Som ao imprimir pedido</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="autoCut" checked>
+          <label for="autoCut">Corte automático após impressão (ESC/POS)</label>
+        </div>
+
+        <div class="checkbox-group">
+          <input type="checkbox" id="openDrawer">
+          <label for="openDrawer">Abrir gaveta ao imprimir (ESC/POS)</label>
         </div>
       </div>
 
