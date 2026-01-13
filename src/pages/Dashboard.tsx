@@ -468,7 +468,7 @@ export default function Dashboard() {
     }
   };
 
-  const updateOrderDriver = async (orderId: string, driverId: string | null) => {
+  const updateOrderDriver = async (orderId: string, driverId: string | null, order?: Order) => {
     try {
       const { error } = await supabase
         .from('orders')
@@ -478,10 +478,55 @@ export default function Dashboard() {
       if (error) throw error;
       toast.success('Motoboy atribuído com sucesso!');
       fetchOrders();
+
+      // Send WhatsApp message if driver is assigned and has phone
+      if (driverId && order) {
+        const driverPhone = getDriverPhone(driverId);
+        if (driverPhone) {
+          const paymentLabel = getPaymentMethodLabel(order.payment_method);
+          const items = order.order_items?.map(item => 
+            `${item.quantity}x ${item.product_name}`
+          ).join(', ') || 'Sem itens';
+          
+          const message = `🛵 *NOVO PEDIDO PARA ENTREGA*
+
+📋 *Pedido #${order.order_number || 'S/N'}*
+
+👤 *Cliente:* ${order.customer_name || 'Não informado'}
+📞 *Telefone:* ${order.delivery_phone || 'Não informado'}
+
+📍 *Endereço:*
+${order.delivery_address || 'Não informado'}
+
+🍽️ *Itens:*
+${items}
+
+💰 *Total:* ${formatCurrency(order.total || 0)}
+${order.delivery_fee ? `🚚 *Taxa entrega:* ${formatCurrency(order.delivery_fee)}` : ''}
+
+💳 *Pagamento:* ${paymentLabel}
+${order.payment_method === 'cash' && order.notes?.includes('Troco') ? `💵 ${order.notes}` : ''}
+
+${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` : ''}`;
+
+          const whatsappUrl = formatWhatsAppLink(driverPhone) + `?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank');
+        }
+      }
     } catch (error) {
       console.error('Error updating driver:', error);
       toast.error('Erro ao atribuir motoboy');
     }
+  };
+
+  const getPaymentMethodLabel = (method: string | null) => {
+    const labels: Record<string, string> = {
+      'cash': 'Dinheiro',
+      'credit': 'Cartão Crédito',
+      'debit': 'Cartão Débito',
+      'pix': 'PIX',
+    };
+    return labels[method || ''] || method || 'Não informado';
   };
 
   // Handle drag start
@@ -661,7 +706,7 @@ export default function Dashboard() {
                     {drivers.map((driver) => (
                       <DropdownMenuItem
                         key={driver.id}
-                        onClick={() => updateOrderDriver(order.id, driver.id)}
+                        onClick={() => updateOrderDriver(order.id, driver.id, order)}
                         className={order.driver_id === driver.id ? 'bg-accent' : ''}
                       >
                         <Bike className="w-4 h-4 mr-2" />
