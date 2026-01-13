@@ -48,17 +48,29 @@ interface CartItem {
 interface Table {
   id: string;
   number: number;
-  capacity: number;
+  capacity?: number;
   status: 'available' | 'occupied' | 'closing';
 }
 
+interface Tab {
+  id: string;
+  number: number;
+  customer_name?: string | null;
+  status?: 'available' | 'occupied' | 'closing';
+}
+
 interface TableOrderPOSProps {
-  table: Table;
+  table?: Table | null;
+  tab?: Tab | null;
   onClose: () => void;
   onOrderCreated: () => void;
 }
 
-export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSProps) {
+export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrderPOSProps) {
+  const isTab = !!tab && !table;
+  const targetId = isTab ? tab?.id : table?.id;
+  const targetNumber = isTab ? tab?.number : table?.number;
+  const targetLabel = isTab ? `Comanda #${targetNumber}` : `Mesa ${targetNumber}`;
   const { restaurant } = useAuth();
   const { toast } = useToast();
   const { shouldAutoPrint } = usePrintSettings();
@@ -218,6 +230,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
     setSubmitting(true);
 
     try {
+      const orderType = isTab ? 'table' : 'table'; // Both use 'table' type
       const shouldPrint = shouldAutoPrint('table');
       
       // Create order
@@ -225,8 +238,9 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
         .from('orders')
         .insert({
           restaurant_id: restaurant?.id,
-          table_id: table.id,
-          order_type: 'table',
+          table_id: isTab ? null : targetId,
+          tab_id: isTab ? targetId : null,
+          order_type: orderType,
           status: 'pending',
           print_status: shouldPrint ? 'pending' : 'disabled',
           total: cartTotal,
@@ -266,7 +280,7 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
 
         await autoPrintTableOrder(
           order.id,
-          table.number,
+          targetNumber || 0,
           printItems,
           cartTotal,
           null,
@@ -277,8 +291,8 @@ export function TableOrderPOS({ table, onClose, onOrderCreated }: TableOrderPOSP
       toast({
         title: 'Pedido enviado!',
         description: shouldPrint 
-          ? `Pedido da Mesa ${table.number} enviado para a cozinha e impressão.`
-          : `Pedido da Mesa ${table.number} enviado para a cozinha.`,
+          ? `Pedido da ${targetLabel} enviado para a cozinha e impressão.`
+          : `Pedido da ${targetLabel} enviado para a cozinha.`,
       });
 
       // Clear cart and notify parent

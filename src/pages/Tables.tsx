@@ -627,13 +627,15 @@ export default function Tables() {
         />
 
         {/* Order POS Full Screen */}
-        {showOrderPOS && orderPOSTable && (
+        {showOrderPOS && (orderPOSTable || tabOrderPOS) && (
           <div className="fixed inset-0 z-50 bg-background">
             <TableOrderPOS
-              table={orderPOSTable}
+              table={orderPOSTable || undefined}
+              tab={tabOrderPOS || undefined}
               onClose={() => {
                 setShowOrderPOS(false);
                 setOrderPOSTable(null);
+                setTabOrderPOS(null);
               }}
               onOrderCreated={handleOrderCreated}
             />
