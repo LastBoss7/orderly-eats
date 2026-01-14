@@ -6,6 +6,7 @@ import { AppSidebar } from './AppSidebar';
 import { Loader2, Bell, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { usePrintNotifications } from '@/hooks/usePrintNotifications';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -14,6 +15,9 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, showHeader = false }: DashboardLayoutProps) {
   const { user, profile, loading } = useAuth();
+  
+  // Subscribe to print notifications
+  usePrintNotifications(profile?.restaurant_id ?? null);
 
   if (loading) {
     return (
