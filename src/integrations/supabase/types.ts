@@ -949,6 +949,7 @@ export type Database = {
           id: string
           name: string
           phone: string | null
+          pin: string | null
           restaurant_id: string
           status: string | null
           updated_at: string
@@ -959,6 +960,7 @@ export type Database = {
           id?: string
           name: string
           phone?: string | null
+          pin?: string | null
           restaurant_id: string
           status?: string | null
           updated_at?: string
@@ -969,6 +971,7 @@ export type Database = {
           id?: string
           name?: string
           phone?: string | null
+          pin?: string | null
           restaurant_id?: string
           status?: string | null
           updated_at?: string

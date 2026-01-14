@@ -16,6 +16,10 @@ import {
   UserPlus,
   Users,
   Loader2,
+  KeyRound,
+  Copy,
+  Check,
+  Link,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -42,6 +46,7 @@ interface Waiter {
   email: string | null;
   phone: string | null;
   status: string;
+  pin: string | null;
 }
 
 export default function WaiterManagement() {
@@ -52,8 +57,12 @@ export default function WaiterManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [newWaiter, setNewWaiter] = useState({ name: '', email: '', phone: '' });
+  const [newWaiter, setNewWaiter] = useState({ name: '', email: '', phone: '', pin: '' });
   const [waiters, setWaiters] = useState<Waiter[]>([]);
+  const [editingWaiter, setEditingWaiter] = useState<Waiter | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editPin, setEditPin] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     fetchWaiters();
@@ -97,6 +106,26 @@ export default function WaiterManagement() {
     setSaving(true);
 
     try {
+      // Check if PIN is unique
+      if (newWaiter.pin) {
+        const { data: existingPin } = await supabase
+          .from('waiters')
+          .select('id')
+          .eq('restaurant_id', restaurant.id)
+          .eq('pin', newWaiter.pin)
+          .single();
+
+        if (existingPin) {
+          toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Este PIN já está em uso por outro garçom.',
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from('waiters')
         .insert({
@@ -104,12 +133,13 @@ export default function WaiterManagement() {
           name: newWaiter.name.trim(),
           email: newWaiter.email.trim() || null,
           phone: newWaiter.phone.trim() || null,
+          pin: newWaiter.pin.trim() || null,
           status: 'active',
         });
 
       if (error) throw error;
 
-      setNewWaiter({ name: '', email: '', phone: '' });
+      setNewWaiter({ name: '', email: '', phone: '', pin: '' });
       setIsDialogOpen(false);
       fetchWaiters();
 
@@ -151,6 +181,71 @@ export default function WaiterManagement() {
         description: error.message,
       });
     }
+  };
+
+  const handleEditPin = async () => {
+    if (!editingWaiter) return;
+
+    try {
+      // Check if PIN is unique
+      if (editPin) {
+        const { data: existingPin } = await supabase
+          .from('waiters')
+          .select('id')
+          .eq('restaurant_id', restaurant?.id)
+          .eq('pin', editPin)
+          .neq('id', editingWaiter.id)
+          .single();
+
+        if (existingPin) {
+          toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Este PIN já está em uso por outro garçom.',
+          });
+          return;
+        }
+      }
+
+      const { error } = await supabase
+        .from('waiters')
+        .update({ pin: editPin || null })
+        .eq('id', editingWaiter.id);
+
+      if (error) throw error;
+      
+      fetchWaiters();
+      setIsEditDialogOpen(false);
+      setEditingWaiter(null);
+      setEditPin('');
+
+      toast({
+        title: 'PIN atualizado',
+        description: 'O PIN do garçom foi atualizado com sucesso.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    }
+  };
+
+  const generateRandomPin = () => {
+    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    return pin;
+  };
+
+  const copyWaiterLink = async () => {
+    const link = `${window.location.origin}/garcom/${restaurant?.slug}`;
+    await navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+    toast({
+      title: 'Link copiado!',
+      description: 'O link de acesso foi copiado para a área de transferência.',
+    });
   };
 
   const removeWaiter = async (id: string) => {
@@ -265,6 +360,34 @@ export default function WaiterManagement() {
                     onChange={(e) => setNewWaiter(prev => ({ ...prev, phone: e.target.value }))}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pin" className="flex items-center gap-2">
+                    <KeyRound className="w-4 h-4" />
+                    PIN de Acesso
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pin"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      placeholder="4 a 6 dígitos"
+                      value={newWaiter.pin}
+                      onChange={(e) => setNewWaiter(prev => ({ ...prev, pin: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setNewWaiter(prev => ({ ...prev, pin: generateRandomPin() }))}
+                    >
+                      Gerar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    O garçom usará este PIN para acessar o aplicativo
+                  </p>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -284,6 +407,25 @@ export default function WaiterManagement() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Waiter Link */}
+        <Card className="mb-6 border-primary/20 bg-primary/5">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="p-2 rounded-full bg-primary/10">
+              <Link className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">Link de Acesso dos Garçons</p>
+              <p className="text-sm text-muted-foreground">
+                {window.location.origin}/garcom/{restaurant?.slug}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={copyWaiterLink} className="gap-2">
+              {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedLink ? 'Copiado!' : 'Copiar'}
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Search */}
         <div className="relative mb-6">
@@ -317,6 +459,12 @@ export default function WaiterManagement() {
                     <p className="text-sm text-muted-foreground">
                       {waiter.email || 'Sem e-mail'} • {waiter.phone || 'Sem telefone'}
                     </p>
+                    {waiter.pin && (
+                      <p className="text-xs text-primary flex items-center gap-1 mt-1">
+                        <KeyRound className="w-3 h-3" />
+                        PIN configurado
+                      </p>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -325,6 +473,14 @@ export default function WaiterManagement() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        setEditingWaiter(waiter);
+                        setEditPin(waiter.pin || '');
+                        setIsEditDialogOpen(true);
+                      }}>
+                        <KeyRound className="w-4 h-4 mr-2" />
+                        {waiter.pin ? 'Editar PIN' : 'Criar PIN'}
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => toggleWaiterStatus(waiter.id, waiter.status)}>
                         {waiter.status === 'active' ? 'Desativar' : 'Ativar'}
                       </DropdownMenuItem>
@@ -357,6 +513,61 @@ export default function WaiterManagement() {
             </CardContent>
           </Card>
         )}
+
+        {/* Edit PIN Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Configurar PIN</DialogTitle>
+              <DialogDescription>
+                {editingWaiter?.name} - Digite um PIN de 4 a 6 dígitos
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-pin" className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4" />
+                  PIN de Acesso
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-pin"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    placeholder="4 a 6 dígitos"
+                    value={editPin}
+                    onChange={(e) => setEditPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="text-center text-2xl tracking-widest"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditPin(generateRandomPin())}
+                  >
+                    Gerar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  O garçom usará este PIN para acessar o aplicativo
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setIsEditDialogOpen(false);
+                setEditingWaiter(null);
+                setEditPin('');
+              }}>
+                Cancelar
+              </Button>
+              <Button onClick={handleEditPin} disabled={editPin.length < 4}>
+                Salvar PIN
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
