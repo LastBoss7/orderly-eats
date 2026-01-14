@@ -91,8 +91,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
 
       try {
         const [categoriesRes, productsRes] = await Promise.all([
-          supabase.from('categories').select('*').order('sort_order'),
-          supabase.from('products').select('*').eq('is_available', true),
+          supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
+          supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
         ]);
 
         setCategories(categoriesRes.data || []);
