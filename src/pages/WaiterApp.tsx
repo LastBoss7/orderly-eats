@@ -8,10 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
-import { WaiterTableOrders } from '@/components/waiter/WaiterTableOrders';
-import { WaiterTabOrders } from '@/components/waiter/WaiterTabOrders';
 import { 
   ArrowLeft,
   Search, 
@@ -32,9 +31,20 @@ import {
   Phone,
   User,
   Package,
-  Home,
   Receipt,
   Eye,
+  Printer,
+  ArrowRightLeft,
+  DollarSign,
+  PlusCircle,
+  MoreVertical,
+  X,
+  Rocket,
+  Calculator,
+  CreditCard,
+  Banknote,
+  QrCode,
+  Check,
 } from 'lucide-react';
 
 interface Waiter {
@@ -86,8 +96,17 @@ interface CartItem {
   unitPrice: number;
 }
 
+interface OrderItem {
+  id: string;
+  product_name: string;
+  product_price: number;
+  quantity: number;
+  notes: string | null;
+}
+
 interface Order {
   id: string;
+  order_number: number | null;
   table_id: string | null;
   tab_id: string | null;
   order_type: string;
@@ -102,14 +121,6 @@ interface Order {
   order_items?: OrderItem[];
   tables?: { number: number } | null;
   tabs?: { number: number; customer_name: string | null } | null;
-}
-
-interface OrderItem {
-  id: string;
-  product_name: string;
-  quantity: number;
-  product_price: number;
-  notes: string | null;
 }
 
 interface Customer {
@@ -136,8 +147,9 @@ interface DeliveryForm {
   deliveryFee: number;
 }
 
-type AppView = 'login' | 'tables' | 'comandas' | 'order' | 'order-detail' | 'delivery' | 'delivery-order' | 'table-orders' | 'tab-orders';
+type AppView = 'login' | 'tables' | 'order' | 'delivery' | 'delivery-order' | 'table-orders' | 'tab-orders';
 type OrderMode = 'table' | 'delivery' | 'takeaway' | 'tab';
+type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 
 export default function WaiterApp() {
   const { restaurant, signOut } = useAuth();
@@ -160,10 +172,24 @@ export default function WaiterApp() {
   const [tableSearchTerm, setTableSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderNotes, setOrderNotes] = useState('');
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
+  
+  // Table action modal
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [modalTable, setModalTable] = useState<Table | null>(null);
+  const [tableTotal, setTableTotal] = useState(0);
+  
+  // Table orders view
+  const [tableOrders, setTableOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [deliveredOrders, setDeliveredOrders] = useState<Set<string>>(new Set());
+  
+  // Close table modal
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [cashReceived, setCashReceived] = useState(0);
+  const [closingTable, setClosingTable] = useState(false);
   
   // Size selection modal
   const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
@@ -215,58 +241,6 @@ export default function WaiterApp() {
     fetchData();
   }, [restaurant?.id]);
 
-  // Fetch active orders
-  const fetchActiveOrders = useCallback(async () => {
-    if (!restaurant?.id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*),
-          tables (number)
-        `)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setActiveOrders(data || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    }
-  }, [restaurant?.id]);
-
-  useEffect(() => {
-    if (activeTab === 'comandas') {
-      fetchActiveOrders();
-    }
-  }, [activeTab, fetchActiveOrders]);
-
-  // Realtime subscription for orders
-  useEffect(() => {
-    if (!restaurant?.id) return;
-
-    const channel = supabase
-      .channel('waiter-orders')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'orders',
-        },
-        () => {
-          fetchActiveOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [restaurant?.id, fetchActiveOrders]);
-
   // Realtime subscription for tables
   useEffect(() => {
     if (!restaurant?.id) return;
@@ -289,12 +263,104 @@ export default function WaiterApp() {
           setTabs((data || []) as Tab[]);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          // Refresh tables to update ready status
+          fetchTableData();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [restaurant?.id]);
+
+  const fetchTableData = async () => {
+    const { data } = await supabase.from('tables').select('*').order('number');
+    setTables((data || []) as Table[]);
+  };
+
+  // Fetch orders for a table with ready status
+  const [tableReadyOrders, setTableReadyOrders] = useState<Record<string, boolean>>({});
+  
+  useEffect(() => {
+    const fetchReadyOrders = async () => {
+      if (!restaurant?.id) return;
+      
+      const { data } = await supabase
+        .from('orders')
+        .select('table_id, status')
+        .eq('status', 'ready')
+        .not('table_id', 'is', null);
+      
+      const readyMap: Record<string, boolean> = {};
+      data?.forEach(order => {
+        if (order.table_id) readyMap[order.table_id] = true;
+      });
+      setTableReadyOrders(readyMap);
+    };
+    
+    fetchReadyOrders();
+    const interval = setInterval(fetchReadyOrders, 5000);
+    return () => clearInterval(interval);
+  }, [restaurant?.id]);
+
+  // Fetch table total when modal opens
+  const fetchTableTotal = async (tableId: string) => {
+    const { data } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('table_id', tableId)
+      .in('status', ['pending', 'preparing', 'ready']);
+    
+    const total = data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+    setTableTotal(total);
+  };
+
+  // Fetch orders for table orders view
+  const fetchTableOrders = async (tableId: string) => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`*, order_items (*)`)
+        .eq('table_id', tableId)
+        .in('status', ['pending', 'preparing', 'ready'])
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setTableOrders(data || []);
+      setDeliveredOrders(new Set());
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  // Fetch tab orders
+  const fetchTabOrders = async (tabId: string) => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`*, order_items (*)`)
+        .eq('tab_id', tabId)
+        .in('status', ['pending', 'preparing', 'ready'])
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setTableOrders(data || []);
+      setDeliveredOrders(new Set());
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
 
   // Search customers by phone
   const searchCustomers = async (phone: string) => {
@@ -320,7 +386,6 @@ export default function WaiterApp() {
     }
   };
 
-  // Handle customer phone search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (customerSearchTerm.length >= 3) {
@@ -352,14 +417,28 @@ export default function WaiterApp() {
     toast.success(`Bem-vindo, ${waiter.name}!`);
   };
 
-  const handleSelectTable = (table: Table) => {
+  const handleTableClick = async (table: Table) => {
+    setModalTable(table);
+    await fetchTableTotal(table.id);
+    setShowTableModal(true);
+  };
+
+  const handleNewOrder = (table: Table) => {
     setSelectedTable(table);
     setOrderMode('table');
+    setShowTableModal(false);
     setView('order');
     setCart([]);
     setSearchTerm('');
     setSelectedCategory(null);
     setOrderNotes('');
+  };
+
+  const handleViewOrders = async (table: Table) => {
+    setSelectedTable(table);
+    setShowTableModal(false);
+    await fetchTableOrders(table.id);
+    setView('table-orders');
   };
 
   const handleStartDelivery = (mode: 'delivery' | 'takeaway') => {
@@ -403,7 +482,6 @@ export default function WaiterApp() {
   };
 
   const handleProceedToOrder = () => {
-    // Validate required fields
     if (!deliveryForm.customerName.trim()) {
       toast.error('Nome do cliente é obrigatório');
       return;
@@ -450,7 +528,6 @@ export default function WaiterApp() {
 
   const addToCartWithSize = (product: Product, size: ProductSize | null) => {
     const unitPrice = getProductPrice(product, size);
-    const cartKey = size ? `${product.id}-${size}` : product.id;
     
     setCart(prev => {
       const existing = prev.find(item => 
@@ -508,13 +585,6 @@ export default function WaiterApp() {
     }).format(value);
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -527,11 +597,8 @@ export default function WaiterApp() {
     setSubmitting(true);
 
     try {
-      // Note: Table/Tab occupation is now handled automatically by database trigger
-      
       const autoPrint = shouldAutoPrint(orderMode === 'table' || orderMode === 'tab' ? 'table' : 'delivery');
 
-      // Build address string for delivery
       let fullAddress = '';
       if (orderMode === 'delivery') {
         const addressParts = [
@@ -545,10 +612,8 @@ export default function WaiterApp() {
         fullAddress = addressParts.join(', ');
       }
 
-      // Create or update customer if delivery/takeaway
       let customerId = selectedCustomer?.id || null;
       if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer) {
-        // Create new customer
         const { data: newCustomer, error: customerError } = await supabase
           .from('customers')
           .insert({
@@ -565,10 +630,8 @@ export default function WaiterApp() {
           .select()
           .single();
 
-        if (customerError) {
-          console.error('Error creating customer:', customerError);
-        } else {
-          customerId = newCustomer?.id;
+        if (!customerError && newCustomer) {
+          customerId = newCustomer.id;
         }
       }
 
@@ -578,7 +641,7 @@ export default function WaiterApp() {
           restaurant_id: restaurant?.id,
           table_id: orderMode === 'table' ? selectedTable?.id : null,
           tab_id: orderMode === 'tab' ? selectedTab?.id : null,
-          order_type: orderMode === 'tab' ? 'table' : orderMode, // Store 'tab' as 'table' type
+          order_type: orderMode === 'tab' ? 'table' : orderMode,
           status: 'pending',
           print_status: autoPrint ? 'pending' : 'disabled',
           total: orderTotal,
@@ -623,7 +686,7 @@ export default function WaiterApp() {
 
       toast.success(successMessage);
 
-      // Refresh tables and tabs
+      // Refresh tables
       const [tablesRes, tabsRes] = await Promise.all([
         supabase.from('tables').select('*').order('number'),
         supabase.from('tabs').select('*').order('number'),
@@ -631,7 +694,6 @@ export default function WaiterApp() {
       setTables((tablesRes.data || []) as Table[]);
       setTabs((tabsRes.data || []) as Tab[]);
 
-      // Go back to tables
       setView('tables');
       setSelectedTable(null);
       setSelectedTab(null);
@@ -656,36 +718,118 @@ export default function WaiterApp() {
     }
   };
 
-  // Get table with ready order
-  const getTableWithReadyOrder = (tableId: string) => {
-    return activeOrders.find(o => o.table_id === tableId && o.status === 'ready');
+  const handleMarkDelivered = (orderId: string) => {
+    setDeliveredOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      available: 'Livre',
-      occupied: 'Ocupada',
-      closing: 'Fechando',
-      pending: 'Pendente',
-      preparing: 'Preparando',
-      ready: 'Pronto',
-      delivered: 'Entregue',
-    };
-    return labels[status] || status;
+  const handleCloseTable = async () => {
+    if (!selectedTable) return;
+    
+    setClosingTable(true);
+    try {
+      // Update all orders to delivered
+      for (const order of tableOrders) {
+        await supabase
+          .from('orders')
+          .update({ 
+            status: 'delivered',
+            payment_method: paymentMethod,
+            cash_received: paymentMethod === 'cash' ? cashReceived : null,
+            change_given: paymentMethod === 'cash' && cashReceived > tableTotal ? cashReceived - tableTotal : null,
+          })
+          .eq('id', order.id);
+      }
+      
+      // Set table to available
+      await supabase
+        .from('tables')
+        .update({ status: 'available' })
+        .eq('id', selectedTable.id);
+      
+      toast.success(`Mesa ${selectedTable.number} fechada com sucesso!`);
+      setShowCloseModal(false);
+      setView('tables');
+      setSelectedTable(null);
+      setTableOrders([]);
+      
+      // Refresh tables
+      const { data } = await supabase.from('tables').select('*').order('number');
+      setTables((data || []) as Table[]);
+    } catch (error: any) {
+      toast.error('Erro ao fechar mesa');
+    } finally {
+      setClosingTable(false);
+    }
   };
 
-  const getOrderTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      table: 'Mesa',
-      delivery: 'Delivery',
-      takeaway: 'Para Levar',
-    };
-    return labels[type] || type;
+  const handlePrintReceipt = () => {
+    const total = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const allItems = tableOrders.flatMap(o => o.order_items || []);
+    
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Conferência - Mesa ${selectedTable?.number}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; font-size: 14px; width: 300px; padding: 15px; background: #fff; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
+          .header h1 { font-size: 18px; margin-bottom: 5px; }
+          .item { display: flex; justify-content: space-between; margin: 8px 0; }
+          .total { font-size: 18px; font-weight: bold; margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${restaurant?.name || 'Restaurante'}</h1>
+          <p><strong>Mesa ${selectedTable?.number}</strong></p>
+          <p>${new Date().toLocaleString('pt-BR')}</p>
+        </div>
+        ${allItems.map(item => `
+          <div class="item">
+            <span>${item.quantity}x ${item.product_name}</span>
+            <span>${formatCurrency(item.product_price * item.quantity)}</span>
+          </div>
+        `).join('')}
+        <div class="total">
+          <div class="item">
+            <span>TOTAL</span>
+            <span>${formatCurrency(total)}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Obrigado pela preferência!</p>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank', 'width=400,height=700');
+    if (printWindow) {
+      printWindow.document.write(receiptContent);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 250);
+    }
+    toast.success('Conferência enviada para impressão!');
   };
+
+  const tableOrdersTotal = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const change = paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : 0;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1e3a5f]">
+      <div className="min-h-screen flex items-center justify-center bg-[#0d1b2a]">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-white mx-auto mb-4" />
           <p className="text-white/80">Carregando...</p>
@@ -694,34 +838,318 @@ export default function WaiterApp() {
     );
   }
 
-  // Table Orders View (View orders, close table, print)
+  // Table Orders View (like image 3)
   if (view === 'table-orders' && selectedTable) {
     return (
-      <WaiterTableOrders
-        table={selectedTable}
-        onBack={() => { setView('tables'); setSelectedTable(null); }}
-        onTableClosed={() => { setView('tables'); setSelectedTable(null); }}
-      />
+      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
+        {/* Header */}
+        <header className="sticky top-0 bg-[#1b3a4b] text-white p-4 z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={() => { setView('tables'); setSelectedTable(null); setTableOrders([]); }}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="font-bold text-lg">Mesa {selectedTable.number}</h1>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+            <Users className="w-5 h-5" />
+          </Button>
+        </header>
+
+        {/* Orders List */}
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {loadingOrders ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-white" />
+              </div>
+            ) : tableOrders.length === 0 ? (
+              <div className="text-center py-12 text-white/60">
+                <ClipboardList className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Nenhum pedido ativo</p>
+              </div>
+            ) : (
+              tableOrders.map((order) => (
+                <div key={order.id} className="bg-[#1b3a4b] rounded-lg overflow-hidden">
+                  {/* Order Header */}
+                  <div className="flex items-center justify-between p-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
+                      {order.status === 'ready' && (
+                        <Badge className="bg-green-400 text-green-900 text-xs font-semibold px-2 py-0.5">
+                          Pronto
+                        </Badge>
+                      )}
+                      {order.status === 'preparing' && (
+                        <Badge className="bg-orange-400 text-orange-900 text-xs font-semibold px-2 py-0.5">
+                          Preparando
+                        </Badge>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
+                      <MoreVertical className="w-5 h-5" />
+                    </Button>
+                  </div>
+                  
+                  {/* Order Items */}
+                  <div className="p-3 space-y-2">
+                    {order.order_items?.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <span className="text-white/90">
+                          {item.quantity}x {item.product_name}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/90">{formatCurrency(item.product_price * item.quantity)}</span>
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-white/60 hover:text-white hover:bg-white/10">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Order Footer */}
+                  <div className="p-3 border-t border-white/10">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-white font-semibold">Subtotal</span>
+                      <span className="text-white font-semibold">{formatCurrency(order.total || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <Checkbox 
+                        id={`delivered-${order.id}`}
+                        checked={deliveredOrders.has(order.id)}
+                        onCheckedChange={() => handleMarkDelivered(order.id)}
+                        className="border-white/40 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                      />
+                      <label htmlFor={`delivered-${order.id}`} className="text-white/80 text-sm cursor-pointer">
+                        Marcar como entregue
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Footer Totals */}
+        <div className="bg-[#0d1b2a] border-t border-white/10 p-4">
+          <div className="flex justify-between text-white/80 mb-1">
+            <span>Subtotal</span>
+            <span>{formatCurrency(tableOrdersTotal)}</span>
+          </div>
+          <div className="flex justify-between text-white text-xl font-bold mb-4">
+            <span>Total</span>
+            <span>{formatCurrency(tableOrdersTotal)}</span>
+          </div>
+          
+          {/* Bottom Actions */}
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="ghost" 
+              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => toast.info('Função de transferência em breve')}
+            >
+              <RefreshCw className="w-5 h-5" />
+              <span className="text-xs">Transferir</span>
+            </Button>
+            
+            <Button 
+              className="w-14 h-14 rounded-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+              onClick={() => handleNewOrder(selectedTable)}
+            >
+              <Plus className="w-6 h-6" />
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              onClick={() => {
+                setTableTotal(tableOrdersTotal);
+                setShowCloseModal(true);
+              }}
+            >
+              <DollarSign className="w-5 h-5" />
+              <span className="text-xs">Fechar conta</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Close Table Modal */}
+        {showCloseModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+            <div className="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 animate-in slide-in-from-bottom">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">Fechar Conta</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCloseModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="text-center py-4">
+                <p className="text-3xl font-bold text-[#0d1b2a]">{formatCurrency(tableOrdersTotal)}</p>
+                <p className="text-gray-500">Mesa {selectedTable.number}</p>
+              </div>
+              
+              {/* Payment Method */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'cash', label: 'Dinheiro', icon: Banknote },
+                  { id: 'credit', label: 'Crédito', icon: CreditCard },
+                  { id: 'debit', label: 'Débito', icon: CreditCard },
+                  { id: 'pix', label: 'PIX', icon: QrCode },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    className={`p-3 rounded-xl border-2 flex items-center gap-2 ${
+                      paymentMethod === id 
+                        ? 'border-[#0ea5e9] bg-[#0ea5e9]/10' 
+                        : 'border-gray-200'
+                    }`}
+                    onClick={() => setPaymentMethod(id as PaymentMethod)}
+                  >
+                    <Icon className="w-5 h-5 text-[#0d1b2a]" />
+                    <span className="text-sm font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+              
+              {paymentMethod === 'cash' && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-600">Valor recebido:</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                    <Input
+                      type="number"
+                      value={cashReceived || ''}
+                      onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                      className="pl-10 h-12 text-lg"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  {change > 0 && (
+                    <p className="text-green-600 font-semibold">
+                      Troco: {formatCurrency(change)}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              <Button 
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                onClick={handleCloseTable}
+                disabled={closingTable}
+              >
+                {closingTable ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Confirmar Fechamento
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
-  // Tab Orders View (View orders, close tab, print)
+  // Tab Orders View
   if (view === 'tab-orders' && selectedTab) {
     return (
-      <WaiterTabOrders
-        tab={selectedTab}
-        onBack={() => { setView('tables'); setSelectedTab(null); }}
-        onTabClosed={() => { setView('tables'); setSelectedTab(null); }}
-      />
+      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
+        <header className="sticky top-0 bg-[#1b3a4b] text-white p-4 z-10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10"
+              onClick={() => { setView('tables'); setSelectedTab(null); setTableOrders([]); }}
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="font-bold text-lg">Comanda #{selectedTab.number}</h1>
+              {selectedTab.customer_name && (
+                <p className="text-sm text-white/70">{selectedTab.customer_name}</p>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {loadingOrders ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-white" />
+              </div>
+            ) : tableOrders.length === 0 ? (
+              <div className="text-center py-12 text-white/60">
+                <ClipboardList className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Nenhum pedido ativo</p>
+              </div>
+            ) : (
+              tableOrders.map((order) => (
+                <div key={order.id} className="bg-[#1b3a4b] rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between p-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
+                      {order.status === 'ready' && (
+                        <Badge className="bg-green-400 text-green-900 text-xs">Pronto</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    {order.order_items?.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between text-white/90">
+                        <span>{item.quantity}x {item.product_name}</span>
+                        <span>{formatCurrency(item.product_price * item.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-3 border-t border-white/10 flex justify-between text-white font-semibold">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(order.total || 0)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+
+        <div className="bg-[#0d1b2a] border-t border-white/10 p-4">
+          <div className="flex justify-between text-white text-xl font-bold mb-4">
+            <span>Total</span>
+            <span>{formatCurrency(tableOrdersTotal)}</span>
+          </div>
+          <Button 
+            className="w-full h-14 bg-[#0ea5e9] hover:bg-[#0284c7]"
+            onClick={() => {
+              setOrderMode('tab');
+              setView('order');
+              setCart([]);
+            }}
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Novo Pedido
+          </Button>
+        </div>
+      </div>
     );
   }
 
   // Login / Waiter Selection View
   if (view === 'login') {
     return (
-      <div className="min-h-screen bg-[#1e3a5f] flex flex-col">
+      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
         <header className="p-6 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-400 text-[#1e3a5f] mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-400 text-[#0d1b2a] mb-4">
             <ChefHat className="w-10 h-10" />
           </div>
           <h1 className="text-2xl font-bold text-white">{restaurant?.name}</h1>
@@ -737,7 +1165,7 @@ export default function WaiterApp() {
                 className="w-full flex items-center gap-4 p-4 bg-white/10 rounded-xl border border-white/20 hover:bg-white/20 transition-all active:scale-[0.98]"
               >
                 <Avatar className="h-14 w-14 border-2 border-yellow-400">
-                  <AvatarFallback className="bg-yellow-400 text-[#1e3a5f] text-lg font-bold">
+                  <AvatarFallback className="bg-yellow-400 text-[#0d1b2a] text-lg font-bold">
                     {getInitials(waiter.name)}
                   </AvatarFallback>
                 </Avatar>
@@ -772,7 +1200,7 @@ export default function WaiterApp() {
   if (view === 'delivery') {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
+        <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -806,28 +1234,18 @@ export default function WaiterApp() {
                 className="bg-gray-50"
               />
               
-              {/* Customer Results */}
               {customers.length > 0 && (
                 <div className="mt-2 border rounded-lg divide-y">
                   {customers.map((customer) => (
                     <button
                       key={customer.id}
                       onClick={() => handleSelectCustomer(customer)}
-                      className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                      className="w-full p-3 text-left hover:bg-gray-50"
                     >
                       <p className="font-medium text-gray-900">{customer.name}</p>
                       <p className="text-sm text-gray-500">{customer.phone}</p>
-                      {customer.address && (
-                        <p className="text-xs text-gray-400 truncate">{customer.address}</p>
-                      )}
                     </button>
                   ))}
-                </div>
-              )}
-              
-              {searchingCustomer && (
-                <div className="mt-2 flex items-center justify-center py-4">
-                  <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
                 </div>
               )}
             </div>
@@ -847,27 +1265,22 @@ export default function WaiterApp() {
                     value={deliveryForm.customerName}
                     onChange={(e) => setDeliveryForm(prev => ({ ...prev, customerName: e.target.value }))}
                     className="bg-gray-50"
-                    maxLength={100}
                   />
                 </div>
                 
                 <div>
                   <Label className="text-sm text-gray-600">Telefone *</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      placeholder="(00) 00000-0000"
-                      value={deliveryForm.customerPhone}
-                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, customerPhone: e.target.value }))}
-                      className="pl-10 bg-gray-50"
-                      maxLength={20}
-                    />
-                  </div>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={deliveryForm.customerPhone}
+                    onChange={(e) => setDeliveryForm(prev => ({ ...prev, customerPhone: e.target.value }))}
+                    className="bg-gray-50"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* Address (only for delivery) */}
+            {/* Address for delivery */}
             {orderMode === 'delivery' && (
               <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -876,87 +1289,41 @@ export default function WaiterApp() {
                 </h3>
                 
                 <div className="space-y-3">
-                  <div>
-                    <Label className="text-sm text-gray-600">CEP</Label>
-                    <Input
-                      placeholder="00000-000"
-                      value={deliveryForm.cep}
-                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, cep: e.target.value }))}
-                      className="bg-gray-50"
-                      maxLength={10}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm text-gray-600">Endereço *</Label>
-                    <Input
-                      placeholder="Rua, Avenida..."
-                      value={deliveryForm.address}
-                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, address: e.target.value }))}
-                      className="bg-gray-50"
-                      maxLength={200}
-                    />
-                  </div>
-                  
+                  <Input
+                    placeholder="Endereço *"
+                    value={deliveryForm.address}
+                    onChange={(e) => setDeliveryForm(prev => ({ ...prev, address: e.target.value }))}
+                    className="bg-gray-50"
+                  />
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-sm text-gray-600">Número</Label>
-                      <Input
-                        placeholder="Nº"
-                        value={deliveryForm.number}
-                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, number: e.target.value }))}
-                        className="bg-gray-50"
-                        maxLength={20}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-gray-600">Complemento</Label>
-                      <Input
-                        placeholder="Apto, Bloco..."
-                        value={deliveryForm.complement}
-                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, complement: e.target.value }))}
-                        className="bg-gray-50"
-                        maxLength={50}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm text-gray-600">Bairro</Label>
                     <Input
-                      placeholder="Bairro"
-                      value={deliveryForm.neighborhood}
-                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, neighborhood: e.target.value }))}
+                      placeholder="Número"
+                      value={deliveryForm.number}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, number: e.target.value }))}
                       className="bg-gray-50"
-                      maxLength={100}
+                    />
+                    <Input
+                      placeholder="Complemento"
+                      value={deliveryForm.complement}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, complement: e.target.value }))}
+                      className="bg-gray-50"
                     />
                   </div>
-                  
-                  <div>
-                    <Label className="text-sm text-gray-600">Cidade</Label>
-                    <Input
-                      placeholder="Cidade"
-                      value={deliveryForm.city}
-                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, city: e.target.value }))}
-                      className="bg-gray-50"
-                      maxLength={100}
-                    />
-                  </div>
-                  
+                  <Input
+                    placeholder="Bairro"
+                    value={deliveryForm.neighborhood}
+                    onChange={(e) => setDeliveryForm(prev => ({ ...prev, neighborhood: e.target.value }))}
+                    className="bg-gray-50"
+                  />
                   <div>
                     <Label className="text-sm text-gray-600">Taxa de Entrega</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
-                      <Input
-                        type="number"
-                        placeholder="0,00"
-                        value={deliveryForm.deliveryFee || ''}
-                        onChange={(e) => setDeliveryForm(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
-                        className="pl-10 bg-gray-50"
-                        min={0}
-                        step={0.01}
-                      />
-                    </div>
+                    <Input
+                      type="number"
+                      placeholder="0,00"
+                      value={deliveryForm.deliveryFee || ''}
+                      onChange={(e) => setDeliveryForm(prev => ({ ...prev, deliveryFee: parseFloat(e.target.value) || 0 }))}
+                      className="bg-gray-50"
+                    />
                   </div>
                 </div>
               </div>
@@ -964,141 +1331,30 @@ export default function WaiterApp() {
           </div>
         </ScrollArea>
 
-        {/* Continue Button */}
         <div className="p-4 bg-white border-t">
           <Button
-            className="w-full h-14 bg-[#2d5a87] hover:bg-[#1e3a5f] text-white gap-2 text-base font-semibold"
+            className="w-full h-14 text-lg bg-[#0ea5e9] hover:bg-[#0284c7]"
             onClick={handleProceedToOrder}
           >
-            <ClipboardList className="w-5 h-5" />
-            Adicionar Produtos
+            Continuar para Pedido
+            <ArrowLeft className="w-5 h-5 ml-2 rotate-180" />
           </Button>
         </div>
       </div>
     );
   }
 
-  // Order Detail View
-  if (view === 'order-detail' && selectedOrder) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/10"
-              onClick={() => setView('tables')}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold">
-                {selectedOrder.order_type === 'table' 
-                  ? `Mesa ${selectedOrder.tables?.number || '-'}`
-                  : selectedOrder.customer_name || 'Pedido'}
-              </h1>
-              <p className="text-xs opacity-80">
-                {getOrderTypeLabel(selectedOrder.order_type || 'table')} • {formatTime(selectedOrder.created_at)}
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 p-4">
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Badge className={`${
-                  selectedOrder.status === 'ready' ? 'bg-green-500' :
-                  selectedOrder.status === 'preparing' ? 'bg-orange-500' : 'bg-yellow-500'
-                } text-white border-0 text-sm px-3 py-1`}>
-                  {getStatusLabel(selectedOrder.status)}
-                </Badge>
-                <Badge variant="outline" className="text-sm">
-                  {getOrderTypeLabel(selectedOrder.order_type || 'table')}
-                </Badge>
-              </div>
-              <span className="text-xl font-bold text-[#1e3a5f]">
-                {formatCurrency(selectedOrder.total || 0)}
-              </span>
-            </div>
-
-            {/* Customer info for delivery/takeaway */}
-            {selectedOrder.order_type !== 'table' && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg space-y-1">
-                {selectedOrder.customer_name && (
-                  <p className="text-sm flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-400" />
-                    {selectedOrder.customer_name}
-                  </p>
-                )}
-                {selectedOrder.delivery_phone && (
-                  <p className="text-sm flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-gray-400" />
-                    {selectedOrder.delivery_phone}
-                  </p>
-                )}
-                {selectedOrder.delivery_address && (
-                  <p className="text-sm flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    {selectedOrder.delivery_address}
-                  </p>
-                )}
-                {selectedOrder.delivery_fee && selectedOrder.delivery_fee > 0 && (
-                  <p className="text-sm text-gray-500">
-                    Taxa de entrega: {formatCurrency(selectedOrder.delivery_fee)}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-3">
-              {selectedOrder.order_items?.map((item) => (
-                <div key={item.id} className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{item.quantity}x</span>
-                      <span>{item.product_name}</span>
-                    </div>
-                    {item.notes && (
-                      <p className="text-sm text-gray-500 ml-6">
-                        Obs: {item.notes}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-gray-500">
-                    {formatCurrency(item.product_price * item.quantity)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {selectedOrder.notes && (
-              <div className="mt-4 pt-4 border-t">
-                <p className="text-sm text-gray-500 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  {selectedOrder.notes}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Delivery Order View (Add products)
+  // Delivery Order View
   if (view === 'delivery-order') {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
+        <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               className="text-white hover:bg-white/10"
-              onClick={() => { setView('delivery'); }}
+              onClick={() => setView('delivery')}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
@@ -1107,13 +1363,13 @@ export default function WaiterApp() {
                 {orderMode === 'delivery' ? 'Delivery' : 'Para Levar'} - {deliveryForm.customerName}
               </h1>
               <p className="text-xs opacity-80">
-                {cart.length > 0 ? `${cart.length} itens no pedido` : 'Adicionar itens'}
+                {cart.length > 0 ? `${cart.length} itens` : 'Adicionar itens'}
               </p>
             </div>
           </div>
         </header>
 
-        {/* Search */}
+        {/* Search & Categories */}
         <div className="p-3 bg-white border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1121,18 +1377,17 @@ export default function WaiterApp() {
               placeholder="Buscar produtos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 bg-gray-50 border-gray-200"
+              className="pl-10 h-11 bg-gray-50"
             />
           </div>
         </div>
 
-        {/* Categories */}
         <div className="px-3 py-2 bg-white border-b overflow-x-auto">
           <div className="flex gap-2">
             <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               size="sm"
-              className={`h-9 px-4 shrink-0 ${selectedCategory === null ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+              className={`shrink-0 ${selectedCategory === null ? 'bg-[#0ea5e9]' : ''}`}
               onClick={() => setSelectedCategory(null)}
             >
               Todos
@@ -1142,7 +1397,7 @@ export default function WaiterApp() {
                 key={category.id}
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 size="sm"
-                className={`h-9 px-4 whitespace-nowrap shrink-0 ${selectedCategory === category.id ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+                className={`shrink-0 ${selectedCategory === category.id ? 'bg-[#0ea5e9]' : ''}`}
                 onClick={() => setSelectedCategory(category.id)}
               >
                 {category.icon && <span className="mr-1">{category.icon}</span>}
@@ -1156,46 +1411,27 @@ export default function WaiterApp() {
         <ScrollArea className="flex-1">
           <div className="p-3 grid gap-2">
             {filteredProducts.map((product) => {
-              const productCartItems = cart.filter(item => item.product.id === product.id);
-              const totalQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0);
-              
+              const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
               return (
                 <button
                   key={product.id}
-                  className={`relative flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left transition-all active:scale-[0.99] ${
-                    totalQuantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
+                  className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left ${
+                    totalQty > 0 ? 'border-[#0ea5e9] bg-[#0ea5e9]/5' : 'border-transparent shadow-sm'
                   }`}
                   onClick={() => handleProductClick(product)}
                 >
-                  <div className="flex-1 min-w-0 pr-3">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
-                      {product.has_sizes && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">P/M/G</span>
-                      )}
-                    </div>
-                    <p className="text-[#2d5a87] font-bold">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{product.name}</p>
+                    <p className="text-[#0ea5e9] font-bold">
                       {product.has_sizes 
-                        ? `A partir de ${formatCurrency(Math.min(
-                            product.price_small ?? Infinity,
-                            product.price_medium ?? Infinity,
-                            product.price_large ?? Infinity
-                          ))}`
-                        : formatCurrency(product.price)
-                      }
+                        ? `A partir de ${formatCurrency(Math.min(product.price_small ?? Infinity, product.price_medium ?? Infinity, product.price_large ?? Infinity))}`
+                        : formatCurrency(product.price)}
                     </p>
                   </div>
-                  
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all ${
-                    totalQuantity > 0 
-                      ? 'bg-[#2d5a87] text-white' 
-                      : 'bg-gray-100 text-gray-400'
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    totalQty > 0 ? 'bg-[#0ea5e9] text-white' : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {totalQuantity > 0 ? (
-                      <span className="text-lg font-bold">{totalQuantity}</span>
-                    ) : (
-                      <Plus className="w-5 h-5" />
-                    )}
+                    {totalQty > 0 ? <span className="text-lg font-bold">{totalQty}</span> : <Plus className="w-5 h-5" />}
                   </div>
                 </button>
               );
@@ -1203,121 +1439,20 @@ export default function WaiterApp() {
           </div>
         </ScrollArea>
 
-        {/* Cart Summary */}
+        {/* Cart */}
         {cart.length > 0 && (
-          <div className="sticky bottom-0 bg-white border-t shadow-lg">
-            <ScrollArea className="max-h-48 p-3">
-              <div className="space-y-2">
-                {cart.map((item, index) => {
-                  const cartItemKey = `${item.product.id}-${item.size || 'default'}-${index}`;
-                  const editKey = `${item.product.id}-${item.size || 'default'}`;
-                  return (
-                    <div key={cartItemKey} className="bg-gray-50 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-gray-900">
-                            {item.product.name}
-                            {item.size && (
-                              <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                {getSizeLabel(item.size)}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {formatCurrency(item.unitPrice)} cada
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, -1); }}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="w-8 text-center font-bold">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, 1); }}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-red-500"
-                            onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id, item.size); }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      {editingItemNotes === editKey ? (
-                        <Input
-                          placeholder="Observações do item..."
-                          value={item.notes}
-                          onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
-                          onBlur={() => setEditingItemNotes(null)}
-                          autoFocus
-                          className="h-9 text-sm"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setEditingItemNotes(editKey)}
-                          className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          {item.notes || 'Adicionar observação'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+          <div className="sticky bottom-0 bg-white border-t shadow-lg p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm text-gray-500">Total</p>
+                <p className="text-xl font-bold text-[#0d1b2a]">{formatCurrency(orderTotal)}</p>
               </div>
-            </ScrollArea>
-
-            <div className="p-3 pt-0">
-              <Textarea
-                placeholder="Observações gerais do pedido..."
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                className="mb-3 min-h-[60px]"
-              />
-              
-              {/* Order Summary */}
-              <div className="bg-gray-50 rounded-lg p-3 mb-3 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span>{formatCurrency(cartTotal)}</span>
-                </div>
-                {orderMode === 'delivery' && deliveryForm.deliveryFee > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Taxa de entrega</span>
-                    <span>{formatCurrency(deliveryForm.deliveryFee)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-lg pt-1 border-t">
-                  <span>Total</span>
-                  <span className="text-[#1e3a5f]">{formatCurrency(orderTotal)}</span>
-                </div>
-              </div>
-
               <Button
-                className="w-full h-14 text-lg gap-2 bg-[#2d5a87] hover:bg-[#1e3a5f]"
+                className="h-14 px-8 text-lg bg-[#0ea5e9] hover:bg-[#0284c7]"
                 disabled={submitting}
                 onClick={handleSubmitOrder}
               >
-                {submitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    Enviar Pedido
-                  </>
-                )}
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Send className="w-5 h-5 mr-2" />Enviar</>}
               </Button>
             </div>
           </div>
@@ -1326,15 +1461,15 @@ export default function WaiterApp() {
     );
   }
 
-  // Order View (New Order - Table or Tab)
+  // Order View (Table or Tab)
   if (view === 'order') {
     const orderTitle = orderMode === 'tab' 
-      ? `Comanda #${selectedTab?.number}${selectedTab?.customer_name ? ` - ${selectedTab.customer_name}` : ''}`
+      ? `Comanda #${selectedTab?.number}`
       : `Mesa ${selectedTable?.number}`;
       
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-        <header className="sticky top-0 bg-[#1e3a5f] text-white p-4 z-10">
+        <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -1361,7 +1496,7 @@ export default function WaiterApp() {
               placeholder="Buscar produtos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 bg-gray-50 border-gray-200"
+              className="pl-10 h-11 bg-gray-50"
             />
           </div>
         </div>
@@ -1372,7 +1507,7 @@ export default function WaiterApp() {
             <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               size="sm"
-              className={`h-9 px-4 shrink-0 ${selectedCategory === null ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+              className={`shrink-0 ${selectedCategory === null ? 'bg-[#0ea5e9]' : ''}`}
               onClick={() => setSelectedCategory(null)}
             >
               Todos
@@ -1382,7 +1517,7 @@ export default function WaiterApp() {
                 key={category.id}
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 size="sm"
-                className={`h-9 px-4 whitespace-nowrap shrink-0 ${selectedCategory === category.id ? 'bg-[#2d5a87] hover:bg-[#1e3a5f]' : ''}`}
+                className={`shrink-0 ${selectedCategory === category.id ? 'bg-[#0ea5e9]' : ''}`}
                 onClick={() => setSelectedCategory(category.id)}
               >
                 {category.icon && <span className="mr-1">{category.icon}</span>}
@@ -1396,46 +1531,32 @@ export default function WaiterApp() {
         <ScrollArea className="flex-1">
           <div className="p-3 grid gap-2">
             {filteredProducts.map((product) => {
-              const productCartItems = cart.filter(item => item.product.id === product.id);
-              const totalQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0);
-              
+              const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
               return (
                 <button
                   key={product.id}
-                  className={`relative flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left transition-all active:scale-[0.99] ${
-                    totalQuantity > 0 ? 'border-[#2d5a87] bg-[#2d5a87]/5' : 'border-transparent shadow-sm'
+                  className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left ${
+                    totalQty > 0 ? 'border-[#0ea5e9] bg-[#0ea5e9]/5' : 'border-transparent shadow-sm'
                   }`}
                   onClick={() => handleProductClick(product)}
                 >
-                  <div className="flex-1 min-w-0 pr-3">
+                  <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium line-clamp-1 text-gray-900">{product.name}</p>
+                      <p className="font-medium text-gray-900">{product.name}</p>
                       {product.has_sizes && (
-                        <span className="text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">P/M/G</span>
+                        <span className="text-[10px] bg-[#0ea5e9]/10 text-[#0ea5e9] px-1 py-0.5 rounded">P/M/G</span>
                       )}
                     </div>
-                    <p className="text-[#2d5a87] font-bold">
+                    <p className="text-[#0ea5e9] font-bold">
                       {product.has_sizes 
-                        ? `A partir de ${formatCurrency(Math.min(
-                            product.price_small ?? Infinity,
-                            product.price_medium ?? Infinity,
-                            product.price_large ?? Infinity
-                          ))}`
-                        : formatCurrency(product.price)
-                      }
+                        ? `A partir de ${formatCurrency(Math.min(product.price_small ?? Infinity, product.price_medium ?? Infinity, product.price_large ?? Infinity))}`
+                        : formatCurrency(product.price)}
                     </p>
                   </div>
-                  
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all ${
-                    totalQuantity > 0 
-                      ? 'bg-[#2d5a87] text-white' 
-                      : 'bg-gray-100 text-gray-400'
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    totalQty > 0 ? 'bg-[#0ea5e9] text-white' : 'bg-gray-100 text-gray-400'
                   }`}>
-                    {totalQuantity > 0 ? (
-                      <span className="text-lg font-bold">{totalQuantity}</span>
-                    ) : (
-                      <Plus className="w-5 h-5" />
-                    )}
+                    {totalQty > 0 ? <span className="text-lg font-bold">{totalQty}</span> : <Plus className="w-5 h-5" />}
                   </div>
                 </button>
               );
@@ -1448,74 +1569,68 @@ export default function WaiterApp() {
           <div className="sticky bottom-0 bg-white border-t shadow-lg">
             <ScrollArea className="max-h-48 p-3">
               <div className="space-y-2">
-                {cart.map((item, index) => {
-                  const cartItemKey = `${item.product.id}-${item.size || 'default'}-${index}`;
-                  const editKey = `${item.product.id}-${item.size || 'default'}`;
-                  return (
-                    <div key={cartItemKey} className="bg-gray-50 rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate text-gray-900">
-                            {item.product.name}
-                            {item.size && (
-                              <span className="ml-1 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                {getSizeLabel(item.size)}
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {formatCurrency(item.unitPrice)} cada
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, -1); }}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="w-8 text-center font-bold">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={(e) => { e.stopPropagation(); updateQuantity(item.product.id, item.size, 1); }}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 text-red-500"
-                            onClick={(e) => { e.stopPropagation(); removeFromCart(item.product.id, item.size); }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                {cart.map((item, index) => (
+                  <div key={`${item.product.id}-${item.size}-${index}`} className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-gray-900">
+                          {item.product.name}
+                          {item.size && (
+                            <span className="ml-1 text-xs bg-[#0ea5e9]/10 text-[#0ea5e9] px-1.5 py-0.5 rounded">
+                              {getSizeLabel(item.size)}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-500">{formatCurrency(item.unitPrice)} cada</p>
                       </div>
-                      {editingItemNotes === editKey ? (
-                        <Input
-                          placeholder="Observações do item..."
-                          value={item.notes}
-                          onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
-                          onBlur={() => setEditingItemNotes(null)}
-                          autoFocus
-                          className="h-9 text-sm"
-                        />
-                      ) : (
-                        <button
-                          onClick={() => setEditingItemNotes(editKey)}
-                          className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => updateQuantity(item.product.id, item.size, -1)}
                         >
-                          <MessageSquare className="w-3 h-3" />
-                          {item.notes || 'Adicionar observação'}
-                        </button>
-                      )}
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <span className="w-8 text-center font-bold">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => updateQuantity(item.product.id, item.size, 1)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-red-500"
+                          onClick={() => removeFromCart(item.product.id, item.size)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                  );
-                })}
+                    {editingItemNotes === `${item.product.id}-${item.size}` ? (
+                      <Input
+                        placeholder="Observações..."
+                        value={item.notes}
+                        onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
+                        onBlur={() => setEditingItemNotes(null)}
+                        autoFocus
+                        className="h-9 text-sm"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setEditingItemNotes(`${item.product.id}-${item.size}`)}
+                        className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        {item.notes || 'Adicionar observação'}
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             </ScrollArea>
 
@@ -1529,10 +1644,10 @@ export default function WaiterApp() {
               <div className="flex items-center gap-4">
                 <div className="flex-1">
                   <p className="text-sm text-gray-500">Total</p>
-                  <p className="text-xl font-bold text-[#1e3a5f]">{formatCurrency(cartTotal)}</p>
+                  <p className="text-xl font-bold text-[#0d1b2a]">{formatCurrency(cartTotal)}</p>
                 </div>
                 <Button
-                  className="h-14 px-8 text-lg gap-2 bg-[#2d5a87] hover:bg-[#1e3a5f]"
+                  className="h-14 px-8 text-lg bg-[#0ea5e9] hover:bg-[#0284c7]"
                   disabled={submitting}
                   onClick={handleSubmitOrder}
                 >
@@ -1540,7 +1655,7 @@ export default function WaiterApp() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      <Send className="w-5 h-5" />
+                      <Send className="w-5 h-5 mr-2" />
                       Enviar
                     </>
                   )}
@@ -1549,52 +1664,93 @@ export default function WaiterApp() {
             </div>
           </div>
         )}
+
+        {/* Size Modal */}
+        {sizeModalProduct && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+              <h3 className="text-lg font-bold text-gray-900">Escolha o tamanho</h3>
+              <p className="text-sm text-gray-600">{sizeModalProduct.name}</p>
+              <div className="space-y-2">
+                {sizeModalProduct.price_small != null && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-14"
+                    onClick={() => addToCartWithSize(sizeModalProduct, 'small')}
+                  >
+                    <span>Pequeno (P)</span>
+                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_small)}</span>
+                  </Button>
+                )}
+                {sizeModalProduct.price_medium != null && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-14"
+                    onClick={() => addToCartWithSize(sizeModalProduct, 'medium')}
+                  >
+                    <span>Médio (M)</span>
+                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_medium)}</span>
+                  </Button>
+                )}
+                {sizeModalProduct.price_large != null && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between h-14"
+                    onClick={() => addToCartWithSize(sizeModalProduct, 'large')}
+                  >
+                    <span>Grande (G)</span>
+                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_large)}</span>
+                  </Button>
+                )}
+              </div>
+              <Button variant="ghost" className="w-full" onClick={() => setSizeModalProduct(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Main View - Tables/Comandas (Anota AI Style)
+  // Main View - Tables/Comandas (like image 1)
   return (
-    <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+    <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
       {/* Header */}
-      <header className="bg-[#1e3a5f] text-white">
+      <header className="bg-[#0d1b2a] text-white">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/10 relative"
               onClick={() => setView('login')}
             >
               <Menu className="w-6 h-6" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full" />
             </Button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center">
-                <ChefHat className="w-4 h-4 text-[#1e3a5f]" />
-              </div>
-              <span className="font-semibold">Mapa de mesas e comandas</span>
-            </div>
+            <span className="font-semibold">Mapa de mesas e comandas</span>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="flex">
           <button
-            onClick={() => { setActiveTab('mesas'); fetchActiveOrders(); }}
+            onClick={() => setActiveTab('mesas')}
             className={`flex-1 py-3 text-center font-semibold transition-all ${
               activeTab === 'mesas' 
-                ? 'bg-[#2d5a87] text-white' 
-                : 'bg-[#1e3a5f] text-white/70 hover:text-white'
+                ? 'bg-[#0ea5e9] text-white' 
+                : 'bg-[#0d1b2a] text-white/70 hover:text-white'
             }`}
           >
             Mesas
           </button>
           <button
-            onClick={() => { setActiveTab('comandas'); fetchActiveOrders(); }}
+            onClick={() => setActiveTab('comandas')}
             className={`flex-1 py-3 text-center font-semibold transition-all ${
               activeTab === 'comandas' 
-                ? 'bg-[#2d5a87] text-white' 
-                : 'bg-[#1e3a5f] text-white/70 hover:text-white'
+                ? 'bg-[#0ea5e9] text-white' 
+                : 'bg-[#0d1b2a] text-white/70 hover:text-white'
             }`}
           >
             Comandas
@@ -1603,202 +1759,196 @@ export default function WaiterApp() {
       </header>
 
       {/* Search */}
-      <div className="p-3 bg-white border-b">
+      <div className="p-3 bg-[#1b3a4b]">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
           <Input
             placeholder="Buscar por nome da mesa"
             value={tableSearchTerm}
             onChange={(e) => setTableSearchTerm(e.target.value)}
-            className="pl-10 h-12 bg-white border-gray-200 text-base"
+            className="pl-10 h-12 bg-[#1b3a4b] border-white/20 text-white placeholder:text-white/40"
           />
         </div>
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 bg-white border-b flex items-center gap-4 text-sm">
+      <div className="px-4 py-2 bg-[#1b3a4b] flex items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-          <span className="text-gray-600">Livres</span>
+          <span className="text-white/70">Livres</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <span className="text-gray-600">Ocupadas</span>
+          <span className="text-white/70">Ocupadas</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-          <span className="text-gray-600">Em pagamento</span>
+          <span className="text-white/70">Em pagamento</span>
         </div>
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === 'mesas' ? (
-          <div className="p-3 grid grid-cols-2 gap-3">
+          <div className="p-3 grid grid-cols-3 gap-3">
             {filteredTables.map((table) => {
-              const readyOrder = getTableWithReadyOrder(table.id);
-              const hasReadyOrder = readyOrder !== undefined;
-              const isOccupied = table.status === 'occupied' || table.status === 'closing';
+              const hasReadyOrder = tableReadyOrders[table.id];
               
               return (
-                <div
+                <button
                   key={table.id}
-                  className={`relative rounded-xl overflow-hidden shadow-sm ${
-                    hasReadyOrder ? 'ring-2 ring-orange-500' : ''
+                  onClick={() => handleTableClick(table)}
+                  className={`relative rounded-lg p-4 min-h-[100px] flex flex-col justify-between text-left transition-all active:scale-95 ${
+                    table.status === 'available' 
+                      ? 'bg-[#2a5a4a]' 
+                      : table.status === 'closing' 
+                        ? 'bg-yellow-600' 
+                        : 'bg-[#d35b47]'
                   }`}
                 >
-                  {/* Table Header */}
-                  <div 
-                    className={`p-4 ${
-                      table.status === 'available' ? 'bg-green-600' :
-                      table.status === 'closing' ? 'bg-yellow-500' : 'bg-red-500'
-                    } text-white`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xl">Mesa {table.number}</span>
-                      {hasReadyOrder && (
-                        <Badge className="bg-white/20 text-white text-xs">
-                          Pronto!
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-sm opacity-80">
-                      {table.status === 'available' ? 'Livre' : 
-                       table.status === 'closing' ? 'Fechando conta' : 'Ocupada'}
-                    </span>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="bg-white p-2 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleSelectTable(table)}
-                      className="flex flex-col items-center justify-center p-3 rounded-lg bg-blue-50 text-blue-700 active:bg-blue-100"
-                    >
-                      <Plus className="w-5 h-5 mb-1" />
-                      <span className="text-xs font-medium">Novo Pedido</span>
-                    </button>
-                    <button
-                      onClick={() => { setSelectedTable(table); setView('table-orders'); }}
-                      className={`flex flex-col items-center justify-center p-3 rounded-lg ${
-                        isOccupied 
-                          ? 'bg-green-50 text-green-700 active:bg-green-100' 
-                          : 'bg-gray-50 text-gray-400'
-                      }`}
-                      disabled={!isOccupied}
-                    >
-                      <Receipt className="w-5 h-5 mb-1" />
-                      <span className="text-xs font-medium">
-                        {isOccupied ? 'Ver/Fechar' : 'Sem pedidos'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
+                  <span className="font-bold text-white text-lg">Mesa {table.number}</span>
+                  {hasReadyOrder && (
+                    <Badge className="bg-green-300 text-green-900 text-xs font-semibold w-fit">
+                      Pronto
+                    </Badge>
+                  )}
+                </button>
               );
             })}
           </div>
         ) : (
-          <div className="p-3 space-y-3">
-            {/* Tabs Grid */}
-            {tabs.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {tabs.filter(tab => {
-                  if (!tableSearchTerm) return true;
-                  return tab.number.toString().includes(tableSearchTerm) ||
-                    tab.customer_name?.toLowerCase().includes(tableSearchTerm.toLowerCase());
-                }).map((tab) => {
-                  const isOccupied = tab.status === 'occupied' || tab.status === 'closing';
-                  
-                  return (
-                    <div
-                      key={tab.id}
-                      className="relative rounded-xl overflow-hidden shadow-sm"
-                    >
-                      {/* Tab Header */}
-                      <div 
-                        className={`p-4 ${
-                          tab.status === 'available' ? 'bg-green-600' :
-                          tab.status === 'closing' ? 'bg-yellow-500' : 'bg-red-500'
-                        } text-white`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-xl">#{tab.number}</span>
-                        </div>
-                        {tab.customer_name && (
-                          <p className="text-sm flex items-center gap-1 mt-1">
-                            <User className="w-3 h-3" />
-                            {tab.customer_name}
-                          </p>
-                        )}
-                        <span className="text-xs opacity-80">
-                          {tab.status === 'available' ? 'Livre' : 
-                           tab.status === 'closing' ? 'Fechando' : 'Ocupada'}
-                        </span>
-                      </div>
-                      
-                      {/* Action Buttons */}
-                      <div className="bg-white p-2 grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedTab(tab);
-                            setOrderMode('tab');
-                            setView('order');
-                          }}
-                          className="flex flex-col items-center justify-center p-3 rounded-lg bg-blue-50 text-blue-700 active:bg-blue-100"
-                        >
-                          <Plus className="w-5 h-5 mb-1" />
-                          <span className="text-xs font-medium">Novo Pedido</span>
-                        </button>
-                        <button
-                          onClick={() => { setSelectedTab(tab); setView('tab-orders'); }}
-                          className={`flex flex-col items-center justify-center p-3 rounded-lg ${
-                            isOccupied 
-                              ? 'bg-green-50 text-green-700 active:bg-green-100' 
-                              : 'bg-gray-50 text-gray-400'
-                          }`}
-                          disabled={!isOccupied}
-                        >
-                          <Receipt className="w-5 h-5 mb-1" />
-                          <span className="text-xs font-medium">
-                            {isOccupied ? 'Ver/Fechar' : 'Sem pedidos'}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+          <div className="p-3 grid grid-cols-3 gap-3">
+            {tabs.filter(tab => {
+              if (!tableSearchTerm) return true;
+              return tab.number.toString().includes(tableSearchTerm) ||
+                tab.customer_name?.toLowerCase().includes(tableSearchTerm.toLowerCase());
+            }).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setSelectedTab(tab);
+                  fetchTabOrders(tab.id);
+                  setView('tab-orders');
+                }}
+                className={`relative rounded-lg p-4 min-h-[100px] flex flex-col justify-between text-left transition-all active:scale-95 ${
+                  tab.status === 'available' 
+                    ? 'bg-[#2a5a4a]' 
+                    : tab.status === 'closing' 
+                      ? 'bg-yellow-600' 
+                      : 'bg-[#d35b47]'
+                }`}
+              >
+                <div>
+                  <span className="font-bold text-white text-lg">#{tab.number}</span>
+                  {tab.customer_name && (
+                    <p className="text-white/80 text-xs truncate mt-1">{tab.customer_name}</p>
+                  )}
+                </div>
+              </button>
+            ))}
+            
+            {tabs.length === 0 && (
+              <div className="col-span-3 flex flex-col items-center justify-center h-64 text-white/40">
                 <ClipboardList className="w-16 h-16 mb-4 opacity-50" />
                 <p>Nenhuma comanda cadastrada</p>
-                <p className="text-sm">Cadastre comandas no sistema</p>
               </div>
             )}
           </div>
         )}
       </ScrollArea>
 
-      {/* Bottom Buttons */}
-      <div className="p-3 bg-white border-t space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
-            className="h-12 bg-[#2d5a87] hover:bg-[#1e3a5f] text-white gap-2 font-semibold"
-            onClick={() => handleStartDelivery('delivery')}
-          >
-            <Bike className="w-5 h-5" />
-            Delivery
-          </Button>
-          <Button 
-            className="h-12 bg-green-600 hover:bg-green-700 text-white gap-2 font-semibold"
-            onClick={() => handleStartDelivery('takeaway')}
-          >
-            <Package className="w-5 h-5" />
-            Para Levar
-          </Button>
-        </div>
+      {/* Bottom Button */}
+      <div className="p-3 bg-[#0d1b2a]">
+        <Button 
+          className="w-full h-14 bg-[#1b3a4b] hover:bg-[#2a4a5b] text-white gap-2 font-semibold border border-[#0ea5e9]"
+          onClick={() => handleStartDelivery('delivery')}
+        >
+          <Rocket className="w-5 h-5" />
+          Delivery/Para Levar
+        </Button>
       </div>
 
-      {/* Size Selection Modal */}
+      {/* Table Action Modal (like image 2) */}
+      {showTableModal && modalTable && (
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-xl font-bold">Mesa {modalTable.number}</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowTableModal(false)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            {/* Total */}
+            <div className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <span className="text-gray-600">Conta: </span>
+                <span className="text-xl font-bold">{formatCurrency(tableTotal)}</span>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            <div className="p-4 space-y-3">
+              <Button 
+                variant="outline" 
+                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                onClick={() => handleViewOrders(modalTable)}
+              >
+                <Eye className="w-5 h-5" />
+                Ver pedidos
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                onClick={() => {
+                  handleViewOrders(modalTable);
+                  setTimeout(() => handlePrintReceipt(), 500);
+                }}
+              >
+                <Printer className="w-5 h-5" />
+                Imprimir conferência
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                onClick={() => toast.info('Função de transferência em breve')}
+              >
+                <ArrowRightLeft className="w-5 h-5" />
+                Transferir entre mesas
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                onClick={async () => {
+                  await handleViewOrders(modalTable);
+                  setTableTotal(tableTotal);
+                  setShowCloseModal(true);
+                }}
+              >
+                <DollarSign className="w-5 h-5" />
+                Fechar conta
+              </Button>
+              
+              <Button 
+                className="w-full h-14 justify-start gap-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+                onClick={() => handleNewOrder(modalTable)}
+              >
+                <PlusCircle className="w-5 h-5" />
+                Novo pedido
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Size Modal */}
       {sizeModalProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
@@ -1808,39 +1958,35 @@ export default function WaiterApp() {
               {sizeModalProduct.price_small != null && (
                 <Button
                   variant="outline"
-                  className="w-full justify-between h-14 text-left"
+                  className="w-full justify-between h-14"
                   onClick={() => addToCartWithSize(sizeModalProduct, 'small')}
                 >
-                  <span className="font-medium">Pequeno (P)</span>
-                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_small)}</span>
+                  <span>Pequeno (P)</span>
+                  <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_small)}</span>
                 </Button>
               )}
               {sizeModalProduct.price_medium != null && (
                 <Button
                   variant="outline"
-                  className="w-full justify-between h-14 text-left"
+                  className="w-full justify-between h-14"
                   onClick={() => addToCartWithSize(sizeModalProduct, 'medium')}
                 >
-                  <span className="font-medium">Médio (M)</span>
-                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_medium)}</span>
+                  <span>Médio (M)</span>
+                  <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_medium)}</span>
                 </Button>
               )}
               {sizeModalProduct.price_large != null && (
                 <Button
                   variant="outline"
-                  className="w-full justify-between h-14 text-left"
+                  className="w-full justify-between h-14"
                   onClick={() => addToCartWithSize(sizeModalProduct, 'large')}
                 >
-                  <span className="font-medium">Grande (G)</span>
-                  <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_large)}</span>
+                  <span>Grande (G)</span>
+                  <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_large)}</span>
                 </Button>
               )}
             </div>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => setSizeModalProduct(null)}
-            >
+            <Button variant="ghost" className="w-full" onClick={() => setSizeModalProduct(null)}>
               Cancelar
             </Button>
           </div>
