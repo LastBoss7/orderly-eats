@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
+import { ProductSizeModal } from './ProductSizeModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -35,12 +36,19 @@ interface Product {
   category_id: string | null;
   image_url: string | null;
   is_available: boolean;
+  has_sizes?: boolean;
+  price_small?: number | null;
+  price_medium?: number | null;
+  price_large?: number | null;
 }
 
 interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
+  size?: string | null;
+  unitPrice: number;
+  cartKey: string; // Unique key for same product with different sizes
 }
 
 interface Table {
@@ -84,6 +92,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
   const [showFilters, setShowFilters] = useState(false);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [tempNotes, setTempNotes] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showSizeModal, setShowSizeModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -146,25 +156,45 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
     return matchesCategory && matchesSearch;
   });
 
-  const addToCart = (product: Product) => {
+  const handleProductClick = (product: Product) => {
+    if (!product.is_available) return;
+    setSelectedProduct(product);
+    setShowSizeModal(true);
+  };
+
+  const addToCartWithDetails = (
+    product: Product, 
+    size: string | null, 
+    price: number, 
+    notes: string
+  ) => {
+    const cartKey = `${product.id}-${size || 'default'}`;
+    
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      const existing = prev.find(item => item.cartKey === cartKey);
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+          item.cartKey === cartKey
+            ? { ...item, quantity: item.quantity + 1, notes: notes || item.notes }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { 
+        product, 
+        quantity: 1, 
+        size, 
+        unitPrice: price, 
+        notes: notes || undefined,
+        cartKey 
+      }];
     });
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateQuantity = (cartKey: string, delta: number) => {
     setCart(prev => {
       return prev
         .map(item => {
-          if (item.product.id === productId) {
+          if (item.cartKey === cartKey) {
             const newQuantity = item.quantity + delta;
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
@@ -174,31 +204,31 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (cartKey: string) => {
+    setCart(prev => prev.filter(item => item.cartKey !== cartKey));
   };
 
-  const updateItemNotes = (productId: string, notes: string) => {
+  const updateItemNotes = (cartKey: string, notes: string) => {
     setCart(prev => prev.map(item =>
-      item.product.id === productId
+      item.cartKey === cartKey
         ? { ...item, notes }
         : item
     ));
   };
 
-  const handleStartEditNotes = (productId: string, currentNotes?: string) => {
-    setEditingNotes(productId);
+  const handleStartEditNotes = (cartKey: string, currentNotes?: string) => {
+    setEditingNotes(cartKey);
     setTempNotes(currentNotes || '');
   };
 
-  const handleSaveNotes = (productId: string) => {
-    updateItemNotes(productId, tempNotes);
+  const handleSaveNotes = (cartKey: string) => {
+    updateItemNotes(cartKey, tempNotes);
     setEditingNotes(null);
     setTempNotes('');
   };
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 
@@ -252,8 +282,9 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         restaurant_id: restaurant?.id,
         order_id: order.id,
         product_id: item.product.id,
-        product_name: item.product.name,
-        product_price: item.product.price,
+        product_name: item.size ? `${item.product.name} (${item.size})` : item.product.name,
+        product_price: item.unitPrice,
+        product_size: item.size || null,
         quantity: item.quantity,
         notes: item.notes || null,
       }));
@@ -441,7 +472,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                           hover:border-primary hover:shadow-md transition-all
                           ${!product.is_available ? 'opacity-50' : ''}
                         `}
-                        onClick={() => product.is_available && addToCart(product)}
+                        onClick={() => handleProductClick(product)}
                       >
                         {/* Product Image */}
                         <div className="aspect-square rounded-lg bg-muted mb-2 overflow-hidden">
@@ -467,13 +498,32 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                             ESGOTADO
                           </Badge>
                         )}
+
+                        {/* Has sizes badge */}
+                        {product.has_sizes && (
+                          <Badge 
+                            variant="secondary" 
+                            className="absolute top-2 right-2 text-xs"
+                          >
+                            P/M/G
+                          </Badge>
+                        )}
                         
                         {/* Product Info */}
                         <p className="text-sm font-medium line-clamp-2 mb-1">
                           {product.name}
                         </p>
                         <p className="text-sm font-bold text-primary">
-                          {formatCurrency(product.price)}
+                          {product.has_sizes 
+                            ? `A partir de ${formatCurrency(
+                                Math.min(
+                                  product.price_small || Infinity,
+                                  product.price_medium || Infinity,
+                                  product.price_large || Infinity
+                                )
+                              )}`
+                            : formatCurrency(product.price)
+                          }
                         </p>
                       </motion.div>
                     ))}
@@ -520,7 +570,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                 <AnimatePresence>
                   {cart.map((item) => (
                     <motion.div
-                      key={item.product.id}
+                      key={item.cartKey}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
@@ -528,18 +578,25 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm">{item.product.name}</p>
+                          <p className="font-medium text-sm">
+                            {item.product.name}
+                            {item.size && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {item.size}
+                              </Badge>
+                            )}
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {formatCurrency(item.product.price)} cada
+                            {formatCurrency(item.unitPrice)} cada
                           </p>
                         </div>
                         <p className="font-semibold text-primary">
-                          {formatCurrency(item.product.price * item.quantity)}
+                          {formatCurrency(item.unitPrice * item.quantity)}
                         </p>
                       </div>
                       
                       {/* Notes */}
-                      {editingNotes === item.product.id ? (
+                      {editingNotes === item.cartKey ? (
                         <div className="flex gap-2">
                           <Input
                             placeholder="Observação..."
@@ -548,14 +605,14 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                             className="h-8 text-xs"
                             autoFocus
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveNotes(item.product.id);
+                              if (e.key === 'Enter') handleSaveNotes(item.cartKey);
                               if (e.key === 'Escape') setEditingNotes(null);
                             }}
                           />
                           <Button 
                             size="sm" 
                             className="h-8"
-                            onClick={() => handleSaveNotes(item.product.id)}
+                            onClick={() => handleSaveNotes(item.cartKey)}
                           >
                             OK
                           </Button>
@@ -563,7 +620,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                       ) : item.notes ? (
                         <button
                           className="text-xs text-warning flex items-center gap-1 hover:underline"
-                          onClick={() => handleStartEditNotes(item.product.id, item.notes)}
+                          onClick={() => handleStartEditNotes(item.cartKey, item.notes)}
                         >
                           <MessageSquare className="w-3 h-3" />
                           {item.notes}
@@ -571,7 +628,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                       ) : (
                         <button
                           className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                          onClick={() => handleStartEditNotes(item.product.id)}
+                          onClick={() => handleStartEditNotes(item.cartKey)}
                         >
                           <MessageSquare className="w-3 h-3" />
                           Adicionar observação
@@ -585,7 +642,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                             variant="outline"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => updateQuantity(item.product.id, -1)}
+                            onClick={() => updateQuantity(item.cartKey, -1)}
                           >
                             <Minus className="w-3 h-3" />
                           </Button>
@@ -596,7 +653,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                             variant="outline"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => updateQuantity(item.product.id, 1)}
+                            onClick={() => updateQuantity(item.cartKey, 1)}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
@@ -605,7 +662,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => removeFromCart(item.product.id)}
+                          onClick={() => removeFromCart(item.cartKey)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -669,6 +726,17 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           </div>
         </div>
       </div>
+
+      {/* Size/Notes Modal */}
+      <ProductSizeModal
+        product={selectedProduct}
+        open={showSizeModal}
+        onClose={() => {
+          setShowSizeModal(false);
+          setSelectedProduct(null);
+        }}
+        onConfirm={addToCartWithDetails}
+      />
     </div>
   );
 }
