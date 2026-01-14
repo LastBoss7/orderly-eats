@@ -20,6 +20,9 @@ import {
   Save,
   Trash2,
   ImageIcon,
+  Copy,
+  Check,
+  Monitor,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +53,7 @@ export default function RestaurantSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const [restaurantData, setRestaurantData] = useState<RestaurantData | null>(null);
   const [printSettings, setPrintSettings] = useState<PrintSettings>({
@@ -289,6 +293,18 @@ export default function RestaurantSettings() {
       .slice(0, 15);
   };
 
+  const handleCopyId = async () => {
+    if (!restaurantData?.id) return;
+    try {
+      await navigator.clipboard.writeText(restaurantData.id);
+      setCopied(true);
+      toast.success('ID copiado para a área de transferência!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      toast.error('Erro ao copiar ID');
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -339,7 +355,43 @@ export default function RestaurantSettings() {
           </TabsList>
 
           {/* Dados do Estabelecimento */}
-          <TabsContent value="dados">
+          <TabsContent value="dados" className="space-y-6">
+            {/* Electron Connection Card */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Monitor className="w-5 h-5" />
+                  Conexão com App de Impressão
+                </CardTitle>
+                <CardDescription>
+                  Use este ID para conectar o aplicativo Electron de impressão automática
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-background border rounded-lg px-4 py-3 font-mono text-sm select-all">
+                    {restaurantData?.id || 'Carregando...'}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyId}
+                    disabled={!restaurantData?.id}
+                    className="shrink-0"
+                  >
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  No app Electron: Arquivo → Configurações → cole este ID no campo "ID do Restaurante"
+                </p>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Informações Básicas</CardTitle>
