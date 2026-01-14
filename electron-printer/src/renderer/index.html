@@ -528,6 +528,147 @@
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 255, 255, 0.5);
     }
+    /* Layout Editor Modal */
+    .layout-editor {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 24px;
+      max-height: 70vh;
+    }
+
+    .layout-options {
+      overflow-y: auto;
+      padding-right: 16px;
+    }
+
+    .layout-preview-container {
+      background: #f3f4f6;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .preview-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .receipt-preview {
+      background: white;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      line-height: 1.4;
+      padding: 12px;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 240px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .receipt-preview.paper-58mm {
+      max-width: 180px;
+    }
+
+    .receipt-preview.paper-80mm {
+      max-width: 240px;
+    }
+
+    /* Section headers in options */
+    .section-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 16px 0 8px 0;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    .section-header:first-child {
+      margin-top: 0;
+    }
+
+    /* Compact form group for layout */
+    .form-group-compact {
+      margin-bottom: 12px;
+    }
+
+    .form-group-compact .form-label {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .form-group-compact .form-input,
+    .form-group-compact .form-select {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+
+    /* Checkbox grid */
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .checkbox-compact {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .checkbox-compact input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #3b82f6;
+    }
+
+    .checkbox-compact label {
+      font-size: 12px;
+      color: #374151;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Wide modal for layout editor */
+    .modal.modal-wide {
+      max-width: 800px;
+      width: 95%;
+    }
+
+    .modal.modal-wide .modal-body {
+      max-height: 75vh;
+    }
+
+    /* Preview actions */
+    .preview-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      width: 100%;
+    }
+
+    .preview-actions .btn {
+      flex: 1;
+      padding: 8px;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -550,6 +691,14 @@
             <rect x="6" y="14" width="12" height="8"/>
           </svg>
           Impressoras por Tipo
+        </div>
+        <div class="menu-dropdown-item" id="btnLayoutEditor">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="3" y1="9" x2="21" y2="9"/>
+            <line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+          Layout de Impressão
         </div>
         <div class="menu-dropdown-item" id="btnTestPrint">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -778,6 +927,149 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="closeModal('aboutModal')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layout Editor Modal -->
+  <div class="modal-overlay" id="layoutModal">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h2 class="modal-title">📄 Layout de Impressão</h2>
+        <button class="modal-close" onclick="closeModal('layoutModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="layout-editor">
+          <!-- Options Column -->
+          <div class="layout-options">
+            <!-- Paper Settings -->
+            <div class="section-header">📐 Papel</div>
+            <div class="form-row" style="gap: 12px;">
+              <div class="form-group-compact">
+                <label class="form-label">Tamanho</label>
+                <select class="form-select" id="layoutPaperSize" onchange="updatePreview()">
+                  <option value="58mm">58mm (Térmico)</option>
+                  <option value="80mm">80mm (Térmico)</option>
+                </select>
+              </div>
+              <div class="form-group-compact">
+                <label class="form-label">Largura (cols)</label>
+                <input type="number" class="form-input" id="layoutPaperWidth" value="48" min="32" max="80" onchange="updatePreview()">
+              </div>
+            </div>
+
+            <!-- Header Section -->
+            <div class="section-header">🏪 Cabeçalho</div>
+            <div class="checkbox-grid">
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowRestaurantName" onchange="updatePreview()">
+                <label for="layoutShowRestaurantName">Nome</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowAddress" onchange="updatePreview()">
+                <label for="layoutShowAddress">Endereço</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowPhone" onchange="updatePreview()">
+                <label for="layoutShowPhone">Telefone</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowCnpj" onchange="updatePreview()">
+                <label for="layoutShowCnpj">CNPJ</label>
+              </div>
+            </div>
+
+            <div class="form-group-compact" style="margin-top: 12px;">
+              <label class="form-label">Título do Pedido</label>
+              <input type="text" class="form-input" id="layoutReceiptTitle" value="*** PEDIDO ***" onchange="updatePreview()">
+            </div>
+
+            <!-- Order Info Section -->
+            <div class="section-header">📋 Informações do Pedido</div>
+            <div class="checkbox-grid">
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowOrderNumber" onchange="updatePreview()">
+                <label for="layoutShowOrderNumber">Nº Pedido</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowOrderType" onchange="updatePreview()">
+                <label for="layoutShowOrderType">Tipo</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowTable" onchange="updatePreview()">
+                <label for="layoutShowTable">Mesa</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowDateTime" onchange="updatePreview()">
+                <label for="layoutShowDateTime">Data/Hora</label>
+              </div>
+            </div>
+
+            <!-- Customer Section -->
+            <div class="section-header">👤 Cliente</div>
+            <div class="checkbox-grid">
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowCustomerName" onchange="updatePreview()">
+                <label for="layoutShowCustomerName">Nome</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowCustomerPhone" onchange="updatePreview()">
+                <label for="layoutShowCustomerPhone">Telefone</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowDeliveryAddress" onchange="updatePreview()">
+                <label for="layoutShowDeliveryAddress">Endereço</label>
+              </div>
+            </div>
+
+            <!-- Items Section -->
+            <div class="section-header">🍔 Itens</div>
+            <div class="checkbox-grid">
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowItemPrices" onchange="updatePreview()">
+                <label for="layoutShowItemPrices">Preços</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowItemNotes" onchange="updatePreview()">
+                <label for="layoutShowItemNotes">Observações</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowTotals" onchange="updatePreview()">
+                <label for="layoutShowTotals">Totais</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutShowDeliveryFee" onchange="updatePreview()">
+                <label for="layoutShowDeliveryFee">Taxa Entrega</label>
+              </div>
+              <div class="checkbox-compact">
+                <input type="checkbox" id="layoutBoldTotal" onchange="updatePreview()">
+                <label for="layoutBoldTotal">Total Negrito</label>
+              </div>
+            </div>
+
+            <!-- Footer Section -->
+            <div class="section-header">📝 Rodapé</div>
+            <div class="form-group-compact">
+              <label class="form-label">Mensagem Final</label>
+              <input type="text" class="form-input" id="layoutFooterMessage" value="Obrigado pela preferência!" onchange="updatePreview()">
+            </div>
+          </div>
+
+          <!-- Preview Column -->
+          <div class="layout-preview-container">
+            <div class="preview-title">Prévia do Cupom</div>
+            <div class="receipt-preview paper-58mm" id="receiptPreview">
+              <!-- Preview content will be generated by JS -->
+            </div>
+            <div class="preview-actions">
+              <button class="btn btn-secondary" onclick="testPrintLayout()">🖨️ Testar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('layoutModal')">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveLayout()">💾 Salvar Layout</button>
       </div>
     </div>
   </div>
