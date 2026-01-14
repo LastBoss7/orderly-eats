@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
+import { useWaiterData } from '@/hooks/useWaiterData';
 import { 
   ArrowLeft,
   Search, 
@@ -175,6 +176,13 @@ export default function WaiterApp({
   const { restaurant: authRestaurant, signOut } = useAuth();
   const restaurant = externalRestaurant || authRestaurant;
   const { shouldAutoPrint } = usePrintSettings();
+  const isPublicAccess = !!externalRestaurant;
+  
+  // Data fetching hook
+  const waiterData = useWaiterData({
+    restaurantId: restaurant?.id || '',
+    useEdgeFunction: isPublicAccess,
+  });
 
   // States
   const [view, setView] = useState<AppView>(externalWaiter ? 'tables' : 'login');
@@ -239,19 +247,28 @@ export default function WaiterApp({
       if (!restaurant?.id) return;
 
       try {
-        const [waitersRes, tablesRes, tabsRes, categoriesRes, productsRes] = await Promise.all([
-          supabase.from('waiters').select('*').eq('status', 'active').order('name'),
-          supabase.from('tables').select('*').order('number'),
-          supabase.from('tabs').select('*').order('number'),
-          supabase.from('categories').select('*').order('sort_order'),
-          supabase.from('products').select('*').eq('is_available', true).order('name'),
+        const [tablesData, tabsData, categoriesData, productsData] = await Promise.all([
+          waiterData.fetchTables(),
+          waiterData.fetchTabs(),
+          waiterData.fetchCategories(),
+          waiterData.fetchProducts(),
         ]);
 
-        setWaiters(waitersRes.data || []);
-        setTables((tablesRes.data || []) as Table[]);
-        setTabs((tabsRes.data || []) as Tab[]);
-        setCategories(categoriesRes.data || []);
-        setProducts(productsRes.data || []);
+        // Only fetch waiters for non-public access (login selection)
+        if (!isPublicAccess) {
+          const { data: waitersRes } = await supabase
+            .from('waiters')
+            .select('*')
+            .eq('restaurant_id', restaurant.id)
+            .eq('status', 'active')
+            .order('name');
+          setWaiters(waitersRes || []);
+        }
+
+        setTables(tablesData as Table[]);
+        setTabs(tabsData as Tab[]);
+        setCategories(categoriesData);
+        setProducts(productsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -260,11 +277,11 @@ export default function WaiterApp({
     };
 
     fetchData();
-  }, [restaurant?.id]);
+  }, [restaurant?.id, isPublicAccess]);
 
-  // Realtime subscription for tables
+  // Realtime subscription for tables (only for authenticated access)
   useEffect(() => {
-    if (!restaurant?.id) return;
+    if (!restaurant?.id || isPublicAccess) return;
 
     const channel = supabase
       .channel('waiter-tables')
@@ -272,24 +289,23 @@ export default function WaiterApp({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tables' },
         async () => {
-          const { data } = await supabase.from('tables').select('*').order('number');
-          setTables((data || []) as Table[]);
+          const data = await waiterData.fetchTables();
+          setTables(data as Table[]);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tabs' },
         async () => {
-          const { data } = await supabase.from('tabs').select('*').order('number');
-          setTabs((data || []) as Tab[]);
+          const data = await waiterData.fetchTabs();
+          setTabs(data as Tab[]);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
-        () => {
-          // Refresh tables to update ready status
-          fetchTableData();
+        async () => {
+          await refreshReadyOrders();
         }
       )
       .subscribe();
@@ -297,47 +313,49 @@ export default function WaiterApp({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurant?.id]);
+  }, [restaurant?.id, isPublicAccess]);
 
-  const fetchTableData = async () => {
-    const { data } = await supabase.from('tables').select('*').order('number');
-    setTables((data || []) as Table[]);
-  };
+  // Polling for public access (no realtime)
+  useEffect(() => {
+    if (!restaurant?.id || !isPublicAccess) return;
+
+    const pollData = async () => {
+      const [tablesData, tabsData] = await Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchTabs(),
+      ]);
+      setTables(tablesData as Table[]);
+      setTabs(tabsData as Tab[]);
+      await refreshReadyOrders();
+    };
+
+    const interval = setInterval(pollData, 5000);
+    return () => clearInterval(interval);
+  }, [restaurant?.id, isPublicAccess]);
 
   // Fetch orders for a table with ready status
   const [tableReadyOrders, setTableReadyOrders] = useState<Record<string, boolean>>({});
   
-  useEffect(() => {
-    const fetchReadyOrders = async () => {
-      if (!restaurant?.id) return;
-      
-      const { data } = await supabase
-        .from('orders')
-        .select('table_id, status')
-        .eq('status', 'ready')
-        .not('table_id', 'is', null);
-      
-      const readyMap: Record<string, boolean> = {};
-      data?.forEach(order => {
-        if (order.table_id) readyMap[order.table_id] = true;
-      });
-      setTableReadyOrders(readyMap);
-    };
+  const refreshReadyOrders = useCallback(async () => {
+    if (!restaurant?.id) return;
     
-    fetchReadyOrders();
-    const interval = setInterval(fetchReadyOrders, 5000);
+    const data = await waiterData.fetchReadyOrders();
+    const readyMap: Record<string, boolean> = {};
+    data?.forEach((order: { table_id: string | null }) => {
+      if (order.table_id) readyMap[order.table_id] = true;
+    });
+    setTableReadyOrders(readyMap);
+  }, [restaurant?.id, waiterData]);
+  
+  useEffect(() => {
+    refreshReadyOrders();
+    const interval = setInterval(refreshReadyOrders, 5000);
     return () => clearInterval(interval);
-  }, [restaurant?.id]);
+  }, [refreshReadyOrders]);
 
   // Fetch table total when modal opens
   const fetchTableTotal = async (tableId: string) => {
-    const { data } = await supabase
-      .from('orders')
-      .select('total')
-      .eq('table_id', tableId)
-      .in('status', ['pending', 'preparing', 'ready']);
-    
-    const total = data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+    const total = await waiterData.fetchTableTotal(tableId);
     setTableTotal(total);
   };
 
@@ -345,14 +363,7 @@ export default function WaiterApp({
   const fetchTableOrders = async (tableId: string) => {
     setLoadingOrders(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`*, order_items (*), waiters (id, name)`)
-        .eq('table_id', tableId)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
+      const data = await waiterData.fetchTableOrders(tableId);
       setTableOrders(data || []);
       setDeliveredOrders(new Set());
     } catch (error) {
@@ -366,14 +377,7 @@ export default function WaiterApp({
   const fetchTabOrders = async (tabId: string) => {
     setLoadingOrders(true);
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`*, order_items (*), waiters (id, name)`)
-        .eq('tab_id', tabId)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
+      const data = await waiterData.fetchTabOrders(tabId);
       setTableOrders(data || []);
       setDeliveredOrders(new Set());
     } catch (error) {
@@ -395,6 +399,7 @@ export default function WaiterApp({
       const { data, error } = await supabase
         .from('customers')
         .select('*')
+        .eq('restaurant_id', restaurant.id)
         .or(`phone.ilike.%${phone}%,name.ilike.%${phone}%`)
         .limit(5);
 
