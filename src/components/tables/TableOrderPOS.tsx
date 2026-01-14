@@ -579,9 +579,9 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
             </div>
           </div>
 
-          {/* Scrollable content area */}
+          {/* Scrollable cart items only */}
           <ScrollArea 
-            className="flex-1"
+            className="flex-1 min-h-0"
             ref={cartScrollRef}
             onScrollCapture={(e) => {
               const target = e.target as HTMLElement;
@@ -592,173 +592,120 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
               }
             }}
           >
-            <div className="flex flex-col min-h-full">
-              {/* Cart Items */}
-              <div className="p-4 flex-1">
-                {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground text-center py-8">
-                    <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
-                    <p>Finalize o item ao lado, ele vai aparecer aqui</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <AnimatePresence>
-                      {cart.map((item) => (
-                        <motion.div
-                          key={item.cartKey}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -20 }}
-                          className="bg-muted/50 rounded-lg p-3 space-y-2"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm">
-                                {item.product.name}
-                                {item.size && (
-                                  <Badge variant="outline" className="ml-2 text-xs">
-                                    {item.size}
-                                  </Badge>
-                                )}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatCurrency(item.unitPrice)} cada
-                              </p>
-                            </div>
-                            <p className="font-semibold text-primary">
-                              {formatCurrency(item.unitPrice * item.quantity)}
+            {/* Cart Items */}
+            <div className="p-4">
+              {cart.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-muted-foreground text-center py-8">
+                  <ShoppingCart className="w-12 h-12 mb-3 opacity-30" />
+                  <p>Finalize o item ao lado, ele vai aparecer aqui</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <AnimatePresence>
+                    {cart.map((item) => (
+                      <motion.div
+                        key={item.cartKey}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="bg-muted/50 rounded-lg p-3 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm">
+                              {item.product.name}
+                              {item.size && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {item.size}
+                                </Badge>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCurrency(item.unitPrice)} cada
                             </p>
                           </div>
-                          
-                          {/* Notes */}
-                          {editingNotes === item.cartKey ? (
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="Observação..."
-                                value={tempNotes}
-                                onChange={(e) => setTempNotes(e.target.value)}
-                                className="h-8 text-xs"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveNotes(item.cartKey);
-                                  if (e.key === 'Escape') setEditingNotes(null);
-                                }}
-                              />
-                              <Button 
-                                size="sm" 
-                                className="h-8"
-                                onClick={() => handleSaveNotes(item.cartKey)}
-                              >
-                                OK
-                              </Button>
-                            </div>
-                          ) : item.notes ? (
-                            <button
-                              className="text-xs text-warning flex items-center gap-1 hover:underline"
-                              onClick={() => handleStartEditNotes(item.cartKey, item.notes)}
+                          <p className="font-semibold text-primary">
+                            {formatCurrency(item.unitPrice * item.quantity)}
+                          </p>
+                        </div>
+                        
+                        {/* Notes */}
+                        {editingNotes === item.cartKey ? (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Observação..."
+                              value={tempNotes}
+                              onChange={(e) => setTempNotes(e.target.value)}
+                              className="h-8 text-xs"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveNotes(item.cartKey);
+                                if (e.key === 'Escape') setEditingNotes(null);
+                              }}
+                            />
+                            <Button 
+                              size="sm" 
+                              className="h-8"
+                              onClick={() => handleSaveNotes(item.cartKey)}
                             >
-                              <MessageSquare className="w-3 h-3" />
-                              {item.notes}
-                            </button>
-                          ) : (
-                            <button
-                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                              onClick={() => handleStartEditNotes(item.cartKey)}
-                            >
-                              <MessageSquare className="w-3 h-3" />
-                              Adicionar observação
-                            </button>
-                          )}
-                          
-                          {/* Quantity controls */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => updateQuantity(item.cartKey, -1)}
-                              >
-                                <Minus className="w-3 h-3" />
-                              </Button>
-                              <span className="w-8 text-center text-sm font-medium">
-                                {item.quantity}
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => updateQuantity(item.cartKey, 1)}
-                              >
-                                <Plus className="w-3 h-3" />
-                              </Button>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              onClick={() => removeFromCart(item.cartKey)}
-                            >
-                              <Trash2 className="w-4 h-4" />
+                              OK
                             </Button>
                           </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-
-              {/* Totals */}
-              <div className="border-t p-4 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(cartTotal)}</span>
+                        ) : item.notes ? (
+                          <button
+                            className="text-xs text-warning flex items-center gap-1 hover:underline"
+                            onClick={() => handleStartEditNotes(item.cartKey, item.notes)}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            {item.notes}
+                          </button>
+                        ) : (
+                          <button
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            onClick={() => handleStartEditNotes(item.cartKey)}
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            Adicionar observação
+                          </button>
+                        )}
+                        
+                        {/* Quantity controls */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => updateQuantity(item.cartKey, -1)}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </Button>
+                            <span className="w-8 text-center text-sm font-medium">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => updateQuantity(item.cartKey, 1)}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeFromCart(item.cartKey)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
-                <div className="flex justify-between font-semibold text-lg">
-                  <span>Total</span>
-                  <span className="text-primary">{formatCurrency(cartTotal)}</span>
-                </div>
-              </div>
-
-              {/* Table Info & Actions */}
-              <div className="border-t p-4 space-y-3 bg-muted/30">
-                <Button 
-                  className="w-full h-12 bg-sky-500 hover:bg-sky-600 text-white font-semibold gap-2"
-                  variant="default"
-                >
-                  [ S ] Mesa e Comanda
-                </Button>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <Input placeholder="(XX) X XXXX-XXXX" className="h-10 text-sm" />
-                  <Input placeholder="Nome do clie..." className="h-10 text-sm" />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="h-10 gap-2">
-                    [ T ] CPF/CNPJ
-                  </Button>
-                  <Button variant="outline" className="h-10 gap-2">
-                    [ Y ] Ajustar valor
-                  </Button>
-                </div>
-
-                <Button 
-                  className="w-full h-14 text-lg font-bold gap-2 bg-success hover:bg-success/90"
-                  onClick={handleSubmitOrder}
-                  disabled={cart.length === 0 || submitting}
-                >
-                  {submitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      [ ENTER ] Gerar pedido
-                    </>
-                  )}
-                </Button>
-              </div>
+              )}
             </div>
           </ScrollArea>
           
@@ -769,7 +716,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none pb-2"
+                className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none"
               >
                 <div className="bg-primary/90 text-primary-foreground rounded-full px-3 py-1 flex items-center gap-1 text-xs font-medium shadow-lg">
                   <ChevronDown className="w-3 h-3 animate-bounce" />
@@ -778,6 +725,60 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Fixed bottom section - Totals & Actions */}
+          <div className="border-t bg-card flex-shrink-0">
+            {/* Totals */}
+            <div className="p-4 space-y-2 border-b">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span>{formatCurrency(cartTotal)}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-lg">
+                <span>Total</span>
+                <span className="text-primary">{formatCurrency(cartTotal)}</span>
+              </div>
+            </div>
+
+            {/* Table Info & Actions */}
+            <div className="p-4 space-y-3 bg-muted/30">
+              <Button 
+                className="w-full h-12 bg-sky-500 hover:bg-sky-600 text-white font-semibold gap-2"
+                variant="default"
+              >
+                [ S ] Mesa e Comanda
+              </Button>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="(XX) X XXXX-XXXX" className="h-10 text-sm" />
+                <Input placeholder="Nome do clie..." className="h-10 text-sm" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-10 gap-2">
+                  [ T ] CPF/CNPJ
+                </Button>
+                <Button variant="outline" className="h-10 gap-2">
+                  [ Y ] Ajustar valor
+                </Button>
+              </div>
+
+              <Button 
+                className="w-full h-14 text-lg font-bold gap-2 bg-success hover:bg-success/90"
+                onClick={handleSubmitOrder}
+                disabled={cart.length === 0 || submitting}
+              >
+                {submitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    [ ENTER ] Gerar pedido
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
