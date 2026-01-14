@@ -32,6 +32,7 @@ import {
   Package,
   MessageSquare,
   AlertTriangle,
+  ChevronDown,
 } from 'lucide-react';
 
 interface Category {
@@ -106,7 +107,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showSizeModal, setShowSizeModal] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-
+  const [canScrollMore, setCanScrollMore] = useState(false);
+  const cartScrollRef = useRef<HTMLDivElement>(null);
   const handleClose = () => {
     if (cart.length > 0) {
       setShowCloseConfirm(true);
@@ -569,7 +571,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         </div>
 
         {/* Right Section - Cart */}
-        <div className="w-80 border-l bg-card flex flex-col overflow-hidden">
+        <div className="w-80 border-l bg-card flex flex-col overflow-hidden relative">
           <div className="p-4 border-b">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Itens do pedido</h3>
@@ -578,7 +580,18 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           </div>
 
           {/* Scrollable content area */}
-          <ScrollArea className="flex-1">
+          <ScrollArea 
+            className="flex-1"
+            ref={cartScrollRef}
+            onScrollCapture={(e) => {
+              const target = e.target as HTMLElement;
+              const scrollableElement = target.closest('[data-radix-scroll-area-viewport]') as HTMLElement;
+              if (scrollableElement) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollableElement;
+                setCanScrollMore(scrollTop + clientHeight < scrollHeight - 20);
+              }
+            }}
+          >
             <div className="flex flex-col min-h-full">
               {/* Cart Items */}
               <div className="p-4 flex-1">
@@ -748,6 +761,23 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
               </div>
             </div>
           </ScrollArea>
+          
+          {/* Scroll indicator */}
+          <AnimatePresence>
+            {canScrollMore && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none pb-2"
+              >
+                <div className="bg-primary/90 text-primary-foreground rounded-full px-3 py-1 flex items-center gap-1 text-xs font-medium shadow-lg">
+                  <ChevronDown className="w-3 h-3 animate-bounce" />
+                  Role para ver mais
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
