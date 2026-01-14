@@ -323,36 +323,23 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       <div className="border-b bg-card">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Pedidos</span>
-              <span className="text-sm font-medium text-muted-foreground">balcão (PDV)</span>
-            </div>
+            <span className="text-lg font-semibold">{targetLabel}</span>
+            <Badge variant="outline">Novo Pedido</Badge>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-2">
               [O] Observação
             </Button>
-            <Button variant="outline" size="sm" className="gap-2">
-              [Q] Editar
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 text-destructive border-destructive/50">
-              [W] Excluir
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="gap-2 text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground"
+              onClick={onClose}
+            >
+              <X className="w-4 h-4" />
+              Fechar
             </Button>
           </div>
-        </div>
-        
-        {/* Mode Tabs */}
-        <div className="flex gap-2 px-3 pb-3">
-          <Button 
-            variant="outline" 
-            className="gap-2 text-muted-foreground"
-            onClick={onClose}
-          >
-            [ D ] Delivery e Balcão
-          </Button>
-          <Button className="gap-2 bg-primary text-primary-foreground">
-            [ M ] Mesas e Comandas
-          </Button>
         </div>
       </div>
 
