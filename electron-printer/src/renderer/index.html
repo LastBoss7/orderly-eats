@@ -543,6 +543,14 @@
           </svg>
           Configurações
         </div>
+        <div class="menu-dropdown-item" id="btnPrinters">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          Impressoras por Tipo
+        </div>
         <div class="menu-dropdown-item" id="btnTestPrint">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="6 9 6 2 18 2 18 9"/>
@@ -657,21 +665,13 @@
           <input type="text" class="form-input" id="restaurantId" placeholder="uuid-do-restaurante">
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Impressora</label>
-          <div style="display: flex; gap: 8px;">
-            <select class="form-select" id="printerName" style="flex: 1;"></select>
-            <button class="btn btn-ghost" onclick="refreshPrinters()" title="Atualizar lista">🔄</button>
-          </div>
-        </div>
-
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Intervalo (seg)</label>
             <input type="number" class="form-input" id="checkInterval" value="5" min="1" max="60">
           </div>
           <div class="form-group">
-            <label class="form-label">Status</label>
+            <label class="form-label">Impressoras</label>
             <input type="text" class="form-input" id="printerStatus" value="--" readonly style="background: #f9fafb;">
           </div>
         </div>
@@ -694,6 +694,58 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeModal('configModal')">Cancelar</button>
         <button class="btn btn-primary" onclick="saveConfig()">💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printers Modal -->
+  <div class="modal-overlay" id="printersModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title">🖨️ Impressoras por Tipo</h2>
+        <button class="modal-close" onclick="closeModal('printersModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: #666; margin-bottom: 20px; font-size: 13px;">
+          Configure uma impressora diferente para cada tipo de pedido. Deixe em branco para usar a padrão.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">🍽️ Pedidos de Mesa</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="printerTable" style="flex: 1;"></select>
+          </div>
+          <p class="form-hint">Impressora para pedidos feitos em mesas do salão</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🏪 Pedidos de Balcão</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="printerCounter" style="flex: 1;"></select>
+          </div>
+          <p class="form-hint">Impressora para pedidos de atendimento no balcão</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">🛵 Pedidos de Delivery</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="printerDelivery" style="flex: 1;"></select>
+          </div>
+          <p class="form-hint">Impressora para pedidos de entrega</p>
+        </div>
+
+        <div class="form-group" style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+          <label class="form-label">⚙️ Impressora Padrão (Fallback)</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="printerDefault" style="flex: 1;"></select>
+            <button class="btn btn-ghost" onclick="refreshAllPrinters()" title="Atualizar lista">🔄</button>
+          </div>
+          <p class="form-hint">Usada quando o tipo de pedido não tem impressora configurada</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('printersModal')">Cancelar</button>
+        <button class="btn btn-primary" onclick="savePrinters()">💾 Salvar Impressoras</button>
       </div>
     </div>
   </div>

@@ -18,6 +18,7 @@ document.addEventListener('click', () => {
 
 // Menu actions
 document.getElementById('btnConfigurar').addEventListener('click', () => openModal('configModal'));
+document.getElementById('btnPrinters').addEventListener('click', () => openPrintersModal());
 document.getElementById('btnTestPrint').addEventListener('click', testPrint);
 document.getElementById('btnReconnect').addEventListener('click', reconnect);
 document.getElementById('btnQuit').addEventListener('click', () => window.electronAPI.quit());
@@ -133,16 +134,15 @@ async function loadConfig() {
     document.getElementById('autoStart').checked = config.autoStart === true;
     document.getElementById('soundNotification').checked = config.soundNotification !== false;
     
-    await loadPrinters();
-    
-    // Restore printer selection
-    if (config.printerName) {
-      document.getElementById('printerName').value = config.printerName;
-    }
-    
     // Load stats
     const stats = await window.electronAPI.getStats();
     updateStats(stats);
+    
+    // Update printer status
+    const printers = await window.electronAPI.getSystemPrinters();
+    document.getElementById('printerStatus').value = printers.length > 0 
+      ? `${printers.length} encontrada(s)` 
+      : 'Nenhuma';
     
   } catch (error) {
     addLog('Erro ao carregar configurações: ' + error.message, 'error');
@@ -150,43 +150,79 @@ async function loadConfig() {
   }
 }
 
-async function loadPrinters() {
+// ============================================
+// PRINTERS BY TYPE
+// ============================================
+let systemPrinters = [];
+
+async function openPrintersModal() {
+  openModal('printersModal');
+  await loadPrintersConfig();
+}
+
+async function loadPrintersConfig() {
   try {
-    const printers = await window.electronAPI.getSystemPrinters();
-    const select = document.getElementById('printerName');
-    const currentValue = select.value;
+    // Load system printers
+    systemPrinters = await window.electronAPI.getSystemPrinters();
+    const config = await window.electronAPI.getConfig();
+    const printers = config.printers || { table: '', counter: '', delivery: '', default: '' };
     
-    select.innerHTML = '<option value="">Padrão do Sistema</option>';
+    // Populate all printer selects
+    const selects = ['printerTable', 'printerCounter', 'printerDelivery', 'printerDefault'];
     
-    printers.forEach(printer => {
-      const option = document.createElement('option');
-      option.value = printer.name;
-      option.textContent = printer.isDefault 
-        ? `${printer.displayName} (Padrão)` 
-        : printer.displayName;
-      select.appendChild(option);
+    selects.forEach(selectId => {
+      const select = document.getElementById(selectId);
+      select.innerHTML = '<option value="">Padrão do Sistema</option>';
+      
+      systemPrinters.forEach(printer => {
+        const option = document.createElement('option');
+        option.value = printer.name;
+        option.textContent = printer.isDefault 
+          ? `${printer.displayName} (Padrão)` 
+          : printer.displayName;
+        select.appendChild(option);
+      });
     });
     
-    if (currentValue) {
-      select.value = currentValue;
-    }
+    // Set current values
+    document.getElementById('printerTable').value = printers.table || '';
+    document.getElementById('printerCounter').value = printers.counter || '';
+    document.getElementById('printerDelivery').value = printers.delivery || '';
+    document.getElementById('printerDefault').value = printers.default || '';
     
-    document.getElementById('printerStatus').value = printers.length > 0 
-      ? `${printers.length} encontrada(s)` 
-      : 'Nenhuma';
-    
-    addLog(`Encontradas ${printers.length} impressora(s)`, 'info');
+    addLog(`Encontradas ${systemPrinters.length} impressora(s)`, 'info');
     
   } catch (error) {
-    addLog('Erro ao listar impressoras: ' + error.message, 'error');
-    document.getElementById('printerStatus').value = 'Erro';
+    addLog('Erro ao carregar impressoras: ' + error.message, 'error');
+    showToast('Erro ao carregar impressoras', 'error');
   }
 }
 
-async function refreshPrinters() {
+async function refreshAllPrinters() {
   addLog('Atualizando lista de impressoras...', 'info');
-  await loadPrinters();
+  await loadPrintersConfig();
   showToast('Lista de impressoras atualizada', 'success');
+}
+
+async function savePrinters() {
+  try {
+    const printers = {
+      table: document.getElementById('printerTable').value,
+      counter: document.getElementById('printerCounter').value,
+      delivery: document.getElementById('printerDelivery').value,
+      default: document.getElementById('printerDefault').value,
+    };
+    
+    await window.electronAPI.savePrinters(printers);
+    
+    addLog('✓ Impressoras configuradas', 'success');
+    showToast('Impressoras salvas com sucesso!', 'success');
+    closeModal('printersModal');
+    
+  } catch (error) {
+    addLog('Erro ao salvar impressoras: ' + error.message, 'error');
+    showToast('Erro ao salvar impressoras', 'error');
+  }
 }
 
 async function saveConfig() {
@@ -195,7 +231,6 @@ async function saveConfig() {
       supabaseUrl: document.getElementById('supabaseUrl').value.trim(),
       supabaseKey: document.getElementById('supabaseKey').value.trim(),
       restaurantId: document.getElementById('restaurantId').value.trim(),
-      printerName: document.getElementById('printerName').value,
       checkInterval: parseInt(document.getElementById('checkInterval').value),
       minimizeToTray: document.getElementById('minimizeToTray').checked,
       autoStart: document.getElementById('autoStart').checked,
