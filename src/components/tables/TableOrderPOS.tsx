@@ -121,25 +121,31 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // P for search
-      if (e.key === 'p' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT') {
+      if (e.key === 'p' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
         e.preventDefault();
         searchInputRef.current?.focus();
       }
       // Escape to clear/close
       if (e.key === 'Escape') {
-        if (document.activeElement === searchInputRef.current) {
+        if (showSizeModal) {
+          setShowSizeModal(false);
+          setSelectedProduct(null);
+        } else if (document.activeElement === searchInputRef.current) {
           setSearchTerm('');
           searchInputRef.current?.blur();
         } else if (editingNotes) {
           setEditingNotes(null);
+        } else {
+          // Close the entire modal
+          onClose();
         }
       }
       // Enter to submit
-      if (e.key === 'Enter' && e.ctrlKey && cart.length > 0) {
+      if (e.key === 'Enter' && e.ctrlKey && cart.length > 0 && !showSizeModal) {
         handleSubmitOrder();
       }
       // A for advance/submit
-      if (e.key === 'a' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && cart.length > 0) {
+      if (e.key === 'a' && !e.ctrlKey && !e.metaKey && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA' && cart.length > 0 && !showSizeModal) {
         handleSubmitOrder();
       }
     };
