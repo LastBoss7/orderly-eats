@@ -46,6 +46,8 @@ import {
   Banknote,
   QrCode,
   Check,
+  RotateCcw,
+  FileText,
 } from 'lucide-react';
 
 interface Waiter {
@@ -214,6 +216,10 @@ export default function WaiterApp({
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [deliveredOrders, setDeliveredOrders] = useState<Set<string>>(new Set());
   
+  // Order actions dropdown
+  const [openOrderMenu, setOpenOrderMenu] = useState<string | null>(null);
+  const [reprintingOrder, setReprintingOrder] = useState<string | null>(null);
+  
   // Close table modal
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
@@ -352,6 +358,18 @@ export default function WaiterApp({
     const interval = setInterval(refreshReadyOrders, 5000);
     return () => clearInterval(interval);
   }, [refreshReadyOrders]);
+
+  // Close order menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (openOrderMenu) {
+        setOpenOrderMenu(null);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openOrderMenu]);
 
   // Fetch table total when modal opens
   const fetchTableTotal = async (tableId: string) => {
@@ -820,6 +838,7 @@ export default function WaiterApp({
       <body>
         <div class="header">
           <h1>${restaurant?.name || 'Restaurante'}</h1>
+          <h2>CONFERÊNCIA DE CONTA</h2>
           <p><strong>Mesa ${selectedTable?.number}</strong></p>
           <p>${new Date().toLocaleString('pt-BR')}</p>
         </div>
@@ -849,6 +868,89 @@ export default function WaiterApp({
       setTimeout(() => printWindow.print(), 250);
     }
     toast.success('Conferência enviada para impressão!');
+  };
+
+  // Reprint single order
+  const handleReprintOrder = async (order: Order) => {
+    setReprintingOrder(order.id);
+    setOpenOrderMenu(null);
+    
+    try {
+      // Update print_status to trigger reprint via Electron app
+      await supabase
+        .from('orders')
+        .update({ print_status: 'pending' })
+        .eq('id', order.id);
+      
+      // Also generate visual print
+      const receiptContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Pedido #${order.order_number || order.id.slice(0, 8)}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Courier New', monospace; font-size: 14px; width: 300px; padding: 15px; background: #fff; }
+            .header { text-align: center; margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
+            .header h1 { font-size: 18px; margin-bottom: 5px; }
+            .header h2 { font-size: 24px; font-weight: bold; margin: 10px 0; }
+            .info { margin: 10px 0; font-size: 12px; }
+            .items-header { font-weight: bold; margin: 10px 0 5px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            .item { margin: 8px 0; }
+            .item-name { font-weight: bold; font-size: 16px; }
+            .item-note { font-size: 12px; color: #666; margin-left: 10px; }
+            .total { font-size: 18px; font-weight: bold; margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; display: flex; justify-content: space-between; }
+            .footer { text-align: center; margin-top: 15px; font-size: 11px; color: #666; }
+            .reprint-badge { background: #fef3c7; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="reprint-badge">⚠️ REIMPRESSÃO</div>
+            <h1>${restaurant?.name || 'Restaurante'}</h1>
+            <h2>PEDIDO #${order.order_number || order.id.slice(0, 8).toUpperCase()}</h2>
+            ${selectedTable ? `<p><strong>Mesa ${selectedTable.number}</strong></p>` : ''}
+            ${selectedTab ? `<p><strong>Comanda #${selectedTab.number}</strong></p>` : ''}
+            <p>${new Date(order.created_at).toLocaleString('pt-BR')}</p>
+          </div>
+          <div class="items-header">ITENS:</div>
+          ${(order.order_items || []).map(item => `
+            <div class="item">
+              <span class="item-name">${item.quantity}x ${item.product_name}</span>
+              ${item.notes ? `<div class="item-note">Obs: ${item.notes}</div>` : ''}
+            </div>
+          `).join('')}
+          ${order.notes ? `
+            <div style="margin-top: 15px; padding: 10px; background: #f3f4f6; border-radius: 4px;">
+              <strong>Obs geral:</strong> ${order.notes}
+            </div>
+          ` : ''}
+          <div class="total">
+            <span>TOTAL</span>
+            <span>${formatCurrency(order.total || 0)}</span>
+          </div>
+          <div class="footer">
+            <p>Reimpresso em ${new Date().toLocaleString('pt-BR')}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const printWindow = window.open('', '_blank', 'width=400,height=700');
+      if (printWindow) {
+        printWindow.document.write(receiptContent);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 250);
+      }
+      
+      toast.success('Pedido enviado para reimpressão!');
+    } catch (error) {
+      console.error('Error reprinting order:', error);
+      toast.error('Erro ao reimprimir pedido');
+    } finally {
+      setReprintingOrder(null);
+    }
   };
 
   const tableOrdersTotal = tableOrders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -925,9 +1027,39 @@ export default function WaiterApp({
                         </p>
                       )}
                     </div>
-                    <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">
-                      <MoreVertical className="w-5 h-5" />
-                    </Button>
+                    <div className="relative">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-white/60 hover:text-white hover:bg-white/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
+                        }}
+                      >
+                        {reprintingOrder === order.id ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <MoreVertical className="w-5 h-5" />
+                        )}
+                      </Button>
+                      
+                      {/* Dropdown Menu */}
+                      {openOrderMenu === order.id && (
+                        <div 
+                          className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleReprintOrder(order)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            <span className="text-sm font-medium">Reimprimir Pedido</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Order Items */}
@@ -984,6 +1116,15 @@ export default function WaiterApp({
           
           {/* Bottom Actions */}
           <div className="flex items-center justify-between">
+            <Button 
+              variant="ghost" 
+              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              onClick={handlePrintReceipt}
+            >
+              <FileText className="w-5 h-5" />
+              <span className="text-xs">Conferência</span>
+            </Button>
+            
             <Button 
               variant="ghost" 
               className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
@@ -1138,6 +1279,41 @@ export default function WaiterApp({
                       {order.status === 'ready' && (
                         <Badge className="bg-green-400 text-green-900 text-xs">Pronto</Badge>
                       )}
+                      {order.status === 'preparing' && (
+                        <Badge className="bg-orange-400 text-orange-900 text-xs">Preparando</Badge>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-white/60 hover:text-white hover:bg-white/10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
+                        }}
+                      >
+                        {reprintingOrder === order.id ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <MoreVertical className="w-5 h-5" />
+                        )}
+                      </Button>
+                      
+                      {openOrderMenu === order.id && (
+                        <div 
+                          className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleReprintOrder(order)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            <span className="text-sm font-medium">Reimprimir Pedido</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="p-3 space-y-2">
@@ -1163,17 +1339,27 @@ export default function WaiterApp({
             <span>Total</span>
             <span>{formatCurrency(tableOrdersTotal)}</span>
           </div>
-          <Button 
-            className="w-full h-14 bg-[#0ea5e9] hover:bg-[#0284c7]"
-            onClick={() => {
-              setOrderMode('tab');
-              setView('order');
-              setCart([]);
-            }}
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Novo Pedido
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              className="flex-1 h-12 border-white/20 text-white hover:bg-white/10"
+              onClick={handlePrintReceipt}
+            >
+              <FileText className="w-5 h-5 mr-2" />
+              Conferência
+            </Button>
+            <Button 
+              className="flex-1 h-12 bg-[#0ea5e9] hover:bg-[#0284c7]"
+              onClick={() => {
+                setOrderMode('tab');
+                setView('order');
+                setCart([]);
+              }}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Novo Pedido
+            </Button>
+          </div>
         </div>
       </div>
     );
