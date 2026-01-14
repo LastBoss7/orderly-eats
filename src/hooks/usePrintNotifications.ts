@@ -1,0 +1,49 @@
+import { useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+export const usePrintNotifications = (restaurantId: string | null) => {
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const channel = supabase
+      .channel('print-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          const oldStatus = (payload.old as any)?.print_status;
+          const newStatus = (payload.new as any)?.print_status;
+          const orderNumber = (payload.new as any)?.order_number;
+          const orderType = (payload.new as any)?.order_type;
+
+          // Only show notification when print_status changes to 'printed'
+          if (oldStatus !== 'printed' && newStatus === 'printed') {
+            const typeLabel = 
+              orderType === 'table' ? 'Mesa' :
+              orderType === 'counter' ? 'Balcão' :
+              orderType === 'delivery' ? 'Delivery' :
+              orderType === 'tab' ? 'Comanda' : 'Pedido';
+
+            toast({
+              title: '🖨️ Pedido Impresso',
+              description: `${typeLabel} #${orderNumber || 'N/A'} foi impresso com sucesso`,
+              duration: 4000,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurantId, toast]);
+};
