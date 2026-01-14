@@ -43,6 +43,13 @@ const store = new Store({
     minimizeToTray: true,
     soundNotification: true,
     layout: defaultLayout,
+    // Impressoras por tipo de pedido
+    printers: {
+      table: '',      // Impressora para pedidos de mesa
+      counter: '',    // Impressora para pedidos de balcão
+      delivery: '',   // Impressora para pedidos de delivery
+      default: '',    // Impressora padrão (fallback)
+    },
   }
 });
 
@@ -235,15 +242,47 @@ async function checkPendingOrders() {
   }
 }
 
+/**
+ * Get the appropriate printer for an order based on its type
+ */
+function getPrinterForOrder(order) {
+  const printers = store.get('printers') || {};
+  const orderType = order.order_type || 'counter';
+  
+  // Try to get printer for specific order type
+  const printerName = printers[orderType] || printers.default || store.get('printerName') || '';
+  
+  return printerName;
+}
+
+/**
+ * Get order type label in Portuguese
+ */
+function getOrderTypeLabel(orderType) {
+  const labels = {
+    table: 'Mesa',
+    counter: 'Balcão',
+    delivery: 'Delivery',
+  };
+  return labels[orderType] || orderType;
+}
+
 async function printOrder(order) {
+  const orderType = order.order_type || 'counter';
+  const printerName = getPrinterForOrder(order);
+  
   try {
-    sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)}...`);
+    sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)} (${getOrderTypeLabel(orderType)})...`);
+    
+    if (printerName) {
+      sendToRenderer('log', `  → Impressora: ${printerName}`);
+    }
     
     const layout = store.get('layout') || defaultLayout;
     
     const success = await printerService.printOrder(order, {
       layout,
-      printerName: store.get('printerName'),
+      printerName,
     });
 
     if (success) {
@@ -256,9 +295,24 @@ async function printOrder(order) {
         })
         .eq('id', order.id);
 
+      // Log success
+      try {
+        await supabase.from('print_logs').insert({
+          restaurant_id: store.get('restaurantId'),
+          order_id: order.id,
+          order_number: order.order_number?.toString() || order.id.slice(0, 8),
+          event_type: 'auto_print',
+          status: 'success',
+          printer_name: printerName || 'default',
+          items_count: order.order_items?.length || 0,
+        });
+      } catch (logError) {
+        console.error('Error logging print success:', logError);
+      }
+
       printedCount++;
       updateTrayMenu();
-      sendToRenderer('print-success', { orderId: order.id });
+      sendToRenderer('print-success', { orderId: order.id, orderType });
       sendToRenderer('stats', { printedCount });
       sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} impresso com sucesso`);
       
@@ -274,10 +328,12 @@ async function printOrder(order) {
       await supabase.from('print_logs').insert({
         restaurant_id: store.get('restaurantId'),
         order_id: order.id,
-        event_type: 'print_error',
+        order_number: order.order_number?.toString() || order.id.slice(0, 8),
+        event_type: 'auto_print',
         status: 'error',
         error_message: error.message,
-        printer_name: store.get('printerName') || 'default',
+        printer_name: printerName || 'default',
+        items_count: order.order_items?.length || 0,
       });
     } catch (logError) {
       console.error('Error logging print failure:', logError);
@@ -307,7 +363,13 @@ ipcMain.handle('get-config', () => {
     autoCut: store.get('autoCut'),
     openDrawer: store.get('openDrawer'),
     layout: store.get('layout') || defaultLayout,
+    printers: store.get('printers') || { table: '', counter: '', delivery: '', default: '' },
   };
+});
+
+ipcMain.handle('save-printers', async (event, printers) => {
+  store.set('printers', printers);
+  return { success: true };
 });
 
 ipcMain.handle('save-config', async (event, config) => {

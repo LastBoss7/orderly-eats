@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSystemPrinters: () => ipcRenderer.invoke('get-system-printers'),
   getUSBPrinters: () => ipcRenderer.invoke('get-usb-printers'),
   testUSBConnection: (vendorId, productId) => ipcRenderer.invoke('test-usb-connection', vendorId, productId),
+  savePrinters: (printers) => ipcRenderer.invoke('save-printers', printers),
   
   // Print
   testPrint: () => ipcRenderer.invoke('test-print'),
