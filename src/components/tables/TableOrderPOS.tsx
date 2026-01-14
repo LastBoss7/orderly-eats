@@ -8,6 +8,16 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { ProductSizeModal } from './ProductSizeModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -21,6 +31,7 @@ import {
   Send,
   Package,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface Category {
@@ -94,7 +105,20 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
   const [tempNotes, setTempNotes] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showSizeModal, setShowSizeModal] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
+  const handleClose = () => {
+    if (cart.length > 0) {
+      setShowCloseConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const confirmClose = () => {
+    setShowCloseConfirm(false);
+    onClose();
+  };
   useEffect(() => {
     const fetchData = async () => {
       if (!restaurant?.id) return;
@@ -127,7 +151,9 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       }
       // Escape to clear/close
       if (e.key === 'Escape') {
-        if (showSizeModal) {
+        if (showCloseConfirm) {
+          setShowCloseConfirm(false);
+        } else if (showSizeModal) {
           setShowSizeModal(false);
           setSelectedProduct(null);
         } else if (document.activeElement === searchInputRef.current) {
@@ -136,8 +162,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         } else if (editingNotes) {
           setEditingNotes(null);
         } else {
-          // Close the entire modal
-          onClose();
+          // Try to close the modal (will show confirm if cart has items)
+          handleClose();
         }
       }
       // Enter to submit
@@ -152,7 +178,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, editingNotes]);
+  }, [cart, editingNotes, showSizeModal, showCloseConfirm, handleClose]);
 
   const filteredProducts = products.filter(p => {
     const matchesCategory = !selectedCategory || p.category_id === selectedCategory;
@@ -340,10 +366,10 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
               variant="outline" 
               size="sm" 
               className="gap-2 text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground"
-              onClick={onClose}
+              onClick={handleClose}
             >
               <X className="w-4 h-4" />
-              Fechar
+              Fechar [ESC]
             </Button>
           </div>
         </div>
@@ -730,6 +756,31 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         }}
         onConfirm={addToCartWithDetails}
       />
+
+      {/* Close Confirmation Dialog */}
+      <AlertDialog open={showCloseConfirm} onOpenChange={setShowCloseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning" />
+              Descartar pedido?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem {cart.length} {cart.length === 1 ? 'item' : 'itens'} no carrinho. 
+              Se fechar agora, o pedido será descartado e você perderá os itens adicionados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmClose}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Descartar pedido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
