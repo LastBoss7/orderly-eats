@@ -19,6 +19,7 @@ interface PrintKitchenProps {
     created_at: string;
     notes: string | null;
     order_items?: OrderItem[];
+    waiter_name?: string | null;
   };
   orderNumber?: number;
 }
@@ -130,6 +131,13 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
               background: #d0d0d0 !important;
               text-align: center;
               border: 2px solid #000;
+            }
+            .waiter-name {
+              font-size: 14px;
+              font-weight: bold !important;
+              margin-top: 8px;
+              text-align: center;
+              color: #333 !important;
             }
             .items-section {
               margin: 16px 0;
@@ -252,6 +260,11 @@ export function PrintKitchen({ order, orderNumber }: PrintKitchenProps) {
             {order.customer_name && (
               <div className="customer-name">
                 👤 {order.customer_name}
+              </div>
+            )}
+            {order.waiter_name && (
+              <div className="waiter-name">
+                🧑‍🍳 Garçom: {order.waiter_name}
               </div>
             )}
           </div>
