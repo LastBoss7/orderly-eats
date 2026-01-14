@@ -51,6 +51,20 @@ interface Waiter {
   id: string;
   name: string;
   status: string;
+  restaurant_id?: string;
+}
+
+interface ExternalRestaurant {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+}
+
+interface WaiterAppProps {
+  externalWaiter?: Waiter;
+  externalRestaurant?: ExternalRestaurant;
+  onExternalLogout?: () => void;
 }
 
 interface Table {
@@ -153,15 +167,20 @@ type AppView = 'login' | 'tables' | 'order' | 'delivery' | 'delivery-order' | 't
 type OrderMode = 'table' | 'delivery' | 'takeaway' | 'tab';
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 
-export default function WaiterApp() {
-  const { restaurant, signOut } = useAuth();
+export default function WaiterApp({ 
+  externalWaiter, 
+  externalRestaurant, 
+  onExternalLogout 
+}: WaiterAppProps = {}) {
+  const { restaurant: authRestaurant, signOut } = useAuth();
+  const restaurant = externalRestaurant || authRestaurant;
   const { shouldAutoPrint } = usePrintSettings();
 
   // States
-  const [view, setView] = useState<AppView>('login');
+  const [view, setView] = useState<AppView>(externalWaiter ? 'tables' : 'login');
   const [activeTab, setActiveTab] = useState<'mesas' | 'comandas'>('mesas');
   const [waiters, setWaiters] = useState<Waiter[]>([]);
-  const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(null);
+  const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(externalWaiter || null);
   const [tables, setTables] = useState<Table[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -1198,7 +1217,12 @@ export default function WaiterApp() {
         </div>
 
         <div className="p-4 text-center">
-          <Button variant="ghost" size="sm" onClick={signOut} className="text-white/70 hover:text-white hover:bg-white/10">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onExternalLogout || signOut} 
+            className="text-white/70 hover:text-white hover:bg-white/10"
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Sair do sistema
           </Button>

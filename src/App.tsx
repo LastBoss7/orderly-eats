@@ -18,6 +18,8 @@ import DeliverySettings from "./pages/DeliverySettings";
 import Customers from "./pages/Customers";
 import Waiter from "./pages/Waiter";
 import WaiterApp from "./pages/WaiterApp";
+import WaiterLogin from "./pages/WaiterLogin";
+import WaiterAppPublic from "./pages/WaiterAppPublic";
 import Kitchen from "./pages/Kitchen";
 import SalonSettings from "./pages/SalonSettings";
 import SalonData from "./pages/salon/SalonData";
@@ -85,6 +87,8 @@ const AnimatedRoutes = () => {
           <Route path="/customers" element={<Customers />} />
           <Route path="/waiter" element={<Waiter />} />
           <Route path="/waiter-app" element={<WaiterApp />} />
+          <Route path="/garcom/:slug" element={<WaiterLogin />} />
+          <Route path="/garcom/:slug/app" element={<WaiterAppPublic />} />
           <Route path="/kitchen" element={<Kitchen />} />
           <Route path="/salon-settings" element={<SalonSettings />} />
           <Route path="/salon-settings/dados" element={<SalonData />} />
