@@ -472,39 +472,6 @@ ipcMain.handle('test-print-layout', async (event, layout) => {
 });
 
 ipcMain.handle('get-stats', () => {
-  return { printedCount, isConnected };
-});
-
-ipcMain.handle('reconnect', async () => {
-  return await initializeSupabase();
-});
-
-ipcMain.handle('test-print', async () => {
-  try {
-    const layout = store.get('layout') || defaultLayout;
-    await printerService.printTest({
-      layout,
-      printerName: store.get('printerName'),
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('test-print-layout', async (event, layout) => {
-  try {
-    await printerService.printTestWithLayout({
-      layout,
-      printerName: store.get('printerName'),
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('get-stats', () => {
   return {
     printedCount,
     isConnected,
