@@ -626,9 +626,18 @@ export default function Tables() {
           onTableClosed={handleTableClosed}
         />
 
-        {/* Order POS Full Screen */}
-        {showOrderPOS && (orderPOSTable || tabOrderPOS) && (
-          <div className="fixed inset-0 z-50 bg-background">
+        {/* Order POS Modal */}
+        <Dialog 
+          open={showOrderPOS && !!(orderPOSTable || tabOrderPOS)} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowOrderPOS(false);
+              setOrderPOSTable(null);
+              setTabOrderPOS(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 overflow-hidden">
             <TableOrderPOS
               table={orderPOSTable || undefined}
               tab={tabOrderPOS || undefined}
@@ -639,8 +648,8 @@ export default function Tables() {
               }}
               onOrderCreated={handleOrderCreated}
             />
-          </div>
-        )}
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
