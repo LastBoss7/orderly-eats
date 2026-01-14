@@ -637,7 +637,7 @@ export default function Tables() {
             }
           }}
         >
-          <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 overflow-hidden">
+          <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 overflow-hidden fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%]">
             <TableOrderPOS
               table={orderPOSTable || undefined}
               tab={tabOrderPOS || undefined}
