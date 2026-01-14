@@ -20,6 +20,8 @@ import {
   Check,
   Divide,
   X,
+  MoreVertical,
+  RotateCcw,
 } from 'lucide-react';
 
 interface OrderItem {
@@ -62,11 +64,27 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
   const [closing, setClosing] = useState(false);
   const [printing, setPrinting] = useState(false);
   
+  // Order actions
+  const [openOrderMenu, setOpenOrderMenu] = useState<string | null>(null);
+  const [reprintingOrder, setReprintingOrder] = useState<string | null>(null);
+  
   // Payment states
   const [splitMode, setSplitMode] = useState<SplitMode>('none');
   const [numPeople, setNumPeople] = useState(2);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashReceived, setCashReceived] = useState(0);
+
+  // Close order menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (openOrderMenu) {
+        setOpenOrderMenu(null);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openOrderMenu]);
 
   const fetchOrders = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -310,6 +328,82 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
       toast.error('Erro ao imprimir conferência');
     } finally {
       setPrinting(false);
+    }
+  };
+
+  // Reprint single order
+  const handleReprintOrder = async (order: Order) => {
+    setReprintingOrder(order.id);
+    setOpenOrderMenu(null);
+    
+    try {
+      // Update print_status to trigger reprint via Electron app
+      await supabase
+        .from('orders')
+        .update({ print_status: 'pending' })
+        .eq('id', order.id);
+      
+      // Also generate visual print
+      const receiptContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Pedido #${order.id.slice(0, 8)}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Courier New', monospace; font-size: 14px; width: 300px; padding: 15px; background: #fff; }
+            .header { text-align: center; margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
+            .header h1 { font-size: 18px; margin-bottom: 5px; }
+            .header h2 { font-size: 24px; font-weight: bold; margin: 10px 0; }
+            .items-header { font-weight: bold; margin: 10px 0 5px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+            .item { margin: 8px 0; }
+            .item-name { font-weight: bold; font-size: 16px; }
+            .item-note { font-size: 12px; color: #666; margin-left: 10px; }
+            .total { font-size: 18px; font-weight: bold; margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; display: flex; justify-content: space-between; }
+            .footer { text-align: center; margin-top: 15px; font-size: 11px; color: #666; }
+            .reprint-badge { background: #fef3c7; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="reprint-badge">⚠️ REIMPRESSÃO</div>
+            <h1>${restaurant?.name || 'Restaurante'}</h1>
+            <h2>PEDIDO #${order.id.slice(0, 8).toUpperCase()}</h2>
+            <p><strong>Mesa ${table.number}</strong></p>
+            <p>${new Date(order.created_at).toLocaleString('pt-BR')}</p>
+          </div>
+          <div class="items-header">ITENS:</div>
+          ${(order.order_items || []).map(item => `
+            <div class="item">
+              <span class="item-name">${item.quantity}x ${item.product_name}</span>
+              ${item.notes ? `<div class="item-note">Obs: ${item.notes}</div>` : ''}
+            </div>
+          `).join('')}
+          <div class="total">
+            <span>TOTAL</span>
+            <span>${formatCurrency(order.total || 0)}</span>
+          </div>
+          <div class="footer">
+            <p>Reimpresso em ${new Date().toLocaleString('pt-BR')}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const printWindow = window.open('', '_blank', 'width=400,height=700');
+      if (printWindow) {
+        printWindow.document.write(receiptContent);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 250);
+      }
+      
+      toast.success('Pedido enviado para reimpressão!');
+    } catch (error) {
+      console.error('Error reprinting order:', error);
+      toast.error('Erro ao reimprimir pedido');
+    } finally {
+      setReprintingOrder(null);
     }
   };
 
@@ -601,9 +695,43 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
                         {getStatusLabel(order.status)}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-500">
-                      <Clock className="w-3 h-3" />
-                      {formatTime(order.created_at)}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-sm text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        {formatTime(order.created_at)}
+                      </div>
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
+                          }}
+                        >
+                          {reprintingOrder === order.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <MoreVertical className="w-4 h-4" />
+                          )}
+                        </Button>
+                        
+                        {openOrderMenu === order.id && (
+                          <div 
+                            className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden border"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => handleReprintOrder(order)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              <span className="text-sm font-medium">Reimprimir Pedido</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
