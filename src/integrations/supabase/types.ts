@@ -327,6 +327,7 @@ export type Database = {
           table_id: string | null
           total: number | null
           updated_at: string
+          waiter_id: string | null
         }
         Insert: {
           cash_received?: number | null
@@ -357,6 +358,7 @@ export type Database = {
           table_id?: string | null
           total?: number | null
           updated_at?: string
+          waiter_id?: string | null
         }
         Update: {
           cash_received?: number | null
@@ -387,6 +389,7 @@ export type Database = {
           table_id?: string | null
           total?: number | null
           updated_at?: string
+          waiter_id?: string | null
         }
         Relationships: [
           {
@@ -422,6 +425,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "waiters"
             referencedColumns: ["id"]
           },
         ]

@@ -118,9 +118,11 @@ interface Order {
   delivery_address: string | null;
   delivery_phone: string | null;
   delivery_fee: number | null;
+  waiter_id: string | null;
   order_items?: OrderItem[];
   tables?: { number: number } | null;
   tabs?: { number: number; customer_name: string | null } | null;
+  waiters?: { id: string; name: string } | null;
 }
 
 interface Customer {
@@ -326,7 +328,7 @@ export default function WaiterApp() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select(`*, order_items (*)`)
+        .select(`*, order_items (*), waiters (id, name)`)
         .eq('table_id', tableId)
         .in('status', ['pending', 'preparing', 'ready'])
         .order('created_at', { ascending: true });
@@ -347,7 +349,7 @@ export default function WaiterApp() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select(`*, order_items (*)`)
+        .select(`*, order_items (*), waiters (id, name)`)
         .eq('tab_id', tabId)
         .in('status', ['pending', 'preparing', 'ready'])
         .order('created_at', { ascending: true });
@@ -651,6 +653,7 @@ export default function WaiterApp() {
           delivery_address: orderMode === 'delivery' ? fullAddress : null,
           delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
           delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
+          waiter_id: selectedWaiter?.id || null,
         })
         .select()
         .single();
@@ -877,17 +880,25 @@ export default function WaiterApp() {
                 <div key={order.id} className="bg-[#1b3a4b] rounded-lg overflow-hidden">
                   {/* Order Header */}
                   <div className="flex items-center justify-between p-3 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
-                      {order.status === 'ready' && (
-                        <Badge className="bg-green-400 text-green-900 text-xs font-semibold px-2 py-0.5">
-                          Pronto
-                        </Badge>
-                      )}
-                      {order.status === 'preparing' && (
-                        <Badge className="bg-orange-400 text-orange-900 text-xs font-semibold px-2 py-0.5">
-                          Preparando
-                        </Badge>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
+                        {order.status === 'ready' && (
+                          <Badge className="bg-green-400 text-green-900 text-xs font-semibold px-2 py-0.5">
+                            Pronto
+                          </Badge>
+                        )}
+                        {order.status === 'preparing' && (
+                          <Badge className="bg-orange-400 text-orange-900 text-xs font-semibold px-2 py-0.5">
+                            Preparando
+                          </Badge>
+                        )}
+                      </div>
+                      {order.waiters?.name && (
+                        <p className="text-white/60 text-xs mt-1 flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {order.waiters.name}
+                        </p>
                       )}
                     </div>
                     <Button variant="ghost" size="icon" className="text-white/60 hover:text-white hover:bg-white/10">

@@ -24,6 +24,7 @@ interface PrintReceiptProps {
     payment_method?: string | null;
     print_count?: number | null;
     order_items?: OrderItem[];
+    waiter_name?: string | null;
   };
   restaurantName?: string;
   onPrint?: () => void;
@@ -343,6 +344,12 @@ export function PrintReceipt({ order, restaurantName, onPrint }: PrintReceiptPro
               <div className="section-title">📋 Cliente</div>
               <p className="customer-name">{order.customer_name}</p>
               {order.delivery_phone && <p>📞 {order.delivery_phone}</p>}
+            </div>
+          )}
+
+          {order.waiter_name && (
+            <div className="section">
+              <p style={{ fontSize: '12px' }}>🧑‍🍳 Atendido por: <strong>{order.waiter_name}</strong></p>
             </div>
           )}
 

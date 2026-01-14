@@ -26,8 +26,10 @@ interface Order {
   delivery_fee: number | null;
   table_id: string | null;
   print_status: string | null;
+  waiter_id: string | null;
   order_items: OrderItem[];
   tables: { number: number }[] | null;
+  waiters: { id: string; name: string }[] | null;
 }
 
 Deno.serve(async (req) => {
@@ -68,6 +70,7 @@ Deno.serve(async (req) => {
           delivery_fee,
           table_id,
           print_status,
+          waiter_id,
           order_items (
             id,
             product_name,
@@ -77,6 +80,10 @@ Deno.serve(async (req) => {
           ),
           tables (
             number
+          ),
+          waiters (
+            id,
+            name
           )
         `)
         .eq("restaurant_id", restaurantId)
@@ -105,6 +112,7 @@ Deno.serve(async (req) => {
         deliveryPhone: order.delivery_phone,
         deliveryFee: order.delivery_fee,
         tableNumber: order.tables?.[0]?.number || null,
+        waiterName: order.waiters?.[0]?.name || null,
         items: order.order_items.map((item) => ({
           name: item.product_name,
           quantity: item.quantity,
