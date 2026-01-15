@@ -902,9 +902,16 @@ ipcMain.handle('test-usb-connection', async (event, vendorId, productId) => {
 
 ipcMain.handle('test-print', async () => {
   try {
-    const layout = store.get('layout') || defaultLayout;
+    // Get paper width from config (priority) or layout
+    const configPaperWidth = store.get('paperWidth') || 48;
+    const layout = {
+      ...(store.get('layout') || defaultLayout),
+      paperWidth: configPaperWidth, // Override with config value
+    };
+    
     const useEscPos = store.get('useEscPos');
     const usbPrinter = store.get('usbPrinter');
+    const printerName = store.get('printerName') || '';
     
     let printerInfo = null;
     if (useEscPos && usbPrinter) {
@@ -912,9 +919,11 @@ ipcMain.handle('test-print', async () => {
       printerInfo = { type: 'usb', vendorId, productId };
     }
     
+    sendToRenderer('log', `Imprimindo teste com largura ${configPaperWidth} chars...`);
+    
     await printerService.printTest({
       layout,
-      printerName: store.get('printerName'),
+      printerName,
       useEscPos,
       printerInfo,
     });
