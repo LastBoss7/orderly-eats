@@ -528,36 +528,39 @@ class PrinterService {
   formatReceipt(order, layout, restaurantInfo = {}) {
     // For thermal printers via text mode, use fixed width chars
     // Common widths: 32 (58mm), 42 (80mm standard), 48 (80mm compact)
-    const width = layout.paperWidth || 42;
+    // IMPORTANT: Use layout.paperWidth exactly as configured by user
+    const width = parseInt(layout.paperWidth, 10) || 42;
     const divider = '='.repeat(width);
     const thinDivider = '-'.repeat(width);
     
     const lines = [];
     
-    // Header - no centering to avoid formatting issues
+    // Header - center text properly for better formatting
     if (layout.showRestaurantName && restaurantInfo.name) {
       const name = this.removeAccents(restaurantInfo.name.toUpperCase());
-      lines.push(name);
+      lines.push(this.center(name, width));
     }
     
     if (layout.showAddress && restaurantInfo.address) {
-      lines.push(this.removeAccents(restaurantInfo.address));
+      const addr = this.removeAccents(restaurantInfo.address);
+      // Word wrap if too long
+      this.wrapText(addr, width).forEach(line => lines.push(this.center(line, width)));
     }
     
     if (layout.showPhone && restaurantInfo.phone) {
-      lines.push('Tel: ' + restaurantInfo.phone);
+      lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
     }
     
     if (layout.showCnpj && restaurantInfo.cnpj) {
-      lines.push('CNPJ: ' + restaurantInfo.cnpj);
+      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
     }
     
     if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {
       lines.push('');
     }
     
-    // Title
-    lines.push(layout.receiptTitle || '*** PEDIDO ***');
+    // Title - centered
+    lines.push(this.center(layout.receiptTitle || '*** PEDIDO ***', width));
     lines.push(divider);
     
     // Order number - prominent
@@ -695,8 +698,31 @@ class PrinterService {
     return lines.join('\r\n');
   }
 
+  /**
+   * Word wrap text to fit width
+   */
+  wrapText(text, width) {
+    if (!text || text.length <= width) return [text || ''];
+    
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      if (currentLine.length + word.length + 1 <= width) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word.length <= width ? word : word.slice(0, width);
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    
+    return lines;
+  }
+
   formatTestReceipt(layout) {
-    const width = layout.paperWidth || 48;
+    const width = parseInt(layout.paperWidth, 10) || 48;
     const divider = '='.repeat(width);
     const lines = [];
     
@@ -710,7 +736,7 @@ class PrinterService {
     lines.push(divider);
     lines.push('');
     lines.push(this.center(`Largura: ${width} caracteres`, width));
-    lines.push(this.center(`Papel: ${layout.paperSize || '58mm'}`, width));
+    lines.push(this.center(`Papel: ${layout.paperSize || '80mm'}`, width));
     lines.push('');
     
     const now = new Date();
@@ -723,6 +749,7 @@ class PrinterService {
   }
 
   center(text, width) {
+    if (!text) return ' '.repeat(width);
     if (text.length >= width) return text.slice(0, width);
     const padding = Math.floor((width - text.length) / 2);
     return ' '.repeat(padding) + text;
@@ -773,6 +800,14 @@ class PrinterService {
       }
     });
   }
+
+  removeAccents(str) {
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+}
+
+module.exports = PrinterService;
 }
 
 module.exports = PrinterService;
