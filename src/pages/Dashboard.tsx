@@ -26,8 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { CloseTableModal } from '@/components/tables/CloseTableModal';
-import { CloseTabModal } from '@/components/tabs/CloseTabModal';
+import { CheckoutScreen } from '@/components/dashboard/CheckoutScreen';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -825,12 +824,21 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     // Check if this order should show close button (ready or served table/tab orders)
     const showCloseButton = (order.status === 'ready' || order.status === 'served') && 
                             (order.table_id || order.tab_id);
+    
+    // Determine the card border color based on type
+    const getCardBorderClass = () => {
+      if (order.table_id) return 'border-l-4 border-l-emerald-500';
+      if (order.tab_id) return 'border-l-4 border-l-violet-500';
+      if (order.order_type === 'delivery') return 'border-l-4 border-l-blue-500';
+      if (order.order_type === 'counter' || order.order_type === 'takeaway') return 'border-l-4 border-l-amber-500';
+      return '';
+    };
 
     return (
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${
+        className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''
         } ${isDragging ? 'shadow-xl z-50' : ''}`}
       >
@@ -1915,17 +1923,18 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onStoreStatusChange={setIsStoreOpen}
         />
 
-        {/* Close Table Modal */}
-        {tableToClose && (
-          <CloseTableModal
-            open={showCloseTableModal}
+        {/* Checkout Screen for Table */}
+        {showCloseTableModal && tableToClose && (
+          <CheckoutScreen
+            type="table"
+            entityId={tableToClose.id}
+            entityNumber={tableToClose.number}
+            orders={tableToClose.orders}
             onClose={() => {
               setShowCloseTableModal(false);
               setTableToClose(null);
             }}
-            table={tableToClose}
-            orders={tableToClose.orders}
-            onTableClosed={() => {
+            onClosed={() => {
               fetchOrders();
               fetchTables();
               setShowCloseTableModal(false);
@@ -1934,17 +1943,19 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           />
         )}
 
-        {/* Close Tab Modal */}
-        {tabToClose && (
-          <CloseTabModal
-            open={showCloseTabModal}
+        {/* Checkout Screen for Tab */}
+        {showCloseTabModal && tabToClose && (
+          <CheckoutScreen
+            type="tab"
+            entityId={tabToClose.id}
+            entityNumber={tabToClose.number}
+            customerName={tabToClose.customer_name}
+            orders={tabToClose.orders}
             onClose={() => {
               setShowCloseTabModal(false);
               setTabToClose(null);
             }}
-            tab={tabToClose}
-            orders={tabToClose.orders}
-            onTabClosed={() => {
+            onClosed={() => {
               fetchOrders();
               fetchTabs();
               setShowCloseTabModal(false);
