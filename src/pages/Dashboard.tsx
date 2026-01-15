@@ -520,6 +520,8 @@ export default function Dashboard() {
   };
 
   const updateOrderStatus = async (orderId: string, status: string) => {
+    console.log('Updating order status:', { orderId, status });
+    
     const updateData: { status: string; ready_at?: string; updated_at: string } = { 
       status,
       updated_at: new Date().toISOString()
@@ -530,22 +532,38 @@ export default function Dashboard() {
       updateData.ready_at = new Date().toISOString();
     }
     
-    const { error } = await supabase.from('orders').update(updateData).eq('id', orderId);
+    const { error, data } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .select();
+    
+    console.log('Supabase response:', { error, data });
     
     if (error) {
+      console.error('Error updating order:', error);
       toast.error('Erro ao atualizar pedido');
       return;
     }
     
     // Update local orders state immediately for faster UI
-    setOrders(prev => prev.map(o => 
-      o.id === orderId ? { ...o, ...updateData } : o
-    ));
+    setOrders(prev => {
+      const updated = prev.map(o => 
+        o.id === orderId ? { ...o, status, updated_at: updateData.updated_at } : o
+      );
+      console.log('Updated orders state:', updated.find(o => o.id === orderId));
+      return updated;
+    });
     
     // Update selectedOrder if it's the one being updated
-    setSelectedOrder(prev => 
-      prev?.id === orderId ? { ...prev, ...updateData } : prev
-    );
+    setSelectedOrder(prev => {
+      if (prev?.id === orderId) {
+        const updated = { ...prev, status, updated_at: updateData.updated_at };
+        console.log('Updated selectedOrder:', updated);
+        return updated;
+      }
+      return prev;
+    });
     
     // Note: "delivered" status just removes the order from dashboard display
     // It does NOT close the table - that happens when the bill is paid via "Fechar Conta"
@@ -1480,37 +1498,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-[250px]">
                         <DropdownMenuItem 
-                          onClick={() => {
-                            updateOrderStatus(selectedOrder.id, 'pending');
-                            setSelectedOrder(prev => prev ? { ...prev, status: 'pending' } : null);
-                          }}
+                          onClick={() => updateOrderStatus(selectedOrder.id, 'pending')}
                           className={selectedOrder.status === 'pending' ? 'bg-accent' : ''}
                         >
                           ⏳ Pendente
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => {
-                            updateOrderStatus(selectedOrder.id, 'preparing');
-                            setSelectedOrder(prev => prev ? { ...prev, status: 'preparing' } : null);
-                          }}
+                          onClick={() => updateOrderStatus(selectedOrder.id, 'preparing')}
                           className={selectedOrder.status === 'preparing' ? 'bg-accent' : ''}
                         >
                           🔥 Preparando
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => {
-                            updateOrderStatus(selectedOrder.id, 'ready');
-                            setSelectedOrder(prev => prev ? { ...prev, status: 'ready' } : null);
-                          }}
+                          onClick={() => updateOrderStatus(selectedOrder.id, 'ready')}
                           className={selectedOrder.status === 'ready' ? 'bg-accent' : ''}
                         >
                           ✅ Pronto
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          onClick={() => {
-                            updateOrderStatus(selectedOrder.id, 'out_for_delivery');
-                            setSelectedOrder(prev => prev ? { ...prev, status: 'out_for_delivery' } : null);
-                          }}
+                          onClick={() => updateOrderStatus(selectedOrder.id, 'out_for_delivery')}
                           className={selectedOrder.status === 'out_for_delivery' ? 'bg-accent' : ''}
                         >
                           <Truck className="w-4 h-4 mr-2" />
