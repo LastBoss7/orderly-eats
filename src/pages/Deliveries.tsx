@@ -436,6 +436,7 @@ export default function Deliveries() {
           restaurant_id: restaurant?.id,
           order_type: 'delivery',
           status: 'pending',
+          print_status: 'pending',
           customer_name: customerName,
           customer_id: customer.id,
           delivery_address: fullAddress,
