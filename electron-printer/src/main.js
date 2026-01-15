@@ -294,6 +294,9 @@ async function syncAvailablePrinters() {
   }
 }
 
+// Track orders currently being printed to prevent duplicates
+const printingOrders = new Set();
+
 function startOrderMonitoring() {
   if (checkInterval) {
     clearInterval(checkInterval);
@@ -342,10 +345,25 @@ async function checkPendingOrders() {
     const orders = data.orders || [];
 
     if (orders.length > 0) {
-      sendToRenderer('log', `Encontrados ${orders.length} pedidos para imprimir`);
+      // Filter out orders already being printed
+      const newOrders = orders.filter(order => !printingOrders.has(order.id));
       
-      for (const order of orders) {
-        await printOrderToAllPrinters(order, cachedDbPrinters || []);
+      if (newOrders.length > 0) {
+        sendToRenderer('log', `Encontrados ${newOrders.length} pedido(s) para imprimir`);
+        
+        for (const order of newOrders) {
+          // Mark as being printed BEFORE starting
+          printingOrders.add(order.id);
+          
+          try {
+            await printOrderToAllPrinters(order, cachedDbPrinters || []);
+          } finally {
+            // Remove from set after a delay to allow status update to propagate
+            setTimeout(() => {
+              printingOrders.delete(order.id);
+            }, 10000);
+          }
+        }
       }
     }
   } catch (error) {
