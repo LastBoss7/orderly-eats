@@ -25,6 +25,7 @@ import {
   Plus, 
   X, 
   User, 
+  Users,
   Clock,
   Banknote,
   CreditCard,
@@ -366,73 +367,65 @@ export function CheckoutScreen({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="h-16 border-b bg-card flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="border-b bg-card flex items-center justify-between px-4 py-3 shrink-0 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          {/* Close Button (mobile first) */}
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="text-muted-foreground hover:text-foreground md:hidden"
+            onClick={onClose}
+          >
+            <X className="w-5 h-5" />
+          </Button>
+          
           {/* Entity Selector */}
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 ${
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 ${
             type === 'table' 
               ? 'border-emerald-300 bg-emerald-50 text-emerald-700' 
               : 'border-violet-300 bg-violet-50 text-violet-700'
           }`}>
             <UtensilsCrossed className="w-4 h-4" />
-            <span className="font-medium">
+            <span className="font-medium text-sm md:text-base">
               {type === 'table' ? 'Mesa' : 'Comanda'} {entityNumber}
             </span>
-            <ChevronDown className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
+            size="sm"
             className="border-sky-400 text-sky-600 hover:bg-sky-50"
             onClick={handlePrintReceipt}
             disabled={printingReceipt}
           >
             {printingReceipt ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Printer className="w-4 h-4 mr-2" />
+              <Printer className="w-4 h-4" />
             )}
-            Imprimir conferência
-            <ChevronDown className="w-4 h-4 ml-2" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-sky-400 text-sky-600">
-                Ações
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>Transferir para outra mesa</DropdownMenuItem>
-              <DropdownMenuItem>Cancelar pedido</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button className="bg-sky-500 hover:bg-sky-600 text-white">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo pedido
+            <span className="hidden sm:inline ml-2">Conferência</span>
           </Button>
 
           <Button 
             variant="ghost" 
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 hidden md:flex"
             onClick={onClose}
           >
-            <X className="w-4 h-4 mr-2" />
+            <X className="w-4 h-4 mr-1" />
             Fechar
           </Button>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         {/* Left Side - Orders */}
-        <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50">
+        <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 min-h-0 md:max-h-full max-h-[40vh]">
           {/* Customer Info */}
           <div className="p-4 border-b bg-card">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -553,7 +546,7 @@ export function CheckoutScreen({
         </div>
 
         {/* Right Side - Payment */}
-        <div className="w-96 border-l bg-card flex flex-col">
+        <div className="w-full md:w-[420px] md:min-w-[380px] border-t md:border-t-0 md:border-l bg-card flex flex-col min-h-0 flex-1 md:flex-none overflow-hidden">
           {/* Discount/Addition Tabs */}
           <div className="border-b">
             <div className="flex">
@@ -611,6 +604,44 @@ export function CheckoutScreen({
               </div>
             )}
 
+            {/* Split by people - MOVED HERE for visibility */}
+            <div className="bg-sky-50 dark:bg-sky-900/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-sky-600" />
+                  <span className="text-sm font-medium text-sky-700 dark:text-sky-400">Dividir conta</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Pessoas:</span>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={() => setSplitCount(Math.max(1, splitCount - 1))}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="text-2xl font-bold w-10 text-center">{splitCount}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10"
+                    onClick={() => setSplitCount(splitCount + 1)}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              {splitCount > 1 && (
+                <div className="text-center pt-2 border-t border-sky-200 dark:border-sky-800">
+                  <p className="text-xs text-muted-foreground">Valor por pessoa</p>
+                  <p className="text-xl font-bold text-sky-600 dark:text-sky-400">{formatCurrency(perPerson)}</p>
+                </div>
+              )}
+            </div>
+
             {/* Totals */}
             <div className="space-y-2 pt-2">
               <div className="flex justify-between text-sm">
@@ -629,7 +660,7 @@ export function CheckoutScreen({
                   <span>+{formatCurrency(addition)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-semibold pt-2 border-t">
+              <div className="flex justify-between font-semibold pt-2 border-t text-lg">
                 <span>Valor total</span>
                 <span>{formatCurrency(totalWithModifiers)}</span>
               </div>
@@ -845,47 +876,19 @@ export function CheckoutScreen({
           </div>
 
           {/* Footer Actions */}
-          <div className="p-4 border-t space-y-3">
+          <div className="p-4 border-t space-y-3 shrink-0">
             {/* Remaining Amount */}
-            <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-4 py-2 rounded-lg">
-              <span className="font-medium">Falta</span>
-              <span className="font-bold text-lg">{formatCurrency(remaining > 0 ? remaining : 0)}</span>
-            </div>
-
-            {/* Split by people */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Dividir por:</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setSplitCount(Math.max(1, splitCount - 1))}
-                >
-                  <Minus className="w-4 h-4" />
-                </Button>
-                <span className="w-8 text-center font-medium">{splitCount}</span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setSplitCount(splitCount + 1)}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-                <span className="text-sm ml-2">{formatCurrency(perPerson)}</span>
+            {remaining > 0.01 ? (
+              <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 px-4 py-3 rounded-lg">
+                <span className="font-medium">Falta pagar</span>
+                <span className="font-bold text-xl">{formatCurrency(remaining)}</span>
               </div>
-            </div>
-
-            {/* Select items button */}
-            <Button
-              variant="outline"
-              className="w-full border-sky-400 text-sky-600 hover:bg-sky-50"
-              onClick={() => setSelectingItems(!selectingItems)}
-            >
-              {selectingItems ? <Check className="w-4 h-4 mr-2" /> : <MoreHorizontal className="w-4 h-4 mr-2" />}
-              {selectingItems ? 'Confirmar seleção' : 'Selecionar itens para pagamento'}
-            </Button>
+            ) : (
+              <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-4 py-3 rounded-lg">
+                <span className="font-medium">✓ Valor completo</span>
+                <span className="font-bold text-xl">{formatCurrency(paidAmount)}</span>
+              </div>
+            )}
 
             {/* Close Account Button */}
             <Button
