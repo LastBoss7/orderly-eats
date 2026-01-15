@@ -1,21 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface PrinterHeartbeat {
-  id: string;
-  restaurant_id: string;
-  client_id: string;
-  client_name: string | null;
-  client_version: string | null;
-  platform: string | null;
-  last_heartbeat_at: string;
-  is_printing: boolean;
-  pending_orders: number;
-  printers_count: number;
-  created_at: string;
-  updated_at: string;
-}
+type PrinterHeartbeat = Tables<'printer_heartbeats'>;
 
 interface HeartbeatStatus {
   isConnected: boolean;
@@ -49,7 +37,10 @@ export const usePrinterHeartbeat = (restaurantId?: string) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchHeartbeats = useCallback(async () => {
-    if (!effectiveRestaurantId) return;
+    if (!effectiveRestaurantId) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -58,10 +49,12 @@ export const usePrinterHeartbeat = (restaurantId?: string) => {
         .eq('restaurant_id', effectiveRestaurantId)
         .order('last_heartbeat_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching heartbeats:', error);
+        throw error;
+      }
 
-      // Type assertion since the table is new
-      const typedData = (data || []) as unknown as PrinterHeartbeat[];
+      const typedData = (data || []) as PrinterHeartbeat[];
       setHeartbeats(typedData);
 
       // Calculate status based on most recent heartbeat
@@ -78,9 +71,9 @@ export const usePrinterHeartbeat = (restaurantId?: string) => {
           clientName: latest.client_name,
           clientVersion: latest.client_version,
           platform: latest.platform,
-          isPrinting: latest.is_printing,
-          pendingOrders: latest.pending_orders,
-          printersCount: latest.printers_count,
+          isPrinting: latest.is_printing ?? false,
+          pendingOrders: latest.pending_orders ?? 0,
+          printersCount: latest.printers_count ?? 0,
           timeSinceLastHeartbeat: Math.floor(timeDiff / 1000)
         });
       } else {
