@@ -1792,8 +1792,12 @@ export default function WaiterApp({
                     </div>
                     <p className="text-primary font-semibold text-sm">
                       {product.has_sizes 
-                        ? `A partir de ${formatCurrency(Math.min(product.price_small ?? Infinity, product.price_medium ?? Infinity, product.price_large ?? Infinity, product.price ?? Infinity))}`
-                        : formatCurrency(product.price)}
+                        ? (() => {
+                            const prices = [product.price_small, product.price_medium, product.price_large].filter((p): p is number => p != null && p > 0);
+                            const minPrice = prices.length > 0 ? Math.min(...prices) : product.price;
+                            return `A partir de ${formatCurrency(minPrice ?? 0)}`;
+                          })()
+                        : formatCurrency(product.price ?? 0)}
                     </p>
                   </div>
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ml-2 ${
