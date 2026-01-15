@@ -497,33 +497,40 @@ async function printOrderToAllPrinters(order, dbPrinters) {
 }
 
 /**
- * Mark order as printed in database via Edge Function
+ * Mark order as printed in database directly via Supabase SDK
  */
 async function markOrderPrinted(order) {
+  if (!supabase) {
+    sendToRenderer('log', `✗ Supabase não conectado, não foi possível marcar como impresso`);
+    return false;
+  }
+
   try {
-    const supabaseUrl = store.get('supabaseUrl');
-    const restaurantId = store.get('restaurantId');
-    
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=mark-printed`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': store.get('supabaseKey'),
-        },
-        body: JSON.stringify({ order_ids: [order.id] }),
-      }
-    );
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP ${response.status}`);
+    // Get current print count
+    const { data: currentOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('print_count')
+      .eq('id', order.id)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Erro ao buscar pedido: ${fetchError.message}`);
     }
-    
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error('Falha ao marcar como impresso');
+
+    const currentCount = currentOrder?.print_count || 0;
+
+    // Update order status directly
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        print_status: 'printed',
+        printed_at: new Date().toISOString(),
+        print_count: currentCount + 1,
+      })
+      .eq('id', order.id);
+
+    if (updateError) {
+      throw new Error(`Erro ao atualizar: ${updateError.message}`);
     }
     
     sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} marcado como impresso`);
