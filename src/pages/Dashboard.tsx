@@ -510,19 +510,36 @@ export default function Dashboard() {
   const readyOrders = filterOrdersByType(allReadyOrders);
 
   const updateOrderStatus = async (orderId: string, status: string) => {
-    const updateData: { status: string; ready_at?: string } = { status };
+    const updateData: { status: string; ready_at?: string; updated_at: string } = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
     
     // Record ready_at timestamp when order becomes ready
     if (status === 'ready') {
       updateData.ready_at = new Date().toISOString();
     }
     
-    await supabase.from('orders').update(updateData).eq('id', orderId);
+    const { error } = await supabase.from('orders').update(updateData).eq('id', orderId);
+    
+    if (error) {
+      toast.error('Erro ao atualizar pedido');
+      return;
+    }
+    
+    // Update local orders state immediately for faster UI
+    setOrders(prev => prev.map(o => 
+      o.id === orderId ? { ...o, ...updateData } : o
+    ));
+    
+    // Update selectedOrder if it's the one being updated
+    setSelectedOrder(prev => 
+      prev?.id === orderId ? { ...prev, ...updateData } : prev
+    );
     
     // Note: "delivered" status just removes the order from dashboard display
     // It does NOT close the table - that happens when the bill is paid via "Fechar Conta"
     
-    fetchOrders();
     toast.success(`Pedido ${status === 'delivered' ? 'marcado como entregue' : 'atualizado'} com sucesso!`);
   };
 
