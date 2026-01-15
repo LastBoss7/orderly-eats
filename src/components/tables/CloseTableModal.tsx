@@ -6,20 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { 
   Printer, 
@@ -32,6 +24,10 @@ import {
   Check,
   Receipt,
   Divide,
+  X,
+  ChevronRight,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 interface OrderItem {
@@ -89,10 +85,11 @@ export function CloseTableModal({
   const [splitMode, setSplitMode] = useState<SplitMode>('none');
   const [numPeople, setNumPeople] = useState(2);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
+  const [step, setStep] = useState<'summary' | 'split' | 'payment'>('summary');
 
   // All items from all orders
   const allItems = orders.flatMap(order => 
@@ -113,8 +110,10 @@ export function CloseTableModal({
     ? grandTotal / numPeople
     : 0;
 
-  const change = paymentMethod === 'cash' && cashReceived > selectedTotal
-    ? cashReceived - selectedTotal
+  const amountToPay = splitMode === 'equal' ? perPersonAmount : selectedTotal;
+
+  const change = paymentMethod === 'cash' && cashReceived > amountToPay
+    ? cashReceived - amountToPay
     : 0;
 
   const formatCurrency = (value: number) => {
@@ -128,7 +127,6 @@ export function CloseTableModal({
     return new Date(dateString).toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -140,8 +138,9 @@ export function CloseTableModal({
       setSplitMode('none');
       setNumPeople(2);
       setSelectedItems([]);
-      setPaymentMethod('cash');
+      setPaymentMethod('pix');
       setCashReceived(0);
+      setStep('summary');
     }
   }, [open]);
 
@@ -174,10 +173,7 @@ export function CloseTableModal({
     setPrintingReceipt(true);
     
     try {
-      // Generate receipt content
       const receiptContent = generateReceiptHTML();
-      
-      // Open print window
       const printWindow = window.open('', '_blank', 'width=400,height=600');
       if (printWindow) {
         printWindow.document.write(receiptContent);
@@ -310,7 +306,6 @@ export function CloseTableModal({
     setLoading(true);
     
     try {
-      // Update all orders to 'delivered' status with payment info
       for (const order of orders) {
         await supabase
           .from('orders')
@@ -326,7 +321,6 @@ export function CloseTableModal({
           .eq('id', order.id);
       }
       
-      // Update table status to 'available'
       await supabase
         .from('tables')
         .update({ status: 'available' })
@@ -346,15 +340,15 @@ export function CloseTableModal({
   // If no orders, show empty state
   if (orders.length === 0) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
+      <Sheet open={open} onOpenChange={onClose}>
+        <SheetContent side="right" className="w-full sm:max-w-lg p-0">
+          <SheetHeader className="p-6 border-b">
+            <SheetTitle className="flex items-center gap-2 text-lg">
               <Receipt className="w-5 h-5 text-primary" />
               Mesa {table?.number}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-8 text-center space-y-4">
+            </SheetTitle>
+          </SheetHeader>
+          <div className="py-12 text-center space-y-4 px-6">
             <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
               <Receipt className="w-8 h-8 text-muted-foreground" />
             </div>
@@ -368,280 +362,333 @@ export function CloseTableModal({
               Fechar
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 z-[60]">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
-          <DialogTitle className="flex items-center gap-3 text-xl">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Receipt className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <span className="block">Fechar Mesa {table?.number}</span>
-              <span className="text-sm font-normal text-muted-foreground">
-                {orders.length} pedido{orders.length > 1 ? 's' : ''} • {allItems.length} {allItems.length === 1 ? 'item' : 'itens'}
-              </span>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-6 py-4">
-            {/* Grand Total Card */}
-            <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-5 border border-primary/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total da Mesa</p>
-                  <p className="text-3xl font-bold text-foreground tracking-tight">
-                    {formatCurrency(grandTotal)}
-                  </p>
-                </div>
-                <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
-                  <Calculator className="w-7 h-7 text-primary" />
-                </div>
+    <Sheet open={open} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col">
+        {/* Header */}
+        <SheetHeader className="p-4 border-b bg-gradient-to-r from-primary/5 to-transparent shrink-0">
+          <SheetTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <span className="block text-lg">Mesa {table?.number}</span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {orders.length} pedido{orders.length > 1 ? 's' : ''} • {allItems.length} {allItems.length === 1 ? 'item' : 'itens'}
+                </span>
               </div>
             </div>
+          </SheetTitle>
+        </SheetHeader>
 
-            {/* Orders Summary */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Resumo dos Pedidos
-              </h3>
-              <div className="bg-card rounded-xl border divide-y">
-                {orders.map((order, idx) => (
-                  <div key={order.id} className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">
-                        Pedido #{idx + 1}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {formatDateTime(order.created_at)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {order.order_items?.map(item => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            {item.quantity}x {item.product_name}
-                          </span>
-                          <span className="font-medium">
-                            {formatCurrency(item.product_price * item.quantity)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between mt-3 pt-2 border-t">
-                      <span className="font-medium">Subtotal</span>
-                      <span className="font-semibold">{formatCurrency(order.total)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {/* Total Banner */}
+        <div className="bg-primary/10 px-4 py-3 border-b shrink-0">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">Total da Mesa</span>
+            <span className="text-2xl font-bold">{formatCurrency(grandTotal)}</span>
+          </div>
+          {splitMode === 'equal' && (
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-xs text-muted-foreground">Por pessoa ({numPeople} pessoas)</span>
+              <span className="text-lg font-semibold text-primary">{formatCurrency(perPersonAmount)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
+            {/* Step Indicator */}
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                onClick={() => setStep('summary')}
+                className={`px-3 py-1.5 rounded-full transition-colors ${
+                  step === 'summary' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                1. Resumo
+              </button>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <button
+                onClick={() => setStep('split')}
+                className={`px-3 py-1.5 rounded-full transition-colors ${
+                  step === 'split' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                2. Divisão
+              </button>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <button
+                onClick={() => setStep('payment')}
+                className={`px-3 py-1.5 rounded-full transition-colors ${
+                  step === 'payment' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                3. Pagamento
+              </button>
             </div>
 
-            {/* Split Mode Selection */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Modo de Divisão
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    splitMode === 'none' 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                  }`}
-                  onClick={() => setSplitMode('none')}
-                >
-                  <Calculator className="w-6 h-6" />
-                  <span className="text-sm font-medium">Conta Única</span>
-                </button>
-                <button
-                  type="button"
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    splitMode === 'equal' 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                  }`}
-                  onClick={() => setSplitMode('equal')}
-                >
-                  <Users className="w-6 h-6" />
-                  <span className="text-sm font-medium">Dividir Igual</span>
-                </button>
-                <button
-                  type="button"
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    splitMode === 'by-item' 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                  }`}
-                  onClick={() => setSplitMode('by-item')}
-                >
-                  <Divide className="w-6 h-6" />
-                  <span className="text-sm font-medium">Por Item</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Equal Split Options */}
-            {splitMode === 'equal' && (
-              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-5 space-y-4 border border-blue-200 dark:border-blue-800">
-                <Label className="text-sm font-medium">Número de Pessoas</Label>
-                <div className="flex items-center justify-center gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-xl"
-                    onClick={() => setNumPeople(Math.max(2, numPeople - 1))}
-                  >
-                    -
-                  </Button>
-                  <div className="w-20 text-center">
-                    <span className="text-4xl font-bold">{numPeople}</span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 rounded-xl"
-                    onClick={() => setNumPeople(numPeople + 1)}
-                  >
-                    +
-                  </Button>
-                </div>
-                <div className="text-center py-4 bg-white dark:bg-gray-800 rounded-xl">
-                  <p className="text-sm text-muted-foreground mb-1">Valor por pessoa</p>
-                  <p className="text-3xl font-bold text-primary">
-                    {formatCurrency(perPersonAmount)}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Item Selection */}
-            {splitMode === 'by-item' && (
+            {/* Step 1: Summary */}
+            {step === 'summary' && (
               <div className="space-y-3">
-                <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  Selecione os Itens
-                </Label>
-                <div className="border rounded-xl divide-y max-h-56 overflow-y-auto">
-                  {allItems.map((item) => {
-                    const isSelected = selectedItems.some(si => si.itemId === item.id);
-                    const selectedItem = selectedItems.find(si => si.itemId === item.id);
-                    
-                    return (
-                      <div
-                        key={item.id}
-                        className={`flex items-center gap-3 p-4 transition-colors cursor-pointer hover:bg-muted/50 ${
-                          isSelected ? 'bg-primary/5' : ''
-                        }`}
-                        onClick={() => toggleItemSelection(item)}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleItemSelection(item)}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.product_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(item.product_price)} cada
-                          </p>
-                        </div>
-                        {isSelected && selectedItem && (
-                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => updateItemQuantity(item.id, selectedItem.quantity - 1)}
-                            >
-                              -
-                            </Button>
-                            <span className="w-8 text-center font-medium">{selectedItem.quantity}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => updateItemQuantity(item.id, selectedItem.quantity + 1)}
-                            >
-                              +
-                            </Button>
-                          </div>
-                        )}
-                        {!isSelected && (
-                          <span className="text-sm font-medium text-muted-foreground">
-                            {item.quantity}x
-                          </span>
-                        )}
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Itens Consumidos
+                </h3>
+                <div className="bg-card rounded-xl border divide-y">
+                  {allItems.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{item.product_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity}x {formatCurrency(item.product_price)}
+                        </p>
                       </div>
-                    );
-                  })}
+                      <span className="font-semibold text-sm">
+                        {formatCurrency(item.product_price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                {selectedItems.length > 0 && (
-                  <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl border border-primary/20">
-                    <span className="font-medium">Subtotal Selecionado</span>
-                    <span className="text-xl font-bold text-primary">{formatCurrency(selectedTotal)}</span>
-                  </div>
-                )}
+
+                <Button 
+                  className="w-full h-12 mt-4" 
+                  onClick={() => setStep('split')}
+                >
+                  Continuar
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
               </div>
             )}
 
-            {/* Payment Method */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Forma de Pagamento
-              </h3>
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  { key: 'cash', icon: Banknote, label: 'Dinheiro' },
-                  { key: 'credit', icon: CreditCard, label: 'Crédito' },
-                  { key: 'debit', icon: CreditCard, label: 'Débito' },
-                  { key: 'pix', icon: QrCode, label: 'PIX' },
-                  { key: 'mixed', icon: Calculator, label: 'Múltiplos' },
-                ].map(({ key, icon: Icon, label }) => (
+            {/* Step 2: Split Mode */}
+            {step === 'split' && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Dividir Conta?
+                </h3>
+                
+                {/* Split Mode Options */}
+                <div className="grid grid-cols-3 gap-2">
                   <button
-                    key={key}
                     type="button"
                     className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
-                      paymentMethod === key 
+                      splitMode === 'none' 
                         ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                        : 'border-border hover:border-primary/50'
                     }`}
-                    onClick={() => setPaymentMethod(key as PaymentMethod)}
+                    onClick={() => setSplitMode('none')}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{label}</span>
+                    <Calculator className="w-5 h-5" />
+                    <span className="text-xs font-medium">Única</span>
                   </button>
-                ))}
-              </div>
-            </div>
+                  <button
+                    type="button"
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                      splitMode === 'equal' 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setSplitMode('equal')}
+                  >
+                    <Users className="w-5 h-5" />
+                    <span className="text-xs font-medium">Igual</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                      splitMode === 'by-item' 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => setSplitMode('by-item')}
+                  >
+                    <Divide className="w-5 h-5" />
+                    <span className="text-xs font-medium">Por Item</span>
+                  </button>
+                </div>
 
-            {/* Cash Change Calculator */}
-            {paymentMethod === 'cash' && (
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-5 space-y-4 border border-green-200 dark:border-green-800">
-                <Label className="text-sm font-medium">Valor Recebido</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  value={cashReceived || ''}
-                  onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                  className="text-xl h-14 font-semibold"
-                />
-                {cashReceived > 0 && (
-                  <div className="flex justify-between items-center py-3 px-4 bg-white dark:bg-gray-800 rounded-xl">
-                    <span className="text-muted-foreground font-medium">Troco:</span>
-                    <span className={`text-2xl font-bold ${change >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                      {formatCurrency(change)}
-                    </span>
+                {/* Equal Split: Number of People */}
+                {splitMode === 'equal' && (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-4 space-y-3 border border-blue-200 dark:border-blue-800">
+                    <Label className="text-sm font-medium">Quantas pessoas?</Label>
+                    <div className="flex items-center justify-center gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-11 w-11 rounded-full"
+                        onClick={() => setNumPeople(Math.max(2, numPeople - 1))}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <div className="w-16 text-center">
+                        <span className="text-4xl font-bold">{numPeople}</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-11 w-11 rounded-full"
+                        onClick={() => setNumPeople(numPeople + 1)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="text-center py-3 bg-white dark:bg-gray-800 rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-0.5">Valor por pessoa</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {formatCurrency(perPersonAmount)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* By Item Selection */}
+                {splitMode === 'by-item' && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Selecione os itens para este pagamento:</Label>
+                    <div className="border rounded-xl divide-y max-h-48 overflow-y-auto">
+                      {allItems.map((item) => {
+                        const isSelected = selectedItems.some(si => si.itemId === item.id);
+                        const selectedItem = selectedItems.find(si => si.itemId === item.id);
+                        
+                        return (
+                          <div
+                            key={item.id}
+                            className={`flex items-center gap-3 p-3 transition-colors cursor-pointer hover:bg-muted/50 ${
+                              isSelected ? 'bg-primary/5' : ''
+                            }`}
+                            onClick={() => toggleItemSelection(item)}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleItemSelection(item)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{item.product_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(item.product_price)} cada
+                              </p>
+                            </div>
+                            {isSelected && selectedItem && (
+                              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateItemQuantity(item.id, selectedItem.quantity - 1)}
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </Button>
+                                <span className="w-6 text-center text-sm font-medium">{selectedItem.quantity}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateItemQuantity(item.id, selectedItem.quantity + 1)}
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            )}
+                            {!isSelected && (
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {item.quantity}x
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {selectedItems.length > 0 && (
+                      <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/20">
+                        <span className="font-medium text-sm">Subtotal</span>
+                        <span className="text-lg font-bold text-primary">{formatCurrency(selectedTotal)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button 
+                  className="w-full h-12 mt-4" 
+                  onClick={() => setStep('payment')}
+                  disabled={splitMode === 'by-item' && selectedItems.length === 0}
+                >
+                  Continuar para Pagamento
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+
+            {/* Step 3: Payment */}
+            {step === 'payment' && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Forma de Pagamento
+                </h3>
+                
+                {/* Amount to Pay */}
+                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    {splitMode === 'equal' ? 'Valor por pessoa' : splitMode === 'by-item' ? 'Valor dos itens selecionados' : 'Valor a pagar'}
+                  </p>
+                  <p className="text-3xl font-bold text-green-700 dark:text-green-400">
+                    {formatCurrency(amountToPay)}
+                  </p>
+                </div>
+
+                {/* Payment Methods */}
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { key: 'pix', icon: QrCode, label: 'PIX' },
+                    { key: 'credit', icon: CreditCard, label: 'Crédito' },
+                    { key: 'debit', icon: CreditCard, label: 'Débito' },
+                    { key: 'cash', icon: Banknote, label: 'Dinheiro' },
+                    { key: 'mixed', icon: Calculator, label: 'Misto' },
+                  ].map(({ key, icon: Icon, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                        paymentMethod === key 
+                          ? 'border-primary bg-primary/5 text-primary' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => setPaymentMethod(key as PaymentMethod)}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-[10px] font-medium leading-tight">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Cash Change Calculator */}
+                {paymentMethod === 'cash' && (
+                  <div className="bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4 space-y-3 border border-amber-200 dark:border-amber-800">
+                    <Label className="text-sm font-medium">Valor Recebido</Label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={cashReceived || ''}
+                      onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                      className="text-lg h-12 font-semibold"
+                    />
+                    {cashReceived > 0 && (
+                      <div className="flex justify-between items-center py-2 px-3 bg-white dark:bg-gray-800 rounded-lg">
+                        <span className="text-sm text-muted-foreground">Troco:</span>
+                        <span className={`text-xl font-bold ${change >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {formatCurrency(change)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -649,37 +696,52 @@ export function CloseTableModal({
           </div>
         </ScrollArea>
 
-        {/* Actions */}
-        <div className="flex gap-3 p-6 border-t bg-muted/30">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1 gap-2 h-12"
-            onClick={handlePrintReceipt}
-            disabled={printingReceipt}
-          >
-            {printingReceipt ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Printer className="w-4 h-4" />
-            )}
-            Imprimir Conferência
-          </Button>
-          <Button
-            type="button"
-            className="flex-1 gap-2 h-12 text-base font-semibold"
-            onClick={handleCloseTable}
-            disabled={loading || (splitMode === 'by-item' && selectedItems.length === 0)}
-          >
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Check className="w-4 h-4" />
-            )}
-            Fechar Mesa
-          </Button>
+        {/* Actions Footer */}
+        <div className="p-4 border-t bg-background shrink-0 space-y-2">
+          {step === 'payment' && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 h-11"
+                onClick={handlePrintReceipt}
+                disabled={printingReceipt}
+              >
+                {printingReceipt ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Printer className="w-4 h-4" />
+                )}
+                Imprimir Conferência
+              </Button>
+              <Button
+                type="button"
+                className="w-full gap-2 h-12 text-base font-semibold"
+                onClick={handleCloseTable}
+                disabled={loading || (paymentMethod === 'cash' && cashReceived < amountToPay && cashReceived > 0)}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                Confirmar Pagamento
+              </Button>
+            </>
+          )}
+          
+          {step !== 'payment' && step !== 'summary' && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => setStep(step === 'split' ? 'summary' : 'split')}
+            >
+              Voltar
+            </Button>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
