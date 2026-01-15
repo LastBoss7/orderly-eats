@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useAdminRole } from '@/hooks/useAdminRole';
@@ -7,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -15,6 +19,30 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Building2,
   ShoppingBag,
@@ -26,14 +54,28 @@ import {
   TrendingUp,
   Store,
   ShieldCheck,
+  MoreVertical,
+  Ban,
+  CheckCircle,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 
 export default function AdminDashboard() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useAdminRole();
-  const { restaurants, consolidated, loading, error, refetch } = useAdminMetrics();
+  const { restaurants, consolidated, loading, error, refetch, suspendRestaurant, reactivateRestaurant } = useAdminMetrics();
+  
+  const [suspendModalOpen, setSuspendModalOpen] = useState(false);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Loading states
   if (authLoading || roleLoading) {
@@ -65,6 +107,57 @@ export default function AdminDashboard() {
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "dd/MM/yyyy", { locale: ptBR });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return format(new Date(dateString), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  };
+
+  const handleSuspendClick = (restaurantId: string, restaurantName: string) => {
+    setSelectedRestaurant({ id: restaurantId, name: restaurantName });
+    setSuspendReason('');
+    setSuspendModalOpen(true);
+  };
+
+  const handleReactivateClick = (restaurantId: string, restaurantName: string) => {
+    setSelectedRestaurant({ id: restaurantId, name: restaurantName });
+    setReactivateDialogOpen(true);
+  };
+
+  const handleSuspendConfirm = async () => {
+    if (!selectedRestaurant || !suspendReason.trim()) {
+      toast.error('Por favor, informe o motivo da suspensão');
+      return;
+    }
+
+    setActionLoading(true);
+    const result = await suspendRestaurant(selectedRestaurant.id, suspendReason.trim());
+    setActionLoading(false);
+
+    if (result.success) {
+      toast.success(`Acesso de "${selectedRestaurant.name}" foi revogado`);
+      setSuspendModalOpen(false);
+      setSelectedRestaurant(null);
+      setSuspendReason('');
+    } else {
+      toast.error(result.error || 'Erro ao suspender restaurante');
+    }
+  };
+
+  const handleReactivateConfirm = async () => {
+    if (!selectedRestaurant) return;
+
+    setActionLoading(true);
+    const result = await reactivateRestaurant(selectedRestaurant.id);
+    setActionLoading(false);
+
+    if (result.success) {
+      toast.success(`Acesso de "${selectedRestaurant.name}" foi reativado`);
+      setReactivateDialogOpen(false);
+      setSelectedRestaurant(null);
+    } else {
+      toast.error(result.error || 'Erro ao reativar restaurante');
+    }
   };
 
   return (
@@ -106,9 +199,12 @@ export default function AdminDashboard() {
               ) : (
                 <>
                   <div className="text-2xl font-bold">{consolidated.totalRestaurants}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {consolidated.openRestaurants} abertos agora
-                  </p>
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    <span className="text-green-600">{consolidated.activeRestaurants} ativos</span>
+                    {consolidated.suspendedRestaurants > 0 && (
+                      <span className="text-red-600">• {consolidated.suspendedRestaurants} suspensos</span>
+                    )}
+                  </div>
                 </>
               )}
             </CardContent>
@@ -197,23 +293,23 @@ export default function AdminDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Restaurante</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>Acesso</TableHead>
+                      <TableHead>Operação</TableHead>
                       <TableHead className="text-right">Pedidos Hoje</TableHead>
                       <TableHead className="text-right">Faturamento Hoje</TableHead>
-                      <TableHead className="text-right">Total Histórico</TableHead>
                       <TableHead className="text-center">Produtos</TableHead>
                       <TableHead className="text-center">Mesas</TableHead>
-                      <TableHead className="text-center">Garçons</TableHead>
                       <TableHead>Cadastro</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {restaurants.map(restaurant => (
-                      <TableRow key={restaurant.restaurant_id}>
+                      <TableRow key={restaurant.restaurant_id} className={!restaurant.account_active ? 'opacity-60' : ''}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="p-1.5 rounded bg-primary/10">
-                              <UtensilsCrossed className="h-4 w-4 text-primary" />
+                            <div className={`p-1.5 rounded ${restaurant.account_active ? 'bg-primary/10' : 'bg-destructive/10'}`}>
+                              <UtensilsCrossed className={`h-4 w-4 ${restaurant.account_active ? 'text-primary' : 'text-destructive'}`} />
                             </div>
                             <div>
                               <div className="font-medium">{restaurant.restaurant_name}</div>
@@ -222,6 +318,26 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          {restaurant.account_active ? (
+                            <Badge variant="default" className="bg-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Ativo
+                            </Badge>
+                          ) : (
+                            <div>
+                              <Badge variant="destructive">
+                                <Ban className="h-3 w-3 mr-1" />
+                                Suspenso
+                              </Badge>
+                              {restaurant.suspended_at && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {formatDateTime(restaurant.suspended_at)}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={restaurant.is_open ? 'default' : 'secondary'}>
@@ -234,9 +350,6 @@ export default function AdminDashboard() {
                         <TableCell className="text-right font-medium text-green-600">
                           {formatCurrency(Number(restaurant.revenue_today) || 0)}
                         </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {formatCurrency(Number(restaurant.total_revenue) || 0)}
-                        </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Package className="h-3 w-3 text-muted-foreground" />
@@ -246,14 +359,36 @@ export default function AdminDashboard() {
                         <TableCell className="text-center">
                           {restaurant.total_tables}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Users className="h-3 w-3 text-muted-foreground" />
-                            {restaurant.total_waiters}
-                          </div>
-                        </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {formatDate(restaurant.restaurant_created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {restaurant.account_active ? (
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleSuspendClick(restaurant.restaurant_id, restaurant.restaurant_name)}
+                                >
+                                  <Ban className="h-4 w-4 mr-2" />
+                                  Revogar Acesso
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="text-green-600 focus:text-green-600"
+                                  onClick={() => handleReactivateClick(restaurant.restaurant_id, restaurant.restaurant_name)}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Reativar Acesso
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -264,6 +399,82 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Suspend Modal */}
+      <Dialog open={suspendModalOpen} onOpenChange={setSuspendModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Revogar Acesso
+            </DialogTitle>
+            <DialogDescription>
+              Você está prestes a suspender o acesso de <strong>{selectedRestaurant?.name}</strong>.
+              O restaurante não poderá mais operar até que o acesso seja reativado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reason">Motivo da suspensão *</Label>
+              <Textarea
+                id="reason"
+                placeholder="Descreva o motivo da suspensão..."
+                value={suspendReason}
+                onChange={(e) => setSuspendReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSuspendModalOpen(false)} disabled={actionLoading}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSuspendConfirm}
+              disabled={actionLoading || !suspendReason.trim()}
+            >
+              {actionLoading ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Suspendendo...
+                </>
+              ) : (
+                <>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Confirmar Suspensão
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reactivate Dialog */}
+      <AlertDialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              Reativar Acesso
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja reativar o acesso de <strong>{selectedRestaurant?.name}</strong>?
+              O restaurante poderá voltar a operar normalmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleReactivateConfirm}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Reativando...' : 'Confirmar Reativação'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

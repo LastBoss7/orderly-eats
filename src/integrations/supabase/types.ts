@@ -1096,6 +1096,7 @@ export type Database = {
     Views: {
       admin_restaurant_metrics: {
         Row: {
+          account_active: boolean | null
           address: string | null
           cnpj: string | null
           daily_order_counter: number | null
@@ -1107,6 +1108,8 @@ export type Database = {
           restaurant_name: string | null
           revenue_today: number | null
           slug: string | null
+          suspended_at: string | null
+          suspended_reason: string | null
           total_categories: number | null
           total_orders: number | null
           total_products: number | null
