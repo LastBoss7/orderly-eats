@@ -9,6 +9,9 @@ interface RestaurantMetrics {
   phone: string | null;
   address: string | null;
   restaurant_created_at: string;
+  account_active: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
   is_open: boolean | null;
   daily_order_counter: number | null;
   total_orders: number;
@@ -23,6 +26,8 @@ interface RestaurantMetrics {
 
 interface ConsolidatedMetrics {
   totalRestaurants: number;
+  activeRestaurants: number;
+  suspendedRestaurants: number;
   totalOrders: number;
   ordersToday: number;
   totalRevenue: number;
@@ -37,6 +42,8 @@ export function useAdminMetrics() {
   const [restaurants, setRestaurants] = useState<RestaurantMetrics[]>([]);
   const [consolidated, setConsolidated] = useState<ConsolidatedMetrics>({
     totalRestaurants: 0,
+    activeRestaurants: 0,
+    suspendedRestaurants: 0,
     totalOrders: 0,
     ordersToday: 0,
     totalRevenue: 0,
@@ -70,6 +77,8 @@ export function useAdminMetrics() {
       // Calculate consolidated metrics
       const consolidated: ConsolidatedMetrics = {
         totalRestaurants: metrics.length,
+        activeRestaurants: metrics.filter(r => r.account_active).length,
+        suspendedRestaurants: metrics.filter(r => !r.account_active).length,
         totalOrders: metrics.reduce((sum, r) => sum + (r.total_orders || 0), 0),
         ordersToday: metrics.reduce((sum, r) => sum + (r.orders_today || 0), 0),
         totalRevenue: metrics.reduce((sum, r) => sum + (Number(r.total_revenue) || 0), 0),
@@ -88,6 +97,46 @@ export function useAdminMetrics() {
     }
   };
 
+  const suspendRestaurant = async (restaurantId: string, reason: string) => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({
+          is_active: false,
+          suspended_at: new Date().toISOString(),
+          suspended_reason: reason,
+        })
+        .eq('id', restaurantId);
+
+      if (error) throw error;
+      await fetchMetrics();
+      return { success: true };
+    } catch (err) {
+      console.error('Error suspending restaurant:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Erro ao suspender' };
+    }
+  };
+
+  const reactivateRestaurant = async (restaurantId: string) => {
+    try {
+      const { error } = await supabase
+        .from('restaurants')
+        .update({
+          is_active: true,
+          suspended_at: null,
+          suspended_reason: null,
+        })
+        .eq('id', restaurantId);
+
+      if (error) throw error;
+      await fetchMetrics();
+      return { success: true };
+    } catch (err) {
+      console.error('Error reactivating restaurant:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Erro ao reativar' };
+    }
+  };
+
   useEffect(() => {
     fetchMetrics();
   }, []);
@@ -98,5 +147,7 @@ export function useAdminMetrics() {
     loading,
     error,
     refetch: fetchMetrics,
+    suspendRestaurant,
+    reactivateRestaurant,
   };
 }
