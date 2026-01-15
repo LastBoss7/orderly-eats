@@ -468,7 +468,7 @@ async function markOrderPrinted(order) {
     const supabaseUrl = store.get('supabaseUrl');
     const restaurantId = store.get('restaurantId');
     
-    await fetch(
+    const response = await fetch(
       `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=mark-printed`,
       {
         method: 'POST',
@@ -479,13 +479,28 @@ async function markOrderPrinted(order) {
         body: JSON.stringify({ order_ids: [order.id] }),
       }
     );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error('Falha ao marcar como impresso');
+    }
+    
+    sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} marcado como impresso`);
+    return true;
   } catch (error) {
-    sendToRenderer('log', `Erro ao marcar pedido como impresso: ${error.message}`);
+    sendToRenderer('log', `✗ Erro ao marcar pedido como impresso: ${error.message}`);
+    return false;
   }
 }
 
 async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdateStatus = true) {
   const orderType = order.order_type || 'counter';
+  const orderLabel = `#${order.order_number || order.id.slice(0, 8)}`;
   
   // Use provided printerName or fallback to local config
   if (!printerName) {
@@ -497,6 +512,8 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
     const layout = cachedPrintLayout || defaultLayout;
     const restaurantInfo = cachedRestaurantInfo || { name: 'Restaurante', phone: null, address: null, cnpj: null };
     
+    sendToRenderer('log', `Imprimindo pedido ${orderLabel} em "${printerName || 'padrao'}"...`);
+    
     const success = await printerService.printOrder(order, {
       layout,
       restaurantInfo,
@@ -504,9 +521,12 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
     });
 
     if (success) {
-      // Only update order status if requested
+      // CRITICAL: Update order status BEFORE anything else
       if (shouldUpdateStatus) {
-        await markOrderPrinted(order);
+        const marked = await markOrderPrinted(order);
+        if (!marked) {
+          sendToRenderer('log', `⚠ Impresso mas falhou ao marcar status - pode reimprimir!`);
+        }
       }
 
       // Log success
@@ -528,18 +548,13 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
       updateTrayMenu();
       sendToRenderer('print-success', { orderId: order.id, orderType });
       sendToRenderer('stats', { printedCount });
-      sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} impresso com sucesso`);
-      
-      // Play sound notification
-      if (store.get('soundNotification')) {
-        // Sound will be played by the renderer
-      }
+      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso`);
       
       return true;
     }
     return false;
   } catch (error) {
-    sendToRenderer('log', `✗ Erro ao imprimir pedido: ${error.message}`);
+    sendToRenderer('log', `✗ Erro ao imprimir pedido ${orderLabel}: ${error.message}`);
     
     try {
       await supabase.from('print_logs').insert({

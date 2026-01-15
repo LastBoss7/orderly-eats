@@ -271,20 +271,21 @@ class PrinterService {
           itemName += ` (${this.removeAccents(item.product_size)})`;
         }
         
-        // Item line - larger font
+        // Item line - normal size for better readability
         if (layout.boldItems) {
           buffers.push(ESCPOS.TXT_BOLD_ON);
         }
-        buffers.push(ESCPOS.TXT_SIZE_2H);
         
-        // Truncate if needed
+        // Use normal size to fit more characters per line
         const itemLine = `${qty}x ${itemName}`;
-        if (itemLine.length > width / 2) {
-          buffers.push(Buffer.from(`${itemLine.slice(0, Math.floor(width / 2) - 1)}...\n`, encoding));
+        // Use width - 4 for margin, no truncation unless really needed
+        const maxItemLen = width - 4;
+        if (itemLine.length > maxItemLen) {
+          buffers.push(Buffer.from(`${itemLine.slice(0, maxItemLen - 3)}...\n`, encoding));
         } else {
           buffers.push(Buffer.from(`${itemLine}\n`, encoding));
         }
-        buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+        
         if (layout.boldItems) {
           buffers.push(ESCPOS.TXT_BOLD_OFF);
         }
@@ -525,27 +526,30 @@ class PrinterService {
   // ============================================
 
   formatReceipt(order, layout, restaurantInfo = {}) {
-    const width = layout.paperWidth || (layout.paperSize === '58mm' ? 32 : 48);
+    // For thermal printers via text mode, use fixed width chars
+    // Common widths: 32 (58mm), 42 (80mm standard), 48 (80mm compact)
+    const width = layout.paperWidth || 42;
     const divider = '='.repeat(width);
     const thinDivider = '-'.repeat(width);
     
     const lines = [];
     
-    // Header
+    // Header - no centering to avoid formatting issues
     if (layout.showRestaurantName && restaurantInfo.name) {
-      lines.push(this.center(this.removeAccents(restaurantInfo.name.toUpperCase()), width));
+      const name = this.removeAccents(restaurantInfo.name.toUpperCase());
+      lines.push(name);
     }
     
     if (layout.showAddress && restaurantInfo.address) {
-      lines.push(this.center(this.removeAccents(restaurantInfo.address), width));
+      lines.push(this.removeAccents(restaurantInfo.address));
     }
     
     if (layout.showPhone && restaurantInfo.phone) {
-      lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
+      lines.push('Tel: ' + restaurantInfo.phone);
     }
     
     if (layout.showCnpj && restaurantInfo.cnpj) {
-      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
+      lines.push('CNPJ: ' + restaurantInfo.cnpj);
     }
     
     if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {
@@ -553,14 +557,13 @@ class PrinterService {
     }
     
     // Title
-    lines.push(this.center(layout.receiptTitle || '*** PEDIDO ***', width));
-    lines.push('');
+    lines.push(layout.receiptTitle || '*** PEDIDO ***');
     lines.push(divider);
     
-    // Order number
+    // Order number - prominent
     if (layout.showOrderNumber) {
-      const orderNum = order.id.slice(0, 8).toUpperCase();
-      lines.push(this.center(`#${orderNum}`, width));
+      const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
+      lines.push(`PEDIDO #${orderNum}`);
       lines.push('');
     }
     
@@ -575,13 +578,18 @@ class PrinterService {
     }
     
     // Table
-    if (layout.showTable && order.table_id) {
-      lines.push(`Mesa: ${order.table_id}`);
+    if (layout.showTable && (order.table_number || order.table_id)) {
+      lines.push(`Mesa: ${order.table_number || order.table_id}`);
+    }
+    
+    // Waiter
+    if (layout.showWaiter && order.waiter_name) {
+      lines.push(`Garcom: ${this.removeAccents(order.waiter_name)}`);
     }
     
     // Customer info
     if (layout.showCustomerName && order.customer_name) {
-      lines.push(`Cliente: ${order.customer_name}`);
+      lines.push(`Cliente: ${this.removeAccents(order.customer_name)}`);
     }
     
     if (layout.showCustomerPhone && order.delivery_phone) {
@@ -589,11 +597,17 @@ class PrinterService {
     }
     
     if (layout.showDeliveryAddress && order.delivery_address) {
-      lines.push(`End: ${order.delivery_address}`);
+      const addr = this.removeAccents(order.delivery_address);
+      // Word wrap long addresses
+      if (addr.length > width - 5) {
+        lines.push(`End: ${addr.slice(0, width - 5)}`);
+        lines.push(`     ${addr.slice(width - 5)}`);
+      } else {
+        lines.push(`End: ${addr}`);
+      }
     }
     
     lines.push(divider);
-    lines.push('');
     
     // Items
     lines.push('ITENS:');
@@ -602,19 +616,29 @@ class PrinterService {
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
         const qty = item.quantity || 1;
-        const name = item.product_name;
+        let name = this.removeAccents(item.product_name);
         
-        lines.push(`${qty}x ${name}`);
+        // Add size if available
+        if (layout.showItemSize && item.product_size) {
+          name += ` (${this.removeAccents(item.product_size)})`;
+        }
+        
+        // Truncate if needed
+        const itemLine = `${qty}x ${name}`;
+        if (itemLine.length > width - 2) {
+          lines.push(itemLine.slice(0, width - 2));
+        } else {
+          lines.push(itemLine);
+        }
         
         if (layout.showItemPrices) {
           const price = (item.product_price * qty).toFixed(2);
-          lines.push(this.alignRight(`R$ ${price}`, width));
+          lines.push(`   R$ ${price}`);
         }
         
         if (layout.showItemNotes && item.notes) {
-          lines.push(`   Obs: ${item.notes}`);
+          lines.push(`   Obs: ${this.removeAccents(item.notes)}`);
         }
-        lines.push('');
       }
     }
     
@@ -623,19 +647,28 @@ class PrinterService {
     // Totals
     if (layout.showTotals) {
       if (layout.showDeliveryFee && order.delivery_fee && order.delivery_fee > 0) {
-        lines.push(this.alignBoth('Taxa de entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width));
+        lines.push(`Taxa entrega: R$ ${order.delivery_fee.toFixed(2)}`);
       }
       
-      lines.push(this.alignBoth('TOTAL:', `R$ ${(order.total || 0).toFixed(2)}`, width));
+      lines.push(`TOTAL: R$ ${(order.total || 0).toFixed(2)}`);
     }
     
-    lines.push('');
+    // Payment method
+    if (layout.showPaymentMethod && order.payment_method) {
+      const paymentLabels = {
+        'cash': 'Dinheiro',
+        'credit': 'Credito',
+        'debit': 'Debito',
+        'pix': 'PIX',
+      };
+      lines.push(`Pagamento: ${paymentLabels[order.payment_method] || order.payment_method}`);
+    }
     
     // Notes
     if (order.notes) {
-      lines.push(divider);
+      lines.push('');
       lines.push('OBSERVACOES:');
-      lines.push(order.notes);
+      lines.push(this.removeAccents(order.notes));
     }
     
     lines.push('');
@@ -645,20 +678,21 @@ class PrinterService {
     if (layout.showDateTime) {
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR');
-      lines.push(this.center(`${dateStr} ${timeStr}`, width));
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      lines.push(`${dateStr} ${timeStr}`);
     }
     
     if (layout.footerMessage) {
-      lines.push('');
-      lines.push(this.center(layout.footerMessage, width));
+      lines.push(this.removeAccents(layout.footerMessage));
     }
     
+    // Extra line feeds for paper feed
+    lines.push('');
     lines.push('');
     lines.push('');
     lines.push('');
 
-    return lines.join('\n');
+    return lines.join('\r\n');
   }
 
   formatTestReceipt(layout) {
