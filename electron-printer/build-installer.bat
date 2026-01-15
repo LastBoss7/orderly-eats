@@ -1,6 +1,6 @@
 @echo off
 echo ========================================
-echo   Compilador do App Impressora BareRest
+echo   Compilador do App Impressora Gamako
 echo ========================================
 echo.
 

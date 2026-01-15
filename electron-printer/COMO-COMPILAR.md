@@ -1,4 +1,4 @@
-# Como Compilar o App Impressora BareRest
+# Como Compilar o App Impressora Gamako
 
 ## Pré-requisitos
 

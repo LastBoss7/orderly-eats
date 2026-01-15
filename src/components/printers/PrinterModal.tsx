@@ -185,8 +185,8 @@ export function PrinterModal({
     lines.push(thinDivider);
 
     // Footer
-    lines.push(center('Powered By: BareRest'));
-    lines.push(center('Acesse: https://barerest.lovable.app'));
+    lines.push(center('Powered By: Gamako'));
+    lines.push(center('Acesse: https://gamako.com.br'));
 
     return lines.join('\n');
   };

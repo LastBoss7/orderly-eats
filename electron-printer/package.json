@@ -1,9 +1,9 @@
 {
-  "name": "impressora-pedidos",
+  "name": "gamako-impressora",
   "version": "1.0.0",
-  "description": "Aplicativo de impressão automática de pedidos",
+  "description": "Aplicativo de impressão automática de pedidos - Gamako",
   "main": "src/main.js",
-  "author": "Seu Restaurante",
+  "author": "Gamako",
   "license": "MIT",
   "scripts": {
     "start": "electron .",
@@ -14,8 +14,8 @@
     "rebuild": "electron-rebuild -f -w usb"
   },
   "build": {
-    "appId": "com.restaurante.impressora",
-    "productName": "Impressora de Pedidos",
+    "appId": "com.gamako.impressora",
+    "productName": "Gamako Impressora",
     "directories": {
       "output": "dist"
     },

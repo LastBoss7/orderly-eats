@@ -429,13 +429,13 @@ export function ReceiptLayoutEditor() {
       lines.push(center(layout.customFooterLine3));
     }
 
-    // Default footer (Powered By: BareRest)
+    // Default footer (Powered By: Gamako)
     if (layout.showDefaultFooter) {
       if (layout.footerMessage || layout.customFooterLine1 || layout.customFooterLine2 || layout.customFooterLine3) {
         lines.push('');
       }
-      lines.push(center('Powered By: BareRest'));
-      lines.push(center('https://barerest.lovable.app'));
+      lines.push(center('Powered By: Gamako'));
+      lines.push(center('https://gamako.com.br'));
     }
 
     return lines.join('\n');
@@ -733,7 +733,7 @@ export function ReceiptLayoutEditor() {
             <Separator />
             <div className="flex items-center justify-between">
               <div>
-                <Label htmlFor="showDefaultFooter" className="cursor-pointer">Mostrar "Powered By: BareRest"</Label>
+                <Label htmlFor="showDefaultFooter" className="cursor-pointer">Mostrar "Powered By: Gamako"</Label>
                 <p className="text-xs text-muted-foreground">Exibir créditos no final do cupom</p>
               </div>
               <Switch
