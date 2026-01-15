@@ -15,6 +15,9 @@ interface Restaurant {
   name: string;
   slug: string;
   logo_url: string | null;
+  is_active: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
 }
 
 interface AuthContextType {
@@ -23,7 +26,9 @@ interface AuthContextType {
   profile: Profile | null;
   restaurant: Restaurant | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  isSuspended: boolean;
+  suspendedReason: string | null;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; suspended?: boolean; suspendedReason?: string }>;
   signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -36,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSuspended, setIsSuspended] = useState(false);
+  const [suspendedReason, setSuspendedReason] = useState<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -49,15 +56,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileData) {
         setProfile(profileData);
 
-        // Fetch restaurant
+        // Fetch restaurant with is_active status
         const { data: restaurantData } = await supabase
           .from('restaurants')
-          .select('*')
+          .select('id, name, slug, logo_url, is_active, suspended_at, suspended_reason')
           .eq('id', profileData.restaurant_id)
           .maybeSingle();
 
         if (restaurantData) {
           setRestaurant(restaurantData);
+          
+          // Check if restaurant is suspended
+          if (restaurantData.is_active === false) {
+            setIsSuspended(true);
+            setSuspendedReason(restaurantData.suspended_reason);
+          } else {
+            setIsSuspended(false);
+            setSuspendedReason(null);
+          }
         }
       }
     } catch (error) {
@@ -97,8 +113,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+      return { error };
+    }
+    
+    // Check if restaurant is suspended
+    if (data.user) {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('restaurant_id')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+        
+      if (profileData) {
+        const { data: restaurantData } = await supabase
+          .from('restaurants')
+          .select('is_active, suspended_reason')
+          .eq('id', profileData.restaurant_id)
+          .maybeSingle();
+          
+        if (restaurantData && restaurantData.is_active === false) {
+          // Sign out the user immediately
+          await supabase.auth.signOut();
+          return { 
+            error: null, 
+            suspended: true, 
+            suspendedReason: restaurantData.suspended_reason || 'Acesso revogado pelo administrador' 
+          };
+        }
+      }
+    }
+    
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => {
@@ -153,10 +201,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRestaurant(null);
+    setIsSuspended(false);
+    setSuspendedReason(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, restaurant, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, restaurant, loading, isSuspended, suspendedReason, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );
