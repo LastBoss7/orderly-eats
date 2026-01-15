@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useRestaurantBell } from './useRestaurantBell';
+import { playDoubleBell } from '@/lib/restaurantBell';
 
 interface UseDeliveryNotificationsOptions {
   restaurantId?: string;
@@ -17,12 +17,11 @@ export function useDeliveryNotifications({
   playSound = true,
 }: UseDeliveryNotificationsOptions) {
   const { toast } = useToast();
-  const { playDoubleBell } = useRestaurantBell();
 
   const playNotificationSound = useCallback(() => {
     if (!playSound) return;
     playDoubleBell(0.6);
-  }, [playSound, playDoubleBell]);
+  }, [playSound]);
 
   useEffect(() => {
     if (!enabled || !restaurantId) return;
