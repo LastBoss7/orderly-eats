@@ -356,14 +356,14 @@ export function PrinterStatusPanel() {
             </Button>
           </div>
 
-          {/* Connected Printers */}
+          {/* Connected Printers from Electron */}
           {availablePrinters && availablePrinters.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
                 <Printer className="w-4 h-4" />
-                Impressoras Detectadas
+                Impressoras do Windows (via Electron)
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2">
                 {availablePrinters.map((printer) => {
                   const lastSeen = new Date(printer.last_seen_at);
                   const now = new Date();
@@ -371,20 +371,35 @@ export function PrinterStatusPanel() {
                   const isActive = diffMinutes < 2;
                   
                   return (
-                    <Badge 
-                      key={printer.id} 
-                      variant={isActive ? 'default' : 'secondary'}
-                      className={isActive ? 'bg-success/20 text-success border-success/30' : ''}
+                    <div 
+                      key={printer.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        isActive 
+                          ? 'bg-success/5 border-success/30' 
+                          : 'bg-muted/30 border-muted'
+                      }`}
                     >
-                      {isActive && (
-                        <span className="w-2 h-2 rounded-full bg-success mr-2"></span>
-                      )}
-                      {printer.display_name || printer.printer_name}
-                      {printer.is_default && ' (Padrão)'}
-                    </Badge>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-success' : 'bg-muted-foreground'}`} />
+                        <div>
+                          <span className="font-medium text-sm">
+                            {printer.display_name || printer.printer_name}
+                          </span>
+                          {printer.is_default && (
+                            <Badge variant="secondary" className="ml-2 text-xs">Padrão</Badge>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {isActive ? 'Ativa' : formatDistanceToNow(lastSeen, { locale: ptBR, addSuffix: true })}
+                      </span>
+                    </div>
                   );
                 })}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Selecione as impressoras ativas no aplicativo Electron clicando em "Listar"
+              </p>
             </div>
           )}
 
