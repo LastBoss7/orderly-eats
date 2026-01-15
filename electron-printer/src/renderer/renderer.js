@@ -21,6 +21,7 @@ document.getElementById('btnConfigurar').addEventListener('click', () => openMod
 document.getElementById('btnPrinters').addEventListener('click', () => openPrintersModal());
 document.getElementById('btnTestPrint').addEventListener('click', testPrint);
 document.getElementById('btnReconnect').addEventListener('click', reconnect);
+document.getElementById('btnRefreshConfig').addEventListener('click', refreshConfig);
 document.getElementById('btnClearPending').addEventListener('click', clearPendingOrders);
 document.getElementById('btnQuit').addEventListener('click', () => window.electronAPI.quit());
 document.getElementById('btnLogs').addEventListener('click', openLog);
@@ -315,6 +316,33 @@ async function reconnect() {
   } catch (error) {
     addLog('Erro ao reconectar: ' + error.message, 'error');
     showToast('Erro ao reconectar', 'error');
+  }
+}
+
+async function refreshConfig() {
+  try {
+    addLog('Atualizando configurações do servidor...', 'info');
+    showToast('Atualizando configurações...', 'info');
+    
+    const result = await window.electronAPI.refreshConfig();
+    
+    if (result.success) {
+      const layout = result.layout;
+      const info = [
+        `Papel: ${layout?.paperSize || '80mm'}`,
+        `Colunas: ${layout?.paperWidth || 48}`,
+        `Impressoras: ${result.printers || 0}`,
+      ].join(' | ');
+      
+      addLog(`✓ Configurações atualizadas: ${info}`, 'success');
+      showToast('Configurações atualizadas do servidor!', 'success');
+    } else {
+      addLog('✗ Erro: ' + result.error, 'error');
+      showToast('Erro ao atualizar: ' + result.error, 'error');
+    }
+  } catch (error) {
+    addLog('✗ Erro: ' + error.message, 'error');
+    showToast('Erro ao atualizar configurações', 'error');
   }
 }
 
