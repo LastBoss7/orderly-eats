@@ -124,14 +124,17 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, '../assets/tray-icon.png');
+  const iconPath = path.join(__dirname, '../assets/icon.png');
   let icon;
   
   try {
     icon = nativeImage.createFromPath(iconPath);
-    icon = icon.resize({ width: 16, height: 16 });
+    // Resize for tray (16x16 on Windows, 22x22 on macOS)
+    const isWin = process.platform === 'win32';
+    icon = icon.resize({ width: isWin ? 16 : 22, height: isWin ? 16 : 22 });
   } catch (e) {
     // Fallback if icon doesn't exist
+    console.error('Failed to load tray icon:', e);
     icon = nativeImage.createEmpty();
   }
   
