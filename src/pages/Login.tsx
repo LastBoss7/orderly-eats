@@ -5,8 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { ChefHat, Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList } from 'lucide-react';
+import { ChefHat, Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // CNPJ validation function (local check digits validation)
 const validateCNPJDigits = (cnpj: string): boolean => {
@@ -93,18 +101,30 @@ export default function Login() {
   const [cnpjError, setCnpjError] = useState('');
   const [cnpjValidated, setCnpjValidated] = useState(false);
   const [cnpjData, setCnpjData] = useState<CNPJData | null>(null);
+  
+  // Suspended account state
+  const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
+  const [suspendedReasonMessage, setSuspendedReasonMessage] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(loginEmail, loginPassword);
+    const result = await signIn(loginEmail, loginPassword);
 
-    if (error) {
+    if (result.suspended) {
+      // Show suspended dialog
+      setSuspendedReasonMessage(result.suspendedReason || 'Acesso revogado pelo administrador');
+      setShowSuspendedDialog(true);
+      setIsLoading(false);
+      return;
+    }
+
+    if (result.error) {
       toast({
         variant: 'destructive',
         title: 'Erro ao entrar',
-        description: error.message,
+        description: result.error.message,
       });
     } else {
       toast({
@@ -562,6 +582,44 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* Suspended Account Dialog */}
+      <AlertDialog open={showSuspendedDialog} onOpenChange={setShowSuspendedDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                <Ban className="h-8 w-8 text-destructive" />
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center text-xl">
+              Acesso Revogado
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-3">
+              <p>
+                O acesso ao sistema foi revogado para este estabelecimento.
+              </p>
+              {suspendedReasonMessage && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-3">
+                  <p className="text-sm font-medium text-destructive">Motivo:</p>
+                  <p className="text-sm text-foreground mt-1">{suspendedReasonMessage}</p>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground mt-4">
+                Entre em contato com o suporte para mais informações.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <Button
+              onClick={() => setShowSuspendedDialog(false)}
+              className="w-full sm:w-auto"
+            >
+              Entendi
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
