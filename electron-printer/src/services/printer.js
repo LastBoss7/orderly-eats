@@ -536,35 +536,150 @@ class PrinterService {
   }
 
   // ============================================
-  // TEXT PRINTING (Fallback)
+  // TEXT PRINTING (Fallback) - FIXED WORD WRAP
   // ============================================
 
   /**
-   * Format receipt following the standard schema:
-   * - Header: Date/Time + Restaurant Name (centered)
-   * - Separator
-   * - "Pedido X" (centered)
-   * - Items with quantity, name, observation, subitems and price aligned right
-   * - Separator between items
-   * - Customer info (Cliente, Telefone, Entrega)
-   * - Separator
-   * - Payment method
-   * - Separator
-   * - Subtotal and Total
-   * - Footer
+   * Word wrap text to fit width - NEVER breaks words in the middle
+   */
+  wrapText(text, width) {
+    if (!text) return [''];
+    
+    const cleanText = String(text).trim();
+    if (cleanText.length <= width) return [cleanText];
+    
+    const words = cleanText.split(/\s+/);
+    const lines = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      // If word itself is longer than width, we must break it
+      if (word.length > width) {
+        // Push current line if exists
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = '';
+        }
+        // Break long word into chunks
+        for (let i = 0; i < word.length; i += width) {
+          lines.push(word.slice(i, i + width));
+        }
+        continue;
+      }
+      
+      // Check if word fits in current line
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      if (testLine.length <= width) {
+        currentLine = testLine;
+      } else {
+        // Word doesn't fit - push current line and start new one
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+        currentLine = word;
+      }
+    }
+    
+    // Don't forget the last line
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines.length > 0 ? lines : [''];
+  }
+
+  /**
+   * Pad line to exact width (fill with spaces on the right)
+   */
+  padLine(text, width) {
+    if (!text) return ' '.repeat(width);
+    const str = String(text);
+    if (str.length >= width) return str.slice(0, width);
+    return str + ' '.repeat(width - str.length);
+  }
+
+  /**
+   * Center text with padding on both sides
+   */
+  center(text, width) {
+    if (!text) return ' '.repeat(width);
+    const str = String(text);
+    if (str.length >= width) return str.slice(0, width);
+    const leftPad = Math.floor((width - str.length) / 2);
+    const rightPad = width - str.length - leftPad;
+    return ' '.repeat(leftPad) + str + ' '.repeat(rightPad);
+  }
+
+  /**
+   * Align text to the right
+   */
+  alignRight(text, width) {
+    const str = String(text || '');
+    if (str.length >= width) return str.slice(0, width);
+    return ' '.repeat(width - str.length) + str;
+  }
+
+  /**
+   * Align left and right text on the same line
+   */
+  alignBoth(left, right, width) {
+    const leftStr = String(left || '');
+    const rightStr = String(right || '');
+    
+    // Minimum 1 space between left and right
+    const minGap = 1;
+    const maxLeftLen = width - rightStr.length - minGap;
+    
+    if (maxLeftLen <= 0) {
+      // Right text is too long, just return it
+      return rightStr.slice(0, width);
+    }
+    
+    // Truncate left if needed
+    const finalLeft = leftStr.length > maxLeftLen ? leftStr.slice(0, maxLeftLen) : leftStr;
+    const gap = width - finalLeft.length - rightStr.length;
+    
+    return finalLeft + ' '.repeat(gap) + rightStr;
+  }
+
+  /**
+   * Format receipt following proper structure with word wrapping
    */
   formatReceipt(order, layout, restaurantInfo = {}) {
-    const width = parseInt(layout.paperWidth, 10) || 46;
-    const thinDivider = this.createLine('-', width);
+    // Paper width in characters - use smaller default for thermal
+    const width = parseInt(layout.paperWidth, 10) || 32;
+    const divider = this.createLine('-', width);
     
     const lines = [];
     
-    // Helper to pad any line to exact width
-    const addLine = (text) => lines.push(this.padLine(text || '', width));
-    const addDivider = () => lines.push(thinDivider);
+    // Helper to add a single line (padded to width)
+    const addLine = (text) => {
+      lines.push(this.padLine(text || '', width));
+    };
+    
+    // Helper to add centered text with word wrap
+    const addCentered = (text) => {
+      const wrapped = this.wrapText(this.removeAccents(text), width);
+      wrapped.forEach(line => {
+        lines.push(this.center(line, width));
+      });
+    };
+    
+    // Helper to add left-aligned text with word wrap
+    const addLeft = (text) => {
+      const wrapped = this.wrapText(this.removeAccents(text), width);
+      wrapped.forEach(line => {
+        lines.push(this.padLine(line, width));
+      });
+    };
+    
+    // Helper to add divider
+    const addDivider = () => {
+      lines.push(divider);
+    };
     
     // ============================================
-    // HEADER - Date/Time + Restaurant Name (centered)
+    // HEADER - Date/Time
     // ============================================
     if (layout.showDateTime !== false) {
       const now = new Date(order.created_at || Date.now());
@@ -573,8 +688,9 @@ class PrinterService {
       lines.push(this.center(dateStr + ' ' + timeStr, width));
     }
     
+    // Restaurant Name (with word wrap for long names)
     if (layout.showRestaurantName !== false && restaurantInfo.name) {
-      lines.push(this.center(this.removeAccents(restaurantInfo.name), width));
+      addCentered(restaurantInfo.name.toUpperCase());
     }
     
     addDivider();
@@ -600,28 +716,37 @@ class PrinterService {
           const item = order.order_items[i];
           const qty = item.quantity || 1;
           const name = this.removeAccents(item.product_name || 'Item');
+          const size = item.product_size ? ' (' + item.product_size + ')' : '';
           const price = item.product_price || 0;
           
-          // Main item line: (qty) Name                    R$ price
-          const itemLeft = '(' + qty + ') ' + name;
-          const itemRight = layout.showItemPrices !== false ? 'R$ ' + (price * qty).toFixed(2).replace('.', ',') : '';
-          lines.push(this.alignBoth(itemLeft, itemRight, width));
+          // Item name with quantity - may need word wrap
+          const itemName = '(' + qty + ') ' + name + size;
+          const priceStr = layout.showItemPrices !== false ? 'R$ ' + (price * qty).toFixed(2).replace('.', ',') : '';
+          
+          // If item name + price fits in one line
+          if (itemName.length + priceStr.length + 1 <= width) {
+            lines.push(this.alignBoth(itemName, priceStr, width));
+          } else {
+            // Item name on first line(s), price on last line aligned right
+            const wrappedName = this.wrapText(itemName, width - (priceStr ? 1 : 0));
+            wrappedName.forEach((line, idx) => {
+              if (idx === wrappedName.length - 1 && priceStr) {
+                // Last line with price
+                if (line.length + priceStr.length + 1 <= width) {
+                  lines.push(this.alignBoth(line, priceStr, width));
+                } else {
+                  lines.push(this.padLine(line, width));
+                  lines.push(this.alignRight(priceStr, width));
+                }
+              } else {
+                lines.push(this.padLine(line, width));
+              }
+            });
+          }
           
           // Observation (OBS:)
           if (layout.showItemNotes !== false && item.notes) {
-            addLine('  OBS: ' + this.removeAccents(item.notes));
-          }
-          
-          // Sub-items / Additionals (indented)
-          if (item.subitems && item.subitems.length > 0) {
-            for (const subitem of item.subitems) {
-              const subQty = subitem.quantity || 1;
-              const subName = this.removeAccents(subitem.name || subitem.product_name || '');
-              const subPrice = subitem.price || subitem.product_price || 0;
-              const subLeft = '  (' + subQty + ') ' + subName;
-              const subRight = subPrice > 0 ? 'R$ ' + (subPrice * subQty).toFixed(2).replace('.', ',') : '';
-              lines.push(this.alignBoth(subLeft, subRight, width));
-            }
+            addLeft('  OBS: ' + item.notes);
           }
           
           // Separator between items (except last)
@@ -635,42 +760,28 @@ class PrinterService {
     addLine('');
     
     // ============================================
-    // CUSTOMER INFO
+    // CUSTOMER / DELIVERY INFO
     // ============================================
-    let hasCustomerInfo = false;
-    
     if (layout.showCustomerName !== false && order.customer_name) {
-      addLine('Cliente: ' + this.removeAccents(order.customer_name));
-      hasCustomerInfo = true;
+      addLeft('Cliente: ' + order.customer_name);
     }
     
     if (layout.showCustomerPhone !== false && order.delivery_phone) {
-      addLine('Telefone: ' + order.delivery_phone);
-      hasCustomerInfo = true;
+      addLeft('Tel: ' + order.delivery_phone);
     }
     
-    // Delivery / Order type info
+    // Order type / Delivery info
     if (layout.showOrderType !== false) {
-      const orderTypeLabels = {
-        'counter': 'Retirada no balcao',
-        'table': 'Consumo no local',
-        'delivery': 'Entrega',
-      };
-      const typeLabel = orderTypeLabels[order.order_type] || order.order_type || '';
-      
       if (order.order_type === 'delivery' && order.delivery_address) {
-        addLine('Entrega: ' + this.removeAccents(order.delivery_address));
+        addLeft('Entrega: ' + order.delivery_address);
       } else if (order.order_type === 'table' && (order.table_number || order.table_id)) {
-        addLine('Mesa: ' + (order.table_number || order.table_id));
-      } else if (typeLabel) {
-        addLine('Entrega: ' + typeLabel);
+        addLeft('Mesa: ' + (order.table_number || order.table_id));
+      } else if (order.order_type === 'takeaway' || order.order_type === 'counter') {
+        addLeft('Entrega: Retirada no balcao');
       }
-      hasCustomerInfo = true;
     }
     
-    if (hasCustomerInfo) {
-      addLine('');
-    }
+    addLine('');
     
     // ============================================
     // PAYMENT METHOD
@@ -679,13 +790,12 @@ class PrinterService {
       addDivider();
       const paymentLabels = {
         'cash': 'Dinheiro',
-        'credit': 'Cartao de Credito',
-        'debit': 'Cartao de Debito',
+        'credit': 'Cartao Credito',
+        'debit': 'Cartao Debito',
         'pix': 'PIX',
-        'card': 'Cartao',
       };
-      const paymentLabel = paymentLabels[order.payment_method] || this.removeAccents(order.payment_method);
-      addLine('Forma de Pagamento: ' + paymentLabel);
+      const paymentLabel = paymentLabels[order.payment_method] || order.payment_method;
+      addLeft('Pagamento: ' + paymentLabel);
       addLine('');
     }
     
@@ -705,7 +815,7 @@ class PrinterService {
       
       // Delivery fee
       if (layout.showDeliveryFee !== false && order.delivery_fee && order.delivery_fee > 0) {
-        lines.push(this.alignBoth('Taxa de Entrega:', 'R$ ' + order.delivery_fee.toFixed(2).replace('.', ','), width));
+        lines.push(this.alignBoth('Taxa Entrega:', 'R$ ' + order.delivery_fee.toFixed(2).replace('.', ','), width));
       }
       
       // Subtotal
@@ -723,10 +833,9 @@ class PrinterService {
     // FOOTER
     // ============================================
     if (layout.footerMessage) {
-      lines.push(this.center(this.removeAccents(layout.footerMessage), width));
+      addCentered(layout.footerMessage);
     } else {
-      lines.push(this.center('Powered By: Gamako', width));
-      lines.push(this.center('https://gamako.com.br', width));
+      lines.push(this.center('Obrigado pela preferencia!', width));
     }
     
     // Extra line feeds for paper feed
@@ -735,34 +844,13 @@ class PrinterService {
     addLine('');
     addLine('');
 
+    // Use CRLF for Windows compatibility with thermal printers
     return lines.join('\r\n');
   }
 
-  /**
-   * Word wrap text to fit width
-   */
-  wrapText(text, width) {
-    if (!text || text.length <= width) return [text || ''];
-    
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = '';
-    
-    for (const word of words) {
-      if (currentLine.length + word.length + 1 <= width) {
-        currentLine += (currentLine ? ' ' : '') + word;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word.length <= width ? word : word.slice(0, width);
-      }
-    }
-    if (currentLine) lines.push(currentLine);
-    
-    return lines;
-  }
-
   formatTestReceipt(layout) {
-    const width = parseInt(layout.paperWidth, 10) || 48;
+    // Use smaller default for 58mm thermal printers
+    const width = parseInt(layout.paperWidth, 10) || 32;
     const divider = this.createLine('-', width);
     const lines = [];
     
@@ -799,75 +887,34 @@ class PrinterService {
     return lines.join('\r\n');
   }
 
-  /**
-   * Pad line to exact width (fill with spaces)
-   */
-  padLine(text, width) {
-    if (!text) return ' '.repeat(width);
-    if (text.length >= width) return text.slice(0, width);
-    return text + ' '.repeat(width - text.length);
-  }
-
-  center(text, width) {
-    if (!text) return ' '.repeat(width);
-    const cleanText = String(text);
-    if (cleanText.length >= width) return cleanText.slice(0, width);
-    const leftPad = Math.floor((width - cleanText.length) / 2);
-    const rightPad = width - cleanText.length - leftPad;
-    return ' '.repeat(leftPad) + cleanText + ' '.repeat(rightPad);
-  }
-
-  alignRight(text, width) {
-    const cleanText = String(text || '');
-    if (cleanText.length >= width) return cleanText.slice(0, width);
-    return ' '.repeat(width - cleanText.length) + cleanText;
-  }
-
-  alignBoth(left, right, width) {
-    const leftText = String(left || '');
-    const rightText = String(right || '');
-    const totalLen = leftText.length + rightText.length;
-    if (totalLen >= width) {
-      // Truncate left side if too long
-      const maxLeft = width - rightText.length - 1;
-      if (maxLeft > 0) {
-        return leftText.slice(0, maxLeft) + ' ' + rightText;
-      }
-      return (leftText + rightText).slice(0, width);
-    }
-    const padding = width - totalLen;
-    return leftText + ' '.repeat(padding) + rightText;
-  }
-
   async printText(text, printerName = '') {
     return new Promise((resolve, reject) => {
       const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.txt`);
       
       // Write file with proper encoding for thermal printers
-      // Try iconv-lite first, fallback to Buffer with latin1
+      // Use CP850 for proper Portuguese character support
       let encodedText;
       try {
         const iconv = require('iconv-lite');
         encodedText = iconv.encode(text, 'cp850');
       } catch (e) {
-        // Fallback - use latin1 encoding which preserves bytes 0-255
+        // Fallback - use latin1 encoding
         encodedText = Buffer.from(text, 'latin1');
       }
       fs.writeFileSync(tmpFile, encodedText);
       
       console.log('[PrintText] File saved:', tmpFile);
       console.log('[PrintText] Printer:', printerName || 'default');
-      console.log('[PrintText] Text preview (first 200 chars):', text.slice(0, 200));
+      console.log('[PrintText] Text preview:', text.slice(0, 300));
       
       if (this.platform === 'win32') {
-        // Use print command directly for raw output - more reliable for thermal printers
+        // Use print command for raw output
         const escapedPrinter = printerName ? printerName.replace(/"/g, '\\"') : '';
         const printCmd = escapedPrinter 
           ? `print /D:"${escapedPrinter}" "${tmpFile}"`
           : `print "${tmpFile}"`;
         
         exec(printCmd, { encoding: 'buffer' }, (error, stdout, stderr) => {
-          // Small delay before deleting to ensure print spooler has read the file
           setTimeout(() => {
             try { fs.unlinkSync(tmpFile); } catch (e) {}
           }, 2000);
@@ -909,11 +956,6 @@ class PrinterService {
         });
       }
     });
-  }
-
-  removeAccents(str) {
-    if (!str) return '';
-    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   }
 }
 

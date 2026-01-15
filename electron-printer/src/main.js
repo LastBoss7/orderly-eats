@@ -5,9 +5,12 @@ const { createClient } = require('@supabase/supabase-js');
 const PrinterService = require('./services/printer');
 
 // Default layout configuration (will be overridden by database settings)
+// IMPORTANT: paperWidth should match your thermal printer
+// - 58mm paper: use 32 characters per line
+// - 80mm paper: use 42-48 characters per line
 const defaultLayout = {
-  paperSize: '80mm',
-  paperWidth: 48, // 32 = 58mm compact, 42 = 80mm standard, 48 = 80mm wide (default)
+  paperSize: '58mm',
+  paperWidth: 32, // 32 for 58mm, 42-48 for 80mm
   showLogo: false,
   showRestaurantName: true,
   showAddress: false,
@@ -28,7 +31,7 @@ const defaultLayout = {
   showTotals: true,
   showDeliveryFee: true,
   showPaymentMethod: true,
-  footerMessage: 'Obrigado pela preferência!',
+  footerMessage: 'Obrigado pela preferencia!',
   fontSize: 'normal',
   boldItems: true,
   boldTotal: true,
