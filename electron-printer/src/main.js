@@ -297,6 +297,9 @@ async function syncAvailablePrinters() {
 // Track orders currently being printed to prevent duplicates
 const printingOrders = new Set();
 
+// Lock to prevent concurrent checkPendingOrders calls
+let isCheckingOrders = false;
+
 function startOrderMonitoring() {
   if (checkInterval) {
     clearInterval(checkInterval);
@@ -312,10 +315,14 @@ function startOrderMonitoring() {
 }
 
 async function checkPendingOrders() {
+  // Prevent concurrent execution
+  if (isCheckingOrders) return;
   if (!isConnected) return;
 
   const restaurantId = store.get('restaurantId');
   if (!restaurantId) return;
+
+  isCheckingOrders = true;
 
   try {
     // Fetch restaurant info and layout if not cached
@@ -345,29 +352,37 @@ async function checkPendingOrders() {
     const orders = data.orders || [];
 
     if (orders.length > 0) {
-      // Filter out orders already being printed
+      // Filter out orders already being printed (using Set)
       const newOrders = orders.filter(order => !printingOrders.has(order.id));
       
       if (newOrders.length > 0) {
         sendToRenderer('log', `Encontrados ${newOrders.length} pedido(s) para imprimir`);
         
+        // Process orders ONE AT A TIME to avoid race conditions
         for (const order of newOrders) {
-          // Mark as being printed BEFORE starting
+          // Double-check not already processing
+          if (printingOrders.has(order.id)) continue;
+          
+          // Mark as being printed IMMEDIATELY
           printingOrders.add(order.id);
           
           try {
             await printOrderToAllPrinters(order, cachedDbPrinters || []);
-          } finally {
-            // Remove from set after a delay to allow status update to propagate
-            setTimeout(() => {
-              printingOrders.delete(order.id);
-            }, 10000);
+          } catch (err) {
+            sendToRenderer('log', `✗ Erro ao processar pedido: ${err.message}`);
           }
+          
+          // Keep in set for 30 seconds to prevent re-processing
+          setTimeout(() => {
+            printingOrders.delete(order.id);
+          }, 30000);
         }
       }
     }
   } catch (error) {
     sendToRenderer('log', `Erro ao buscar pedidos: ${error.message}`);
+  } finally {
+    isCheckingOrders = false;
   }
 }
 
@@ -445,13 +460,18 @@ function getOrderTypeLabel(orderType) {
 
 /**
  * Print order to all matching printers based on order type and categories
+ * IMPORTANT: This function handles ONE order and marks it as printed ONCE at the end
  */
 async function printOrderToAllPrinters(order, dbPrinters) {
   const orderType = order.order_type || 'counter';
+  const orderLabel = `#${order.order_number || order.id.slice(0, 8)}`;
   
   // If no database printers, use local config
   if (!dbPrinters || dbPrinters.length === 0) {
-    const success = await printOrder(order, getLocalPrinterForOrder(order), null, true);
+    const success = await printOrderToPrinter(order, getLocalPrinterForOrder(order), null);
+    if (success) {
+      await markOrderPrinted(order);
+    }
     return success;
   }
 
@@ -463,16 +483,19 @@ async function printOrderToAllPrinters(order, dbPrinters) {
 
   if (matchingPrinters.length === 0) {
     // Fallback to local config
-    const success = await printOrder(order, getLocalPrinterForOrder(order), null, true);
+    const success = await printOrderToPrinter(order, getLocalPrinterForOrder(order), null);
+    if (success) {
+      await markOrderPrinted(order);
+    }
     return success;
   }
 
-  sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)} (${getOrderTypeLabel(orderType)}) em ${matchingPrinters.length} impressora(s)...`);
+  sendToRenderer('log', `Imprimindo pedido ${orderLabel} (${getOrderTypeLabel(orderType)}) em ${matchingPrinters.length} impressora(s)...`);
 
   let anyPrinted = false;
   let printersWithItems = 0;
 
-  // Print to each matching printer
+  // Print to each matching printer (but DON'T mark as printed yet)
   for (const printer of matchingPrinters) {
     const printerName = printer.printer_name || getLocalPrinterForOrder(order);
     const linkedCategories = printer.linked_categories;
@@ -498,17 +521,24 @@ async function printOrderToAllPrinters(order, dbPrinters) {
     // Create a copy of order with filtered items
     const orderForPrinter = { ...order, order_items: itemsToPrint };
     
-    // Only update order status on last printer
-    const isLast = printersWithItems === matchingPrinters.length;
-    const success = await printOrder(orderForPrinter, printerName, printer, isLast && !anyPrinted);
+    // Print WITHOUT marking as printed (we'll do that once at the end)
+    const success = await printOrderToPrinter(orderForPrinter, printerName, printer);
     
     if (success) anyPrinted = true;
   }
 
-  // If we had printers but none had matching items, still mark as printed
-  if (printersWithItems === 0 && matchingPrinters.length > 0) {
-    sendToRenderer('log', `  → Nenhuma impressora com itens correspondentes, marcando como impresso`);
-    await markOrderPrinted(order);
+  // MARK AS PRINTED ONLY ONCE after all printers have finished
+  if (anyPrinted || printersWithItems === 0) {
+    const marked = await markOrderPrinted(order);
+    if (marked) {
+      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso`);
+      printedCount++;
+      updateTrayMenu();
+      sendToRenderer('print-success', { orderId: order.id, orderType });
+      sendToRenderer('stats', { printedCount });
+    } else {
+      sendToRenderer('log', `⚠ Impresso mas falhou ao marcar status`);
+    }
   }
 
   return anyPrinted || printersWithItems === 0;
@@ -561,8 +591,10 @@ async function markOrderPrinted(order) {
   }
 }
 
-async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdateStatus = true) {
-  const orderType = order.order_type || 'counter';
+/**
+ * Print order to a specific printer (does NOT mark as printed - caller handles that)
+ */
+async function printOrderToPrinter(order, printerName = '', dbPrinter = null) {
   const orderLabel = `#${order.order_number || order.id.slice(0, 8)}`;
   
   // Use provided printerName or fallback to local config
@@ -579,8 +611,6 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
       : baseLayout;
     const restaurantInfo = cachedRestaurantInfo || { name: 'Restaurante', phone: null, address: null, cnpj: null };
     
-    sendToRenderer('log', `Imprimindo pedido ${orderLabel} em "${printerName || 'padrao'}" (${layout.paperWidth || 42} chars)...`);
-    
     const success = await printerService.printOrder(order, {
       layout,
       restaurantInfo,
@@ -588,14 +618,6 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
     });
 
     if (success) {
-      // CRITICAL: Update order status BEFORE anything else
-      if (shouldUpdateStatus) {
-        const marked = await markOrderPrinted(order);
-        if (!marked) {
-          sendToRenderer('log', `⚠ Impresso mas falhou ao marcar status - pode reimprimir!`);
-        }
-      }
-
       // Log success
       try {
         await supabase.from('print_logs').insert({
@@ -610,18 +632,12 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
       } catch (logError) {
         console.error('Error logging print success:', logError);
       }
-
-      printedCount++;
-      updateTrayMenu();
-      sendToRenderer('print-success', { orderId: order.id, orderType });
-      sendToRenderer('stats', { printedCount });
-      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso`);
       
       return true;
     }
     return false;
   } catch (error) {
-    sendToRenderer('log', `✗ Erro ao imprimir pedido ${orderLabel}: ${error.message}`);
+    sendToRenderer('log', `✗ Erro ao imprimir em "${printerName}": ${error.message}`);
     
     try {
       await supabase.from('print_logs').insert({
