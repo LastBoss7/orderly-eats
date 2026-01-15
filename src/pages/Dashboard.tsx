@@ -150,7 +150,7 @@ interface DeliveryDriver {
   phone: string | null;
 }
 
-type FilterType = 'all' | 'delivery' | 'counter';
+type FilterType = 'all' | 'delivery' | 'counter' | 'table' | 'tab';
 
 export default function Dashboard() {
   const { restaurant } = useAuth();
@@ -495,6 +495,8 @@ export default function Dashboard() {
     if (filter === 'all') return orderList;
     if (filter === 'delivery') return orderList.filter(o => o.order_type === 'delivery');
     if (filter === 'counter') return orderList.filter(o => o.order_type === 'counter' || o.order_type === 'takeaway');
+    if (filter === 'table') return orderList.filter(o => o.table_id !== null);
+    if (filter === 'tab') return orderList.filter(o => o.tab_id !== null);
     return orderList;
   };
 
@@ -1118,6 +1120,26 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 Todos
               </button>
               <button 
+                className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
+                onClick={() => setFilter('table')}
+                title="Pedidos de mesa"
+              >
+                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <UtensilsCrossed className="w-4 h-4" />
+                  <span className="text-xs">Mesa</span>
+                </span>
+              </button>
+              <button 
+                className={`filter-tab ${filter === 'tab' ? 'active' : ''}`}
+                onClick={() => setFilter('tab')}
+                title="Pedidos de comanda"
+              >
+                <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                  <User className="w-4 h-4" />
+                  <span className="text-xs">Comanda</span>
+                </span>
+              </button>
+              <button 
                 className={`filter-tab ${filter === 'delivery' ? 'active' : ''}`}
                 onClick={() => setFilter('delivery')}
                 title="Pedidos para entrega"
@@ -1129,7 +1151,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 onClick={() => setFilter('counter')}
                 title="Pedidos para retirada"
               >
-                <UtensilsCrossed className="w-4 h-4" />
+                <Package className="w-4 h-4" />
               </button>
             </div>
 
