@@ -1,111 +1,31 @@
 // ============================================
-// MENU HANDLING
+// STATE
 // ============================================
-document.querySelectorAll('.menu-item').forEach(item => {
-  item.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const wasActive = item.classList.contains('active');
-    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-    if (!wasActive) {
-      item.classList.add('active');
-    }
-  });
-});
-
-document.addEventListener('click', () => {
-  document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-});
-
-// Menu actions
-document.getElementById('btnConfigurar').addEventListener('click', () => openModal('configModal'));
-document.getElementById('btnPrinters').addEventListener('click', () => openPrintersModal());
-document.getElementById('btnTestPrint').addEventListener('click', testPrint);
-document.getElementById('btnReconnect').addEventListener('click', reconnect);
-document.getElementById('btnRefreshConfig').addEventListener('click', refreshConfig);
-document.getElementById('btnClearPending').addEventListener('click', clearPendingOrders);
-document.getElementById('btnQuit').addEventListener('click', () => window.electronAPI.quit());
-document.getElementById('btnLogs').addEventListener('click', openLog);
-document.getElementById('btnAbout').addEventListener('click', () => openModal('aboutModal'));
+let systemPrinters = [];
+let selectedPrinters = [];
 
 // ============================================
-// MODAL HANDLING
+// LOG
 // ============================================
-function openModal(id) {
-  document.getElementById(id).classList.add('active');
-  if (id === 'configModal') {
-    loadConfig();
-  }
-}
-
-function closeModal(id) {
-  document.getElementById(id).classList.remove('active');
-}
-
-// Close modal on escape key
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
-    closeLog();
-  }
-});
-
-// ============================================
-// LOG PANEL
-// ============================================
-function openLog() {
-  document.getElementById('logOverlay').classList.add('active');
-}
-
-function closeLog() {
-  document.getElementById('logOverlay').classList.remove('active');
-}
-
 function addLog(message, type = 'info') {
   const logContent = document.getElementById('logContent');
   const now = new Date().toLocaleTimeString('pt-BR');
   
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
-  entry.innerHTML = `<span class="log-time">[${now}]</span> ${message}`;
+  entry.textContent = `[${now}] ${message}`;
   
   logContent.appendChild(entry);
   logContent.scrollTop = logContent.scrollHeight;
   
-  // Keep only last 100 entries
-  while (logContent.children.length > 100) {
+  // Keep only last 50 entries
+  while (logContent.children.length > 50) {
     logContent.removeChild(logContent.firstChild);
   }
 }
 
 // ============================================
-// TOAST NOTIFICATIONS
-// ============================================
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  
-  const icons = {
-    success: '✓',
-    error: '✗',
-    info: 'ℹ'
-  };
-  
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.innerHTML = `
-    <div class="toast-icon ${type}">${icons[type]}</div>
-    <div class="toast-message">${message}</div>
-  `;
-  
-  container.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.animation = 'slideIn 0.3s ease reverse';
-    setTimeout(() => toast.remove(), 300);
-  }, 4000);
-}
-
-// ============================================
-// STATUS UPDATES
+// STATUS
 // ============================================
 function updateStatus(connected, message) {
   const statusDot = document.getElementById('statusDot');
@@ -113,12 +33,74 @@ function updateStatus(connected, message) {
   
   statusDot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
   statusText.textContent = message || (connected ? 'Conectado' : 'Desconectado');
-  
-  addLog(connected ? '✓ Conectado ao sistema' : `✗ ${message || 'Desconectado'}`, connected ? 'success' : 'error');
 }
 
-function updateStats(stats) {
-  document.getElementById('printedCount').textContent = stats.printedCount || 0;
+// ============================================
+// PRINTER LIST
+// ============================================
+async function loadPrinters() {
+  try {
+    systemPrinters = await window.electronAPI.getSystemPrinters();
+    const config = await window.electronAPI.getConfig();
+    selectedPrinters = config.selectedPrinters || [];
+    
+    const select = document.getElementById('printerSelect');
+    select.innerHTML = '<option value="">Padrão do Sistema</option>';
+    
+    systemPrinters.forEach(printer => {
+      const option = document.createElement('option');
+      option.value = printer.name;
+      option.textContent = printer.isDefault 
+        ? `{${printer.displayName}}` 
+        : printer.displayName;
+      select.appendChild(option);
+    });
+    
+    // Set current printer
+    if (config.printerName) {
+      select.value = config.printerName;
+    }
+    
+    addLog(`${systemPrinters.length} impressora(s) encontrada(s)`, 'info');
+  } catch (error) {
+    addLog('Erro ao carregar impressoras: ' + error.message, 'error');
+  }
+}
+
+function openPrinterListModal() {
+  const printerList = document.getElementById('printerList');
+  printerList.innerHTML = '';
+  
+  systemPrinters.forEach(printer => {
+    const isSelected = selectedPrinters.includes(printer.name);
+    
+    const item = document.createElement('div');
+    item.className = 'printer-item';
+    item.innerHTML = `
+      <input type="checkbox" id="printer_${printer.name}" value="${printer.name}" ${isSelected ? 'checked' : ''}>
+      <label for="printer_${printer.name}">${printer.displayName}</label>
+    `;
+    printerList.appendChild(item);
+  });
+  
+  document.getElementById('printerListModal').classList.add('active');
+}
+
+function closePrinterListModal() {
+  document.getElementById('printerListModal').classList.remove('active');
+}
+
+async function selectPrinters() {
+  const checkboxes = document.querySelectorAll('#printerList input[type="checkbox"]:checked');
+  selectedPrinters = Array.from(checkboxes).map(cb => cb.value);
+  
+  try {
+    await window.electronAPI.saveSelectedPrinters(selectedPrinters);
+    addLog(`${selectedPrinters.length} impressora(s) ativada(s)`, 'success');
+    closePrinterListModal();
+  } catch (error) {
+    addLog('Erro ao salvar impressoras: ' + error.message, 'error');
+  }
 }
 
 // ============================================
@@ -128,126 +110,70 @@ async function loadConfig() {
   try {
     const config = await window.electronAPI.getConfig();
     
-    document.getElementById('supabaseUrl').value = config.supabaseUrl || '';
-    document.getElementById('supabaseKey').value = config.supabaseKey || '';
-    document.getElementById('restaurantId').value = config.restaurantId || '';
-    document.getElementById('checkInterval').value = config.checkInterval || 5;
-    document.getElementById('minimizeToTray').checked = config.minimizeToTray !== false;
-    document.getElementById('autoStart').checked = config.autoStart === true;
-    document.getElementById('soundNotification').checked = config.soundNotification !== false;
+    // Load form values
+    document.getElementById('printerSelect').value = config.printerName || '';
+    document.getElementById('paperWidth').value = config.paperWidth || 46;
+    document.getElementById('fontSize').value = config.fontSize || 1;
+    document.getElementById('cnpj').value = config.cnpj || '';
+    document.getElementById('phone').value = config.phone || '';
+    document.getElementById('info').value = config.info || '';
+    document.getElementById('logoUrl').value = config.logoUrl || '';
+    document.getElementById('copies').value = config.copies || 1;
+    document.getElementById('encoding').value = config.encoding || '0';
+    document.getElementById('extraLines').value = config.extraLines || 0;
+    document.getElementById('cutCommand').value = config.cutCommand || '';
+    document.getElementById('cashDrawer').value = config.cashDrawer || '';
     
-    // Load stats
-    const stats = await window.electronAPI.getStats();
-    updateStats(stats);
+    // Radio buttons
+    setRadioValue('fontType', config.fontType || '1');
+    setRadioValue('escpos', config.escpos !== false ? '1' : '0');
+    setRadioValue('bold', config.bold !== false ? '1' : '0');
+    setRadioValue('removeAccents', config.removeAccents !== false ? '1' : '0');
     
-    // Update printer status
-    const printers = await window.electronAPI.getSystemPrinters();
-    document.getElementById('printerStatus').value = printers.length > 0 
-      ? `${printers.length} encontrada(s)` 
-      : 'Nenhuma';
+    selectedPrinters = config.selectedPrinters || [];
     
   } catch (error) {
     addLog('Erro ao carregar configurações: ' + error.message, 'error');
-    showToast('Erro ao carregar configurações', 'error');
   }
 }
 
-// ============================================
-// PRINTERS BY TYPE
-// ============================================
-let systemPrinters = [];
-
-async function openPrintersModal() {
-  openModal('printersModal');
-  await loadPrintersConfig();
+function setRadioValue(name, value) {
+  const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (radio) radio.checked = true;
 }
 
-async function loadPrintersConfig() {
-  try {
-    // Load system printers
-    systemPrinters = await window.electronAPI.getSystemPrinters();
-    const config = await window.electronAPI.getConfig();
-    const printers = config.printers || { table: '', counter: '', delivery: '', default: '' };
-    
-    // Populate all printer selects
-    const selects = ['printerTable', 'printerCounter', 'printerDelivery', 'printerDefault'];
-    
-    selects.forEach(selectId => {
-      const select = document.getElementById(selectId);
-      select.innerHTML = '<option value="">Padrão do Sistema</option>';
-      
-      systemPrinters.forEach(printer => {
-        const option = document.createElement('option');
-        option.value = printer.name;
-        option.textContent = printer.isDefault 
-          ? `${printer.displayName} (Padrão)` 
-          : printer.displayName;
-        select.appendChild(option);
-      });
-    });
-    
-    // Set current values
-    document.getElementById('printerTable').value = printers.table || '';
-    document.getElementById('printerCounter').value = printers.counter || '';
-    document.getElementById('printerDelivery').value = printers.delivery || '';
-    document.getElementById('printerDefault').value = printers.default || '';
-    
-    addLog(`Encontradas ${systemPrinters.length} impressora(s)`, 'info');
-    
-  } catch (error) {
-    addLog('Erro ao carregar impressoras: ' + error.message, 'error');
-    showToast('Erro ao carregar impressoras', 'error');
-  }
+function getRadioValue(name) {
+  const radio = document.querySelector(`input[name="${name}"]:checked`);
+  return radio ? radio.value : null;
 }
-
-async function refreshAllPrinters() {
-  addLog('Atualizando lista de impressoras...', 'info');
-  await loadPrintersConfig();
-  showToast('Lista de impressoras atualizada', 'success');
-}
-
-async function savePrinters() {
-  try {
-    const printers = {
-      table: document.getElementById('printerTable').value,
-      counter: document.getElementById('printerCounter').value,
-      delivery: document.getElementById('printerDelivery').value,
-      default: document.getElementById('printerDefault').value,
-    };
-    
-    await window.electronAPI.savePrinters(printers);
-    
-    addLog('✓ Impressoras configuradas', 'success');
-    showToast('Impressoras salvas com sucesso!', 'success');
-    closeModal('printersModal');
-    
-  } catch (error) {
-    addLog('Erro ao salvar impressoras: ' + error.message, 'error');
-    showToast('Erro ao salvar impressoras', 'error');
-  }
-}
-
 
 async function saveConfig() {
   try {
     const config = {
-      supabaseUrl: document.getElementById('supabaseUrl').value.trim(),
-      supabaseKey: document.getElementById('supabaseKey').value.trim(),
-      restaurantId: document.getElementById('restaurantId').value.trim(),
-      checkInterval: parseInt(document.getElementById('checkInterval').value),
-      minimizeToTray: document.getElementById('minimizeToTray').checked,
-      autoStart: document.getElementById('autoStart').checked,
-      soundNotification: document.getElementById('soundNotification').checked,
+      printerName: document.getElementById('printerSelect').value,
+      paperWidth: parseInt(document.getElementById('paperWidth').value) || 46,
+      fontSize: parseInt(document.getElementById('fontSize').value) || 1,
+      fontType: getRadioValue('fontType'),
+      cnpj: document.getElementById('cnpj').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      info: document.getElementById('info').value.trim(),
+      logoUrl: document.getElementById('logoUrl').value.trim(),
+      copies: parseInt(document.getElementById('copies').value) || 1,
+      escpos: getRadioValue('escpos') === '1',
+      encoding: document.getElementById('encoding').value,
+      extraLines: parseInt(document.getElementById('extraLines').value) || 0,
+      cutCommand: document.getElementById('cutCommand').value.trim(),
+      cashDrawer: document.getElementById('cashDrawer').value.trim(),
+      bold: getRadioValue('bold') === '1',
+      removeAccents: getRadioValue('removeAccents') === '1',
+      selectedPrinters: selectedPrinters,
     };
     
     await window.electronAPI.saveConfig(config);
     addLog('✓ Configurações salvas', 'success');
-    showToast('Configurações salvas com sucesso!', 'success');
-    closeModal('configModal');
     
   } catch (error) {
     addLog('Erro ao salvar: ' + error.message, 'error');
-    showToast('Erro ao salvar configurações', 'error');
   }
 }
 
@@ -257,92 +183,35 @@ async function saveConfig() {
 async function testPrint() {
   try {
     addLog('Enviando impressão de teste...', 'info');
-    showToast('Enviando impressão de teste...', 'info');
-    
     const result = await window.electronAPI.testPrint();
     
     if (result.success) {
       addLog('✓ Impressão de teste enviada', 'success');
-      showToast('Impressão de teste enviada!', 'success');
     } else {
       addLog('✗ Erro: ' + result.error, 'error');
-      showToast('Erro: ' + result.error, 'error');
     }
   } catch (error) {
     addLog('✗ Erro: ' + error.message, 'error');
-    showToast('Erro ao imprimir', 'error');
-  }
-}
-
-async function clearPendingOrders() {
-  if (!confirm('Tem certeza que deseja limpar todos os pedidos pendentes?\n\nEsses pedidos NÃO serão impressos.')) {
-    return;
-  }
-  
-  try {
-    addLog('Limpando fila de pedidos pendentes...', 'info');
-    
-    const result = await window.electronAPI.clearPendingOrders();
-    
-    if (result.success) {
-      addLog(`✓ ${result.cleared} pedido(s) removido(s) da fila`, 'success');
-      showToast(`${result.cleared} pedido(s) removido(s) da fila`, 'success');
-    } else {
-      addLog('✗ Erro: ' + result.error, 'error');
-      showToast('Erro ao limpar fila', 'error');
-    }
-  } catch (error) {
-    addLog('✗ Erro: ' + error.message, 'error');
-    showToast('Erro ao limpar fila', 'error');
   }
 }
 
 async function reconnect() {
   try {
     const statusDot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
+    statusDot.className = 'status-dot';
+    statusDot.style.background = '#f59e0b';
+    document.getElementById('statusText').textContent = 'Conectando...';
     
-    statusDot.className = 'status-dot connecting';
-    statusText.textContent = 'Conectando...';
     addLog('Reconectando...', 'info');
-    
     const success = await window.electronAPI.reconnect();
     
     if (success) {
-      showToast('Conectado com sucesso!', 'success');
+      addLog('✓ Conectado', 'success');
     } else {
-      showToast('Falha na conexão', 'error');
+      addLog('✗ Falha na conexão', 'error');
     }
   } catch (error) {
     addLog('Erro ao reconectar: ' + error.message, 'error');
-    showToast('Erro ao reconectar', 'error');
-  }
-}
-
-async function refreshConfig() {
-  try {
-    addLog('Atualizando configurações do servidor...', 'info');
-    showToast('Atualizando configurações...', 'info');
-    
-    const result = await window.electronAPI.refreshConfig();
-    
-    if (result.success) {
-      const layout = result.layout;
-      const info = [
-        `Papel: ${layout?.paperSize || '80mm'}`,
-        `Colunas: ${layout?.paperWidth || 48}`,
-        `Impressoras: ${result.printers || 0}`,
-      ].join(' | ');
-      
-      addLog(`✓ Configurações atualizadas: ${info}`, 'success');
-      showToast('Configurações atualizadas do servidor!', 'success');
-    } else {
-      addLog('✗ Erro: ' + result.error, 'error');
-      showToast('Erro ao atualizar: ' + result.error, 'error');
-    }
-  } catch (error) {
-    addLog('✗ Erro: ' + error.message, 'error');
-    showToast('Erro ao atualizar configurações', 'error');
   }
 }
 
@@ -364,18 +233,7 @@ window.electronAPI.onLog((event, message) => {
 });
 
 window.electronAPI.onPrintSuccess((event, data) => {
-  showToast(`Pedido #${data.orderId.slice(0, 8)} impresso!`, 'success');
-  
-  // Play sound if enabled
-  try {
-    const audio = new Audio('data:audio/wav;base64,UklGRhQFAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YfAEAACAAAAAgAAAAIAAAACAAACAAAAAAIAAAIAAAACAAAAAgAAAgAAAAACAAAAAgAAAgAAAgACAAAAAAICAAAAAgAAAAIAAAIAAAAAAgAAAAIAAAACAAACAAAAAgAAAAIAAgACAAAAAAIAAAIAAAIAAAIAAAAAAgAAAgAAAgAAAgAAAAICAAAAAgAAAAIAAAIAAAAAAgAAAAIAAAACAAACAAAAAgAAAAIAAgACAAAAAAIAAAIAAAIAAAIAAAAAAgAAAgAAAgAAAgAAAAICAAAAAgAAAAIAAAIAAAAAAgAAAAIAAAACAAACAAAAAgAAAAIAAgACAAAAAAIAAAIAAAIAAAIAAAAAAgAAAgAAAgAAAgAAAAICAAAAAgAAAAIAAAIAAAAAAgAAAAIAAAACAAACAAAAAgAAAAIAAgACAAAAAAIAAAIAAAIAAAIAAAAAAgAAAgAAAgAAAgAAAAA==');
-    audio.volume = 0.5;
-    audio.play().catch(() => {});
-  } catch (e) {}
-});
-
-window.electronAPI.onStats((event, stats) => {
-  updateStats(stats);
+  addLog(`✓ Pedido #${data.orderId.slice(0, 8)} impresso`, 'success');
 });
 
 // ============================================
@@ -385,11 +243,13 @@ async function init() {
   addLog('Aplicativo iniciado', 'info');
   
   try {
+    await loadPrinters();
+    await loadConfig();
+    
     const stats = await window.electronAPI.getStats();
-    updateStats(stats);
     updateStatus(stats.isConnected, stats.isConnected ? 'Conectado' : 'Desconectado');
   } catch (error) {
-    addLog('Erro ao carregar status inicial', 'error');
+    addLog('Erro ao inicializar: ' + error.message, 'error');
   }
 }
 

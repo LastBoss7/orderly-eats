@@ -775,6 +775,23 @@ ipcMain.handle('get-config', () => {
     openDrawer: store.get('openDrawer'),
     layout: store.get('layout') || defaultLayout,
     printers: store.get('printers') || { table: '', counter: '', delivery: '', default: '' },
+    // New simple config fields
+    paperWidth: store.get('paperWidth') || 46,
+    fontSize: store.get('fontSize') || 1,
+    fontType: store.get('fontType') || '1',
+    cnpj: store.get('cnpj') || '',
+    phone: store.get('phone') || '',
+    info: store.get('info') || '',
+    logoUrl: store.get('logoUrl') || '',
+    copies: store.get('copies') || 1,
+    escpos: store.get('escpos') !== false,
+    encoding: store.get('encoding') || '0',
+    extraLines: store.get('extraLines') || 0,
+    cutCommand: store.get('cutCommand') || '',
+    cashDrawer: store.get('cashDrawer') || '',
+    bold: store.get('bold') !== false,
+    removeAccents: store.get('removeAccents') !== false,
+    selectedPrinters: store.get('selectedPrinters') || [],
   };
 });
 
@@ -783,14 +800,66 @@ ipcMain.handle('save-printers', async (event, printers) => {
   return { success: true };
 });
 
-ipcMain.handle('save-config', async (event, config) => {
-  Object.keys(config).forEach(key => {
-    if (key !== 'layout') {
-      store.set(key, config[key]);
+ipcMain.handle('save-selected-printers', async (event, printerNames) => {
+  store.set('selectedPrinters', printerNames);
+  
+  // Sync to database - update printers table with is_active status
+  const restaurantId = store.get('restaurantId');
+  if (restaurantId && supabase) {
+    try {
+      // Get all printers for this restaurant
+      const { data: existingPrinters } = await supabase
+        .from('printers')
+        .select('id, printer_name')
+        .eq('restaurant_id', restaurantId);
+      
+      if (existingPrinters) {
+        // Update is_active based on selection
+        for (const printer of existingPrinters) {
+          const isActive = printerNames.includes(printer.printer_name);
+          await supabase
+            .from('printers')
+            .update({ 
+              is_active: isActive,
+              status: isActive ? 'connected' : 'disconnected',
+              last_seen_at: new Date().toISOString(),
+            })
+            .eq('id', printer.id);
+        }
+        sendToRenderer('log', `✓ Status das impressoras sincronizado com o servidor`);
+      }
+    } catch (error) {
+      sendToRenderer('log', `Erro ao sincronizar impressoras: ${error.message}`);
     }
+  }
+  
+  return { success: true };
+});
+
+ipcMain.handle('save-config', async (event, config) => {
+  // Save all config fields
+  Object.keys(config).forEach(key => {
+    store.set(key, config[key]);
   });
   
-  await initializeSupabase();
+  // Update layout based on new config
+  const updatedLayout = {
+    ...defaultLayout,
+    paperWidth: config.paperWidth || 46,
+    fontSize: config.fontSize === 2 ? 'large' : 'normal',
+    boldItems: config.bold !== false,
+    boldTotal: config.bold !== false,
+  };
+  store.set('layout', updatedLayout);
+  
+  // Update cached layout
+  cachedPrintLayout = updatedLayout;
+  
+  // Reconnect if we have restaurant ID
+  if (config.restaurantId || store.get('restaurantId')) {
+    await initializeSupabase();
+  }
+  
   return { success: true };
 });
 
