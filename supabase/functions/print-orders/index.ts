@@ -8,6 +8,7 @@ const corsHeaders = {
 interface OrderItem {
   id: string;
   product_name: string;
+  product_size: string | null;
   quantity: number;
   notes: string | null;
   product_price: number;
@@ -81,6 +82,7 @@ Deno.serve(async (req) => {
           order_items (
             id,
             product_name,
+            product_size,
             quantity,
             notes,
             product_price,
@@ -111,27 +113,32 @@ Deno.serve(async (req) => {
 
       console.log(`[print-orders] Found ${orders?.length || 0} pending orders`);
 
-      // Format orders for printing
+      // Format orders for printing - USE SNAKE_CASE to match Electron app expectations
       const formattedOrders = (orders as Order[]).map((order) => ({
         id: order.id,
-        orderNumber: order.order_number || order.id.slice(0, 4).toUpperCase(),
-        createdAt: order.created_at,
-        customerName: order.customer_name,
-        orderType: order.order_type,
+        order_number: order.order_number || order.id.slice(0, 4).toUpperCase(),
+        created_at: order.created_at,
+        customer_name: order.customer_name,
+        order_type: order.order_type,
         status: order.status,
         total: order.total,
         notes: order.notes,
-        deliveryAddress: order.delivery_address,
-        deliveryPhone: order.delivery_phone,
-        deliveryFee: order.delivery_fee,
-        tableNumber: order.tables?.[0]?.number || null,
-        waiterName: order.waiters?.[0]?.name || null,
-        items: order.order_items.map((item) => ({
-          name: item.product_name,
+        delivery_address: order.delivery_address,
+        delivery_phone: order.delivery_phone,
+        delivery_fee: order.delivery_fee,
+        table_number: order.tables?.[0]?.number || null,
+        table_id: order.table_id,
+        waiter_name: order.waiters?.[0]?.name || null,
+        waiter_id: order.waiter_id,
+        order_items: order.order_items.map((item) => ({
+          id: item.id,
+          product_name: item.product_name,
+          product_size: item.product_size,
           quantity: item.quantity,
           notes: item.notes,
-          price: item.product_price,
-          categoryId: item.products?.[0]?.category_id || null,
+          product_price: item.product_price,
+          product_id: item.product_id,
+          products: item.products,
         })),
       }));
 
