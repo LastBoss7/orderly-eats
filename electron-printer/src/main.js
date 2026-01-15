@@ -66,8 +66,12 @@ let tray = null;
 let supabase = null;
 let printerService = null;
 let checkInterval = null;
+let heartbeatInterval = null;
 let isConnected = false;
 let printedCount = 0;
+let isPrinting = false;
+let pendingOrdersCount = 0;
+const clientId = require('crypto').randomBytes(8).toString('hex');
 
 // Prevenir múltiplas instâncias
 const gotTheLock = app.requestSingleInstanceLock();
@@ -197,6 +201,9 @@ async function initializeSupabase() {
     // Sync available printers to database
     await syncAvailablePrinters();
     
+    // Start heartbeat system
+    startHeartbeat();
+    
     startOrderMonitoring();
     
     return true;
@@ -294,6 +301,76 @@ async function syncAvailablePrinters() {
   }
 }
 
+/**
+ * Send heartbeat to server to indicate client is alive
+ */
+let heartbeatRetryCount = 0;
+const MAX_HEARTBEAT_RETRIES = 3;
+
+async function sendHeartbeat() {
+  const restaurantId = store.get('restaurantId');
+  if (!restaurantId || !supabase) return;
+
+  try {
+    // Get current printers count
+    let printersCount = 0;
+    if (mainWindow && mainWindow.webContents) {
+      const printers = mainWindow.webContents.getPrintersAsync 
+        ? await mainWindow.webContents.getPrintersAsync()
+        : mainWindow.webContents.getPrinters();
+      printersCount = printers.length;
+    }
+
+    const { error } = await supabase
+      .from('printer_heartbeats')
+      .upsert({
+        restaurant_id: restaurantId,
+        client_id: clientId,
+        client_name: 'Impressora de Pedidos',
+        client_version: app.getVersion ? app.getVersion() : '1.0.0',
+        platform: process.platform,
+        last_heartbeat_at: new Date().toISOString(),
+        is_printing: isPrinting,
+        pending_orders: pendingOrdersCount,
+        printers_count: printersCount,
+      }, {
+        onConflict: 'restaurant_id,client_id',
+      });
+
+    if (error) {
+      console.error('Heartbeat error:', error);
+      heartbeatRetryCount++;
+      if (heartbeatRetryCount >= MAX_HEARTBEAT_RETRIES) {
+        sendToRenderer('log', `⚠ Falha ao enviar heartbeat: ${error.message}`);
+      }
+    } else {
+      heartbeatRetryCount = 0;
+    }
+  } catch (error) {
+    console.error('Heartbeat exception:', error);
+  }
+}
+
+function startHeartbeat() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
+
+  // Send heartbeat every 10 seconds
+  heartbeatInterval = setInterval(sendHeartbeat, 10000);
+  
+  // Send initial heartbeat
+  sendHeartbeat();
+  sendToRenderer('log', '♥ Sistema de heartbeat iniciado');
+}
+
+function stopHeartbeat() {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+}
+
 // Track orders currently being printed to prevent duplicates
 const printingOrders = new Set();
 
@@ -351,6 +428,9 @@ async function checkPendingOrders() {
     const data = await response.json();
     const orders = data.orders || [];
 
+    // Update pending orders count for heartbeat
+    pendingOrdersCount = orders.length;
+
     if (orders.length > 0) {
       // Filter out orders already being printed (using Set)
       const newOrders = orders.filter(order => !printingOrders.has(order.id));
@@ -365,12 +445,15 @@ async function checkPendingOrders() {
           
           // Mark as being printed IMMEDIATELY
           printingOrders.add(order.id);
+          isPrinting = true;
           
           try {
             await printOrderToAllPrinters(order, cachedDbPrinters || []);
           } catch (err) {
             sendToRenderer('log', `✗ Erro ao processar pedido: ${err.message}`);
           }
+          
+          isPrinting = false;
           
           // Keep in set for 30 seconds to prevent re-processing
           setTimeout(() => {
@@ -840,4 +923,5 @@ app.on('before-quit', () => {
   if (checkInterval) {
     clearInterval(checkInterval);
   }
+  stopHeartbeat();
 });

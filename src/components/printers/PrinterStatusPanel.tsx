@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { usePrinterHeartbeat } from '@/hooks/usePrinterHeartbeat';
 import {
   Wifi,
   WifiOff,
@@ -22,6 +23,8 @@ import {
   Clock,
   Settings,
   Monitor,
+  Heart,
+  Activity,
 } from 'lucide-react';
 
 interface PrintLog {
@@ -48,6 +51,9 @@ export function PrinterStatusPanel() {
   const { profile, restaurant } = useAuth();
   const [copied, setCopied] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  
+  // Use heartbeat for connection status
+  const { status: heartbeatStatus, isLoading: heartbeatLoading } = usePrinterHeartbeat(profile?.restaurant_id);
   
   // Fetch print logs
   const { data: logs, refetch: refetchLogs } = useQuery({
@@ -88,13 +94,8 @@ export function PrinterStatusPanel() {
     refetchInterval: 10000,
   });
 
-  // Check if connected (printers seen in last 2 minutes)
-  const isConnected = availablePrinters?.some(p => {
-    const lastSeen = new Date(p.last_seen_at);
-    const now = new Date();
-    const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
-    return diffMinutes < 2;
-  }) || false;
+  // Use heartbeat for connection status (more accurate than printer last_seen)
+  const isConnected = heartbeatStatus.isConnected;
 
   // Today's stats
   const todayStats = logs?.reduce((acc, log) => {
@@ -227,7 +228,20 @@ export function PrinterStatusPanel() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              {/* Heartbeat indicator */}
+              {heartbeatStatus.lastSeen && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Heart className={`w-3 h-3 ${isConnected ? 'text-success animate-pulse' : 'text-muted-foreground'}`} />
+                  <span>
+                    {heartbeatStatus.timeSinceLastHeartbeat !== null
+                      ? heartbeatStatus.timeSinceLastHeartbeat < 60 
+                        ? `${heartbeatStatus.timeSinceLastHeartbeat}s atrás`
+                        : formatDistanceToNow(heartbeatStatus.lastSeen, { locale: ptBR, addSuffix: true })
+                      : '-'}
+                  </span>
+                </div>
+              )}
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${
                 isConnected 
                   ? 'bg-success/20 text-success' 
@@ -253,6 +267,45 @@ export function PrinterStatusPanel() {
         </div>
         
         <CardContent className="p-6">
+          {/* Heartbeat Info */}
+          {heartbeatStatus.lastSeen && (
+            <div className="mb-6 p-4 rounded-lg bg-muted/30 border border-muted">
+              <div className="flex items-center gap-2 mb-3">
+                <Activity className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Informações do Cliente</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Cliente:</span>
+                  <div className="font-medium">{heartbeatStatus.clientName || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Versão:</span>
+                  <div className="font-medium">{heartbeatStatus.clientVersion || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Plataforma:</span>
+                  <div className="font-medium capitalize">{heartbeatStatus.platform || 'N/A'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Impressoras:</span>
+                  <div className="font-medium">{heartbeatStatus.printersCount}</div>
+                </div>
+              </div>
+              {heartbeatStatus.isPrinting && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-primary">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span>Imprimindo...</span>
+                </div>
+              )}
+              {heartbeatStatus.pendingOrders > 0 && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  {heartbeatStatus.pendingOrders} pedido(s) pendente(s)
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center p-4 rounded-lg bg-muted/50">
