@@ -201,6 +201,7 @@ LARGURA_PAPEL = 48
     printer_name: string;
     paper_width: number;
     linked_order_types: string[];
+    linked_categories: string[] | null;
     is_active: boolean;
   }) => {
     setSaving(true);

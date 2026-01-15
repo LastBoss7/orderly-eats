@@ -11,6 +11,8 @@ interface OrderItem {
   quantity: number;
   notes: string | null;
   product_price: number;
+  product_id: string | null;
+  products: { category_id: string | null }[] | null;
 }
 
 interface Order {
@@ -76,7 +78,11 @@ Deno.serve(async (req) => {
             product_name,
             quantity,
             notes,
-            product_price
+            product_price,
+            product_id,
+            products (
+              category_id
+            )
           ),
           tables (
             number
@@ -118,6 +124,7 @@ Deno.serve(async (req) => {
           quantity: item.quantity,
           notes: item.notes,
           price: item.product_price,
+          categoryId: item.products?.[0]?.category_id || null,
         })),
       }));
 

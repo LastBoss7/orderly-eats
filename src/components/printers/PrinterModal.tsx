@@ -19,8 +19,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Printer, Settings, Link2, Monitor, Usb, Info } from 'lucide-react';
+import { Loader2, Printer, Settings, Link2, Info, Tag } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+
+interface Category {
+  id: string;
+  name: string;
+  icon: string | null;
+}
 
 interface PrinterData {
   id?: string;
@@ -29,6 +38,7 @@ interface PrinterData {
   printer_name: string;
   paper_width: number;
   linked_order_types: string[];
+  linked_categories: string[] | null;
   is_active: boolean;
 }
 
@@ -68,18 +78,51 @@ export function PrinterModal({
   onSave,
   loading = false,
 }: PrinterModalProps) {
+  const { restaurant } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  
   const [formData, setFormData] = useState<Omit<PrinterData, 'id'>>({
     name: '',
     model: '',
     printer_name: '',
     paper_width: 48,
     linked_order_types: ['counter', 'table', 'delivery'],
+    linked_categories: null,
     is_active: true,
   });
   const [activeTab, setActiveTab] = useState('basic');
   const [paperSize, setPaperSize] = useState<58 | 80>(80);
   const [customModel, setCustomModel] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [filterByCategory, setFilterByCategory] = useState(false);
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      if (!restaurant?.id) return;
+      
+      setLoadingCategories(true);
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('id, name, icon')
+          .eq('restaurant_id', restaurant.id)
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        setCategories(data || []);
+      } catch (err) {
+        console.error('Erro ao buscar categorias:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    if (open) {
+      fetchCategories();
+    }
+  }, [open, restaurant?.id]);
 
   useEffect(() => {
     if (printer) {
@@ -89,6 +132,7 @@ export function PrinterModal({
         printer_name: printer.printer_name || '',
         paper_width: printer.paper_width || 48,
         linked_order_types: printer.linked_order_types || ['counter', 'table', 'delivery'],
+        linked_categories: printer.linked_categories,
         is_active: printer.is_active ?? true,
       });
       
@@ -108,6 +152,9 @@ export function PrinterModal({
         setSelectedModel('other');
         setCustomModel(printer.model || '');
       }
+
+      // Check if filtering by category
+      setFilterByCategory(printer.linked_categories !== null && printer.linked_categories.length > 0);
     } else {
       setFormData({
         name: '',
@@ -115,12 +162,14 @@ export function PrinterModal({
         printer_name: '',
         paper_width: 48,
         linked_order_types: ['counter', 'table', 'delivery'],
+        linked_categories: null,
         is_active: true,
       });
       setActiveTab('basic');
       setPaperSize(80);
       setSelectedModel('');
       setCustomModel('');
+      setFilterByCategory(false);
     }
   }, [printer, open]);
 
@@ -140,6 +189,7 @@ export function PrinterModal({
       ...formData,
       model,
       paper_width: paperSize === 58 ? 32 : 48,
+      linked_categories: filterByCategory ? formData.linked_categories : null,
     });
   };
 
@@ -152,12 +202,28 @@ export function PrinterModal({
     }));
   };
 
-  const isBasicComplete = formData.name.trim().length > 0;
-  const isSettingsComplete = selectedModel.length > 0;
+  const toggleCategory = (categoryId: string) => {
+    setFormData((prev) => {
+      const current = prev.linked_categories || [];
+      const updated = current.includes(categoryId)
+        ? current.filter((id) => id !== categoryId)
+        : [...current, categoryId];
+      return { ...prev, linked_categories: updated };
+    });
+  };
+
+  const handleFilterByCategoryChange = (checked: boolean) => {
+    setFilterByCategory(checked);
+    if (!checked) {
+      setFormData(prev => ({ ...prev, linked_categories: null }));
+    } else if (!formData.linked_categories) {
+      setFormData(prev => ({ ...prev, linked_categories: [] }));
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -170,18 +236,22 @@ export function PrinterModal({
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="basic" className="gap-1.5">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="basic" className="gap-1.5 text-xs sm:text-sm">
                 <Printer className="w-3.5 h-3.5" />
-                Básico
+                <span className="hidden sm:inline">Básico</span>
               </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-1.5">
+              <TabsTrigger value="settings" className="gap-1.5 text-xs sm:text-sm">
                 <Settings className="w-3.5 h-3.5" />
-                Configuração
+                <span className="hidden sm:inline">Config</span>
               </TabsTrigger>
-              <TabsTrigger value="types" className="gap-1.5">
+              <TabsTrigger value="types" className="gap-1.5 text-xs sm:text-sm">
                 <Link2 className="w-3.5 h-3.5" />
-                Vinculação
+                <span className="hidden sm:inline">Tipos</span>
+              </TabsTrigger>
+              <TabsTrigger value="categories" className="gap-1.5 text-xs sm:text-sm">
+                <Tag className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Categorias</span>
               </TabsTrigger>
             </TabsList>
 
@@ -337,6 +407,94 @@ export function PrinterModal({
                   ⚠️ Selecione pelo menos um tipo de pedido
                 </div>
               )}
+            </TabsContent>
+
+            <TabsContent value="categories" className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
+                  <Checkbox
+                    id="filter_by_category"
+                    checked={filterByCategory}
+                    onCheckedChange={(checked) => handleFilterByCategoryChange(checked === true)}
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor="filter_by_category"
+                      className="text-sm font-medium leading-none cursor-pointer"
+                    >
+                      Filtrar por categoria
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Imprimir apenas itens de categorias específicas (ex: bebidas no bar, comidas na cozinha)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {filterByCategory && (
+                <div className="space-y-2">
+                  <Label>Categorias vinculadas</Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Selecione quais categorias de produtos serão impressas nesta impressora
+                  </p>
+                  
+                  {loadingCategories ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : categories.length === 0 ? (
+                    <div className="p-4 rounded-md bg-muted/50 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma categoria cadastrada. Cadastre categorias no menu Produtos → Categorias.
+                      </p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[200px] rounded-md border p-2">
+                      <div className="grid gap-2">
+                        {categories.map((category) => (
+                          <div
+                            key={category.id}
+                            onClick={() => toggleCategory(category.id)}
+                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${
+                              formData.linked_categories?.includes(category.id)
+                                ? 'border-primary bg-primary/5'
+                                : 'border-muted hover:bg-muted/50'
+                            }`}
+                          >
+                            <Checkbox
+                              id={`category-${category.id}`}
+                              checked={formData.linked_categories?.includes(category.id) || false}
+                              onCheckedChange={() => toggleCategory(category.id)}
+                            />
+                            <span className="text-xl">{category.icon || '📦'}</span>
+                            <label
+                              htmlFor={`category-${category.id}`}
+                              className="flex-1 font-medium cursor-pointer"
+                            >
+                              {category.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+
+                  {filterByCategory && formData.linked_categories?.length === 0 && (
+                    <div className="p-3 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm">
+                      ⚠️ Selecione pelo menos uma categoria ou desative o filtro
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-start gap-2 p-3 rounded-md bg-blue-500/10">
+                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-700 dark:text-blue-400">
+                  <strong>Exemplo de uso:</strong> Configure uma impressora "Bar" para imprimir 
+                  apenas itens da categoria "Bebidas", e outra impressora "Cozinha" para 
+                  imprimir itens das categorias "Pratos" e "Porções".
+                </p>
+              </div>
             </TabsContent>
           </Tabs>
 
