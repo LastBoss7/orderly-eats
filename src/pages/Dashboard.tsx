@@ -26,6 +26,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { CloseTableModal } from '@/components/tables/CloseTableModal';
+import { CloseTabModal } from '@/components/tabs/CloseTabModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,12 +138,28 @@ interface Waiter {
 interface Table {
   id: string;
   number: number;
+  status?: string;
 }
 
 interface Tab {
   id: string;
   number: number;
   customer_name: string | null;
+  status?: string;
+}
+
+// Types for close modals (with required status)
+interface TableForClose {
+  id: string;
+  number: number;
+  status: string;
+}
+
+interface TabForClose {
+  id: string;
+  number: number;
+  customer_name: string | null;
+  status: string;
 }
 
 interface DeliveryDriver {
@@ -181,6 +199,12 @@ export default function Dashboard() {
     delivery_min: 25,
     delivery_max: 80,
   });
+  
+  // Close table/tab modal states
+  const [showCloseTableModal, setShowCloseTableModal] = useState(false);
+  const [showCloseTabModal, setShowCloseTabModal] = useState(false);
+  const [tableToClose, setTableToClose] = useState<TableForClose & { orders: Order[] } | null>(null);
+  const [tabToClose, setTabToClose] = useState<TabForClose & { orders: Order[] } | null>(null);
 
   // Keyboard shortcuts for quick order creation
   const handleNewOrderShortcut = useCallback((type?: 'counter' | 'table' | 'delivery' | 'takeaway') => {
@@ -747,7 +771,34 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     );
   };
 
-  // Draggable Order Card Component
+  // Function to handle close table/tab from order card
+  const handleCloseTableFromOrder = (order: Order) => {
+    if (order.table_id) {
+      const table = tables.find(t => t.id === order.table_id);
+      if (table) {
+        // Get all orders for this table
+        const tableOrders = orders.filter(o => 
+          o.table_id === order.table_id && 
+          ['pending', 'preparing', 'ready', 'served'].includes(o.status || '')
+        );
+        setTableToClose({ ...table, status: 'occupied', orders: tableOrders });
+        setShowCloseTableModal(true);
+      }
+    } else if (order.tab_id) {
+      const tab = tabs.find(t => t.id === order.tab_id);
+      if (tab) {
+        // Get all orders for this tab
+        const tabOrders = orders.filter(o => 
+          o.tab_id === order.tab_id && 
+          ['pending', 'preparing', 'ready', 'served'].includes(o.status || '')
+        );
+        setTabToClose({ ...tab, status: tab.status || 'occupied', orders: tabOrders });
+        setShowCloseTabModal(true);
+      }
+    }
+  };
+
+  // Draggable Order Card Component - New design like reference image
   const DraggableOrderCard = ({ 
     order, 
     showAdvanceButton = false, 
@@ -771,48 +822,120 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     const waiterName = getWaiterName(order.waiter_id);
     const timer = getOrderTimer(order);
 
+    // Check if this order should show close button (ready or served table/tab orders)
+    const showCloseButton = (order.status === 'ready' || order.status === 'served') && 
+                            (order.table_id || order.tab_id);
+
     return (
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`order-card cursor-pointer ${delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''} ${isDragging ? 'shadow-xl z-50' : ''}`}
-        onClick={() => handleOpenOrderDetail(order)}
+        className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${
+          delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''
+        } ${isDragging ? 'shadow-xl z-50' : ''}`}
       >
         {/* Drag Handle */}
         <div 
           {...listeners} 
           {...attributes}
-          className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+          className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors z-10"
           onClick={(e) => e.stopPropagation()}
         >
           <GripVertical className="w-4 h-4" />
         </div>
 
-        {/* Header */}
-        <div className="order-card-header pr-8">
-          <div className="order-number">
-            {getOrderTypeIcon(order.order_type)}
-            <span>Pedido {getOrderDisplayNumber(order)}</span>
-          </div>
-          <div className={`order-time ${delayed ? 'bg-destructive text-destructive-foreground' : ''}`}>
-            <Clock className="w-3 h-3" />
-            {formatTime(order.created_at)}
-          </div>
-        </div>
-
-        {/* Timer Progress Bar */}
-        {timer && order.status === 'preparing' && (
-          <div className="space-y-1">
-            <div className="flex justify-between items-center text-xs">
-              <span className={`font-medium ${timer.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                ⏱ {formatElapsedTime(timer.elapsed)} / {timer.limit}min
+        {/* Card Content - Clickable area */}
+        <div 
+          className="p-4 pb-3 cursor-pointer"
+          onClick={() => handleOpenOrderDetail(order)}
+        >
+          {/* Header Row: Order number, Timer */}
+          <div className="flex items-center justify-between mb-2 pr-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                {getOrderTypeIcon(order.order_type)}
+              </div>
+              <span className="font-bold text-foreground">
+                Pedido {getOrderDisplayNumber(order)}
               </span>
-              {timer.isOverdue && (
-                <span className="text-destructive font-semibold animate-pulse">
-                  +{formatElapsedTime(timer.elapsed - timer.limit)}
-                </span>
+            </div>
+            
+            {/* Timer Badge */}
+            {timer && (
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                timer.isOverdue 
+                  ? 'bg-destructive/10 text-destructive border border-destructive/30' 
+                  : timer.percentage > 75
+                    ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400'
+              }`}>
+                <Clock className="w-3 h-3" />
+                <span>{String(Math.floor(timer.elapsed / 60)).padStart(2, '0')}:{String(timer.elapsed % 60).padStart(2, '0')}</span>
+              </div>
+            )}
+            
+            {/* Time badge if no timer */}
+            {!timer && (
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                delayed ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+              }`}>
+                <Clock className="w-3 h-3" />
+                {formatTime(order.created_at)}
+              </div>
+            )}
+          </div>
+
+          {/* Customer Name and Total Row */}
+          <div className="flex items-start justify-between text-sm mb-2">
+            <div className="space-y-0.5">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                {order.customer_name || 'Não identificado'}
+              </span>
+              {/* Payment status for ready/served orders */}
+              {(order.status === 'ready' || order.status === 'served') && !order.payment_method && (
+                <span className="text-xs text-muted-foreground">• Não registrado</span>
               )}
             </div>
+            
+            {/* Total */}
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">Total:</div>
+              <div className="font-bold text-base">{formatCurrency(order.total)}</div>
+            </div>
+          </div>
+
+          {/* Waiter info */}
+          {waiterName && (
+            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 mb-2">
+              <ChefHat className="w-3 h-3" />
+              <span>Garçom: {waiterName}</span>
+            </div>
+          )}
+
+          {/* Table or Tab location badge */}
+          {locationInfo && (
+            <div className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg ${
+              locationInfo.type === 'table' 
+                ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800' 
+                : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800'
+            }`}>
+              <UtensilsCrossed className="w-4 h-4" />
+              {locationInfo.label}
+            </div>
+          )}
+
+          {/* Order type badge for non-table orders */}
+          {order.order_type && order.order_type !== 'table' && !locationInfo && (
+            <Badge variant="outline" className="text-xs">
+              {getOrderTypeIcon(order.order_type)}
+              <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
+            </Badge>
+          )}
+        </div>
+
+        {/* Timer Progress Bar for preparing */}
+        {timer && order.status === 'preparing' && (
+          <div className="px-4 pb-2">
             <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div 
                 className={`h-full transition-all duration-300 rounded-full ${
@@ -828,56 +951,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Status bar for delayed */}
-        {delayed && order.status !== 'delivered' && (
-          <div className="order-status-bar delayed flex items-center justify-center gap-2 animate-pulse">
-            <AlertTriangle className="w-3 h-3" />
-            Pedido atrasado
-          </div>
-        )}
-
-        {/* Customer and Waiter info */}
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground flex items-center gap-1">
-              <User className="w-3 h-3" />
-              {order.customer_name || 'Cliente não identificado'}
-            </span>
-            <span className="font-semibold">{formatCurrency(order.total)}</span>
-          </div>
-          {waiterName && (
-            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-              <ChefHat className="w-3 h-3" />
-              <span>Garçom: {waiterName}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Table or Tab info */}
-        {locationInfo && (
-          <div className={`flex items-center gap-2 text-sm font-medium px-2 py-1 rounded ${
-            locationInfo.type === 'table' 
-              ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40' 
-              : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40'
-          }`}>
-            <UtensilsCrossed className="w-4 h-4" />
-            {locationInfo.label}
-          </div>
-        )}
-
-        {/* Order type badge */}
-        {order.order_type && order.order_type !== 'table' && (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              {getOrderTypeIcon(order.order_type)}
-              <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
-            </Badge>
-          </div>
-        )}
-
         {/* Driver selector for delivery orders */}
         {order.order_type === 'delivery' && (
-          <div onClick={(e) => e.stopPropagation()}>
+          <div className="px-4 pb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -936,8 +1012,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 href={formatWhatsAppLink(getDriverPhone(order.driver_id)!)}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="mt-1 flex items-center gap-2 text-xs text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1.5 rounded-md transition-colors"
+                className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1.5 rounded-md transition-colors"
               >
                 <Phone className="w-3 h-3" />
                 <span>{getDriverPhone(order.driver_id)}</span>
@@ -948,8 +1023,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Items preview */}
         {order.order_items && order.order_items.length > 0 && (
-          <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
-            {order.order_items.slice(0, 2).map((item, idx) => (
+          <div 
+            className="px-4 py-2 border-t text-xs text-muted-foreground cursor-pointer"
+            onClick={() => handleOpenOrderDetail(order)}
+          >
+            {order.order_items.slice(0, 2).map((item) => (
               <div key={item.id} className="truncate">
                 {item.quantity}x {item.product_name}
               </div>
@@ -962,9 +1040,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Delivery Status Dropdown */}
         {order.order_type === 'delivery' && order.status !== 'pending' && (
-          <div className="mt-2">
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="sm"
@@ -989,40 +1067,19 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[200px]">
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'preparing');
-                  }}
-                  className={order.status === 'preparing' ? 'bg-accent' : ''}
-                >
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>
                   🔥 Preparando
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'ready');
-                  }}
-                  className={order.status === 'ready' ? 'bg-accent' : ''}
-                >
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')}>
                   ✅ Pronto
                 </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'out_for_delivery');
-                  }}
-                  className={order.status === 'out_for_delivery' ? 'bg-accent' : ''}
-                >
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}>
                   <Truck className="w-4 h-4 mr-2" />
                   Em entrega
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'delivered');
-                  }}
+                  onClick={() => updateOrderStatus(order.id, 'delivered')}
                   className="text-green-600"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
@@ -1033,124 +1090,68 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Table/Tab Status Dropdown */}
-        {(order.order_type === 'table' || order.order_type === 'tab') && order.status !== 'pending' && (
-          <div className="mt-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className={`w-full justify-between ${
-                    order.status === 'served' 
-                      ? 'border-purple-500 text-purple-600 bg-purple-50' 
-                      : ''
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    {order.status === 'preparing' && '🔥 Preparando'}
-                    {order.status === 'ready' && '✅ Pronto'}
-                    {order.status === 'served' && '🍽️ Servido'}
-                  </span>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[200px]">
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'preparing');
-                  }}
-                  className={order.status === 'preparing' ? 'bg-accent' : ''}
-                >
-                  🔥 Preparando
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'ready');
-                  }}
-                  className={order.status === 'ready' ? 'bg-accent' : ''}
-                >
-                  ✅ Pronto
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    updateOrderStatus(order.id, 'served');
-                  }}
-                  className={order.status === 'served' ? 'bg-accent' : ''}
-                >
-                  🍽️ Servido
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+        {/* Close Table/Tab Button - Main action for ready/served orders */}
+        {showCloseButton && locationInfo && (
+          <div 
+            className="px-4 pb-4" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button 
+              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-11 text-sm"
+              onClick={() => handleCloseTableFromOrder(order)}
+            >
+              Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
+            </Button>
           </div>
         )}
 
-        {/* Action buttons - only for non-delivery orders */}
-        {showAdvanceButton && order.order_type !== 'delivery' && (
-          <Button 
-            variant="outline" 
-            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              // For table/tab: pending -> preparing -> ready -> served
-              const nextStatus = order.status === 'pending' 
-                ? 'preparing' 
-                : order.status === 'preparing' 
-                  ? 'ready' 
-                  : 'served';
-              updateOrderStatus(order.id, nextStatus);
-            }}
-          >
-            {order.status === 'ready' ? 'Marcar servido' : 'Avançar pedido'}
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+        {/* Action buttons for non-delivery, non-table/tab orders */}
+        {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => {
+                const nextStatus = order.status === 'pending' 
+                  ? 'preparing' 
+                  : order.status === 'preparing' 
+                    ? 'ready' 
+                    : 'served';
+                updateOrderStatus(order.id, nextStatus);
+              }}
+            >
+              {order.status === 'ready' ? 'Marcar servido' : 'Avançar pedido'}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         )}
 
         {/* Advance button for delivery in pending status */}
         {order.order_type === 'delivery' && order.status === 'pending' && (
-          <Button 
-            variant="outline" 
-            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              updateOrderStatus(order.id, 'preparing');
-            }}
-          >
-            Aceitar pedido
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              onClick={() => updateOrderStatus(order.id, 'preparing')}
+            >
+              Aceitar pedido
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         )}
 
-        {/* Finalize button - only for counter orders (table/tab finalized on close) */}
+        {/* Finalize button - only for counter orders */}
         {showFinalizeButton && order.order_type === 'counter' && (
-          <Button 
-            variant="outline" 
-            className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white mt-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              updateOrderStatus(order.id, 'delivered');
-            }}
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Produto Entregue
-          </Button>
-        )}
-
-        {/* Mark as served button for table/tab orders that are ready */}
-        {showFinalizeButton && (order.order_type === 'table' || order.order_type === 'tab') && order.status === 'ready' && (
-          <Button 
-            variant="outline" 
-            className="w-full border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white mt-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              updateOrderStatus(order.id, 'served');
-            }}
-          >
-            🍽️ Marcar como Servido
-          </Button>
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+              onClick={() => updateOrderStatus(order.id, 'delivered')}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Produto Entregue
+            </Button>
+          </div>
         )}
       </div>
     );
@@ -1913,6 +1914,44 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           isOpen={isStoreOpen}
           onStoreStatusChange={setIsStoreOpen}
         />
+
+        {/* Close Table Modal */}
+        {tableToClose && (
+          <CloseTableModal
+            open={showCloseTableModal}
+            onClose={() => {
+              setShowCloseTableModal(false);
+              setTableToClose(null);
+            }}
+            table={tableToClose}
+            orders={tableToClose.orders}
+            onTableClosed={() => {
+              fetchOrders();
+              fetchTables();
+              setShowCloseTableModal(false);
+              setTableToClose(null);
+            }}
+          />
+        )}
+
+        {/* Close Tab Modal */}
+        {tabToClose && (
+          <CloseTabModal
+            open={showCloseTabModal}
+            onClose={() => {
+              setShowCloseTabModal(false);
+              setTabToClose(null);
+            }}
+            tab={tabToClose}
+            orders={tabToClose.orders}
+            onTabClosed={() => {
+              fetchOrders();
+              fetchTabs();
+              setShowCloseTabModal(false);
+              setTabToClose(null);
+            }}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
