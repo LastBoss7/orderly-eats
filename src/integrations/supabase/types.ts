@@ -726,10 +726,13 @@ export type Database = {
           cnpj: string | null
           created_at: string
           id: string
+          is_active: boolean
           logo_url: string | null
           name: string
           phone: string | null
           slug: string
+          suspended_at: string | null
+          suspended_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -737,10 +740,13 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           logo_url?: string | null
           name: string
           phone?: string | null
           slug: string
+          suspended_at?: string | null
+          suspended_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -748,10 +754,13 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           logo_url?: string | null
           name?: string
           phone?: string | null
           slug?: string
+          suspended_at?: string | null
+          suspended_reason?: string | null
           updated_at?: string
         }
         Relationships: []
