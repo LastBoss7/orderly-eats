@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { useWaiterData } from '@/hooks/useWaiterData';
+import logoGamakoWhite from '@/assets/logo-gamako-white.png';
 import { 
   ArrowLeft,
   Search, 
@@ -1462,9 +1463,11 @@ export default function WaiterApp({
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col">
         {/* Header */}
         <header className="pt-8 pb-4 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-900 mb-3 shadow-lg shadow-amber-400/30">
-            <ChefHat className="w-8 h-8" />
-          </div>
+          <img 
+            src={logoGamakoWhite} 
+            alt="Gamako" 
+            className="h-16 mx-auto mb-3 object-contain"
+          />
           <h1 className="text-lg font-bold text-white">{restaurant?.name}</h1>
           <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
         </header>
