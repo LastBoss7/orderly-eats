@@ -9,8 +9,8 @@ const PrinterService = require('./services/printer');
 // - 58mm paper: use 32 characters per line
 // - 80mm paper: use 42-48 characters per line
 const defaultLayout = {
-  paperSize: '58mm',
-  paperWidth: 32, // 32 for 58mm, 42-48 for 80mm
+  paperSize: '80mm',
+  paperWidth: 48, // 32 for 58mm, 42-48 for 80mm
   showLogo: false,
   showRestaurantName: true,
   showAddress: false,
