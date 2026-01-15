@@ -509,6 +509,16 @@ export default function Dashboard() {
   const preparingOrders = filterOrdersByType(allPreparingOrders);
   const readyOrders = filterOrdersByType(allReadyOrders);
 
+  // Count orders by filter type for badges
+  const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready', 'out_for_delivery'].includes(o.status || ''));
+  const orderCounts = {
+    all: activeOrders.length,
+    table: activeOrders.filter(o => o.table_id !== null).length,
+    tab: activeOrders.filter(o => o.tab_id !== null).length,
+    delivery: activeOrders.filter(o => o.order_type === 'delivery').length,
+    counter: activeOrders.filter(o => o.order_type === 'counter' || o.order_type === 'takeaway').length,
+  };
+
   const updateOrderStatus = async (orderId: string, status: string) => {
     const updateData: { status: string; ready_at?: string; updated_at: string } = { 
       status,
@@ -1134,7 +1144,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 onClick={() => setFilter('all')}
                 title="Todos os pedidos"
               >
-                Todos
+                <span className="flex items-center gap-1">
+                  Todos
+                  {orderCounts.all > 0 && (
+                    <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-xs">
+                      {orderCounts.all}
+                    </Badge>
+                  )}
+                </span>
               </button>
               <button 
                 className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
@@ -1144,6 +1161,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <UtensilsCrossed className="w-4 h-4" />
                   <span className="text-xs">Mesa</span>
+                  {orderCounts.table > 0 && (
+                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-emerald-500 hover:bg-emerald-500 text-white">
+                      {orderCounts.table}
+                    </Badge>
+                  )}
                 </span>
               </button>
               <button 
@@ -1154,6 +1176,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
                   <User className="w-4 h-4" />
                   <span className="text-xs">Comanda</span>
+                  {orderCounts.tab > 0 && (
+                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-violet-500 hover:bg-violet-500 text-white">
+                      {orderCounts.tab}
+                    </Badge>
+                  )}
                 </span>
               </button>
               <button 
@@ -1161,14 +1188,28 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 onClick={() => setFilter('delivery')}
                 title="Pedidos para entrega"
               >
-                <Bike className="w-4 h-4" />
+                <span className="flex items-center gap-1">
+                  <Bike className="w-4 h-4" />
+                  {orderCounts.delivery > 0 && (
+                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-blue-500 hover:bg-blue-500 text-white">
+                      {orderCounts.delivery}
+                    </Badge>
+                  )}
+                </span>
               </button>
               <button 
                 className={`filter-tab ${filter === 'counter' ? 'active' : ''}`}
                 onClick={() => setFilter('counter')}
                 title="Pedidos para retirada"
               >
-                <Package className="w-4 h-4" />
+                <span className="flex items-center gap-1">
+                  <Package className="w-4 h-4" />
+                  {orderCounts.counter > 0 && (
+                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-amber-500 hover:bg-amber-500 text-white">
+                      {orderCounts.counter}
+                    </Badge>
+                  )}
+                </span>
               </button>
             </div>
 
