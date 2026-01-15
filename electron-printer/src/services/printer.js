@@ -646,8 +646,8 @@ class PrinterService {
    * Format receipt following proper structure with word wrapping
    */
   formatReceipt(order, layout, restaurantInfo = {}) {
-    // Paper width in characters - use smaller default for thermal
-    const width = parseInt(layout.paperWidth, 10) || 32;
+    // Paper width in characters - default 48 for 80mm thermal
+    const width = parseInt(layout.paperWidth, 10) || 48;
     const divider = this.createLine('-', width);
     
     const lines = [];
@@ -849,8 +849,8 @@ class PrinterService {
   }
 
   formatTestReceipt(layout) {
-    // Use smaller default for 58mm thermal printers
-    const width = parseInt(layout.paperWidth, 10) || 32;
+    // Default 48 chars for 80mm thermal printers
+    const width = parseInt(layout.paperWidth, 10) || 48;
     const divider = this.createLine('-', width);
     const lines = [];
     
