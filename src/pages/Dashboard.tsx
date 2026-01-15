@@ -740,11 +740,19 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       'column-pending': 'pending',
       'column-preparing': 'preparing',
       'column-ready': 'ready',
+      'served': 'served',
     };
 
     const targetStatus = statusMap[newStatus];
     if (targetStatus && order.status !== targetStatus) {
-      updateOrderStatus(orderId, targetStatus);
+      // Prevent table/tab orders from going directly to 'delivered'
+      // They must go through 'served' first and then closed via checkout
+      if (targetStatus === 'served' && !order.table_id && !order.tab_id) {
+        // Non-table/tab orders can skip 'served' and go to 'delivered'
+        updateOrderStatus(orderId, 'delivered');
+      } else {
+        updateOrderStatus(orderId, targetStatus);
+      }
     }
   };
 
@@ -1148,8 +1156,8 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Finalize button - only for counter orders */}
-        {showFinalizeButton && order.order_type === 'counter' && (
+        {/* Finalize button - only for counter/takeaway orders (not table/tab) */}
+        {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
           <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="outline" 
@@ -1158,6 +1166,20 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Produto Entregue
+            </Button>
+          </div>
+        )}
+
+        {/* Mark as served button - for table/tab orders in ready status */}
+        {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              className="w-full border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
+              onClick={() => updateOrderStatus(order.id, 'served')}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Marcar Servido
             </Button>
           </div>
         )}
@@ -1200,10 +1222,16 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     );
   };
 
-  // Finalize all ready orders
+  // Finalize all ready orders - only for counter/delivery orders (NOT table/tab)
   const handleFinalizeAllReady = async () => {
     for (const order of readyOrders) {
-      await updateOrderStatus(order.id, 'delivered');
+      // Table and tab orders should go to "served" status, not "delivered"
+      // They can only be "delivered" when the table/tab is closed with payment
+      if (order.table_id || order.tab_id) {
+        await updateOrderStatus(order.id, 'served');
+      } else {
+        await updateOrderStatus(order.id, 'delivered');
+      }
     }
   };
 
