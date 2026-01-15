@@ -60,6 +60,7 @@ export default function Printers() {
   const { printers, loading: loadingPrinters, addPrinter, updatePrinter, deletePrinter } = usePrinters();
   
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileExists, setFileExists] = useState(false);
   const [checkingFile, setCheckingFile] = useState(true);
@@ -153,6 +154,18 @@ LARGURA_PAPEL = 48
       toast.error('Erro ao enviar arquivo: ' + err.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleCopyRestaurantId = async () => {
+    if (!profile?.restaurant_id) return;
+    try {
+      await navigator.clipboard.writeText(profile.restaurant_id);
+      setCopiedId(true);
+      toast.success('ID do restaurante copiado!');
+      setTimeout(() => setCopiedId(false), 3000);
+    } catch (err) {
+      toast.error('Erro ao copiar');
     }
   };
 
@@ -323,6 +336,59 @@ LARGURA_PAPEL = 48
                       {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Restaurant ID Card - Important for Electron connection */}
+            <Card className="border-amber-500/30 bg-gradient-to-r from-amber-500/5 to-transparent">
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 rounded-full bg-amber-500/20">
+                      <AlertTriangle className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">ID do Restaurante (Obrigatório)</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Cole este ID nas configurações do aplicativo Electron para conectar ao seu restaurante
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 px-3 py-2 bg-muted rounded-lg font-mono text-sm break-all">
+                          {profile?.restaurant_id || 'Carregando...'}
+                        </code>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleCopyRestaurantId}
+                          disabled={!profile?.restaurant_id}
+                        >
+                          {copiedId ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" />
+                              Copiado!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4 mr-1" />
+                              Copiar ID
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="ml-16 p-3 rounded-lg bg-muted/50 border border-dashed">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">
+                      📋 Passos para conectar o Electron:
+                    </p>
+                    <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                      <li>Abra o aplicativo Electron no Windows</li>
+                      <li>Clique no menu <strong>"☰ Configurar"</strong></li>
+                      <li>Cole o ID do Restaurante no campo correspondente</li>
+                      <li>Clique em <strong>"Salvar"</strong> e depois <strong>"Reconectar"</strong></li>
+                    </ol>
+                  </div>
                 </div>
               </CardContent>
             </Card>
