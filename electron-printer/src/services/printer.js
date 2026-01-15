@@ -119,22 +119,22 @@ class PrinterService {
    * Print order
    */
   async printOrder(order, options = {}) {
-    const { layout = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
+    const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
     
     // Check if we should use ESC/POS
     if (useEscPos && printerInfo && printerInfo.type === 'usb') {
-      return this.printOrderEscPos(order, layout, printerInfo);
+      return this.printOrderEscPos(order, layout, restaurantInfo, printerInfo);
     }
     
     // Fallback to text printing
-    const receipt = this.formatReceipt(order, layout);
+    const receipt = this.formatReceipt(order, layout, restaurantInfo);
     return this.printText(receipt, printerName);
   }
 
   /**
    * Print order using ESC/POS commands
    */
-  async printOrderEscPos(order, layout, printerInfo) {
+  async printOrderEscPos(order, layout, restaurantInfo, printerInfo) {
     if (!this.usbPrinter) {
       throw new Error('Módulo USB não disponível');
     }
@@ -144,7 +144,7 @@ class PrinterService {
       await this.usbPrinter.connect(printerInfo.vendorId, printerInfo.productId);
     }
 
-    const commands = this.buildEscPosReceipt(order, layout);
+    const commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
     await this.usbPrinter.write(commands);
     
     return true;
@@ -153,9 +153,9 @@ class PrinterService {
   /**
    * Build ESC/POS receipt commands
    */
-  buildEscPosReceipt(order, layout) {
+  buildEscPosReceipt(order, layout, restaurantInfo = {}) {
     const buffers = [];
-    const width = layout.paperWidth || 48;
+    const width = layout.paperWidth || (layout.paperSize === '58mm' ? 32 : 48);
     const encoding = 'cp860'; // Portuguese encoding
     
     // Initialize printer
@@ -168,29 +168,24 @@ class PrinterService {
     // Header - Restaurant info
     buffers.push(ESCPOS.TXT_ALIGN_CENTER);
     
-    // TODO: Add logo support
-    // if (layout.showLogo && layout.logoData) {
-    //   buffers.push(this.imageToEscPos(layout.logoData, width));
-    // }
-    
-    if (layout.showRestaurantName) {
-      buffers.push(ESCPOS.TXT_SIZE_2X);
+    if (layout.showRestaurantName && restaurantInfo.name) {
+      buffers.push(ESCPOS.TXT_SIZE_2H);
       buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from('MEU RESTAURANTE\n', encoding));
+      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.name.toUpperCase()) + '\n', encoding));
       buffers.push(ESCPOS.TXT_BOLD_OFF);
       buffers.push(ESCPOS.TXT_SIZE_NORMAL);
     }
     
-    if (layout.showAddress) {
-      buffers.push(Buffer.from('Rua Exemplo, 123 - Centro\n', encoding));
+    if (layout.showAddress && restaurantInfo.address) {
+      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.address) + '\n', encoding));
     }
     
-    if (layout.showPhone) {
-      buffers.push(Buffer.from('Tel: (11) 99999-9999\n', encoding));
+    if (layout.showPhone && restaurantInfo.phone) {
+      buffers.push(Buffer.from('Tel: ' + restaurantInfo.phone + '\n', encoding));
     }
     
-    if (layout.showCnpj) {
-      buffers.push(Buffer.from('CNPJ: 12.345.678/0001-90\n', encoding));
+    if (layout.showCnpj && restaurantInfo.cnpj) {
+      buffers.push(Buffer.from('CNPJ: ' + restaurantInfo.cnpj + '\n', encoding));
     }
     
     buffers.push(lineFeed(1));
@@ -203,20 +198,20 @@ class PrinterService {
     buffers.push(ESCPOS.TXT_BOLD_OFF);
     
     // Divider
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 42)) + '\n', encoding));
+    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
     
-    // Order number
+    // Order number - LARGE and BOLD
     if (layout.showOrderNumber) {
       buffers.push(ESCPOS.TXT_SIZE_2X);
       buffers.push(ESCPOS.TXT_BOLD_ON);
-      const orderNum = order.id.slice(0, 8).toUpperCase();
+      const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
       buffers.push(Buffer.from(`#${orderNum}\n`, encoding));
       buffers.push(ESCPOS.TXT_BOLD_OFF);
       buffers.push(ESCPOS.TXT_SIZE_NORMAL);
       buffers.push(lineFeed(1));
     }
     
-    // Order type and table - left aligned
+    // Order info - left aligned
     buffers.push(ESCPOS.TXT_ALIGN_LEFT);
     
     if (layout.showOrderType) {
@@ -228,13 +223,17 @@ class PrinterService {
       buffers.push(Buffer.from(`Tipo: ${orderTypeLabels[order.order_type] || order.order_type}\n`, encoding));
     }
     
-    if (layout.showTable && order.table_id) {
-      buffers.push(Buffer.from(`Mesa: ${order.table_id}\n`, encoding));
+    if (layout.showTable && (order.table_number || order.table_id)) {
+      buffers.push(Buffer.from(`Mesa: ${order.table_number || order.table_id}\n`, encoding));
+    }
+
+    if (layout.showWaiter && order.waiter_name) {
+      buffers.push(Buffer.from(`Garcom: ${this.removeAccents(order.waiter_name)}\n`, encoding));
     }
     
     // Customer info
     if (layout.showCustomerName && order.customer_name) {
-      buffers.push(Buffer.from(`Cliente: ${order.customer_name}\n`, encoding));
+      buffers.push(Buffer.from(`Cliente: ${this.removeAccents(order.customer_name)}\n`, encoding));
     }
     
     if (layout.showCustomerPhone && order.delivery_phone) {
@@ -242,29 +241,53 @@ class PrinterService {
     }
     
     if (layout.showDeliveryAddress && order.delivery_address) {
-      buffers.push(Buffer.from(`End: ${order.delivery_address}\n`, encoding));
+      const addr = this.removeAccents(order.delivery_address);
+      if (addr.length > width - 5) {
+        buffers.push(Buffer.from(`End: ${addr.slice(0, width - 5)}\n`, encoding));
+        buffers.push(Buffer.from(`     ${addr.slice(width - 5)}\n`, encoding));
+      } else {
+        buffers.push(Buffer.from(`End: ${addr}\n`, encoding));
+      }
     }
     
     // Divider
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 42)) + '\n', encoding));
+    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
     buffers.push(lineFeed(1));
     
     // Items header
     buffers.push(ESCPOS.TXT_BOLD_ON);
     buffers.push(Buffer.from('ITENS:\n', encoding));
     buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(Buffer.from('-'.repeat(Math.min(width, 42)) + '\n', encoding));
+    buffers.push(Buffer.from('-'.repeat(width) + '\n', encoding));
     
     // Items
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
         const qty = item.quantity || 1;
-        const name = item.product_name;
+        let itemName = this.removeAccents(item.product_name);
         
-        // Item line
+        // Add size if enabled
+        if (layout.showItemSize && item.product_size) {
+          itemName += ` (${this.removeAccents(item.product_size)})`;
+        }
+        
+        // Item line - larger font
+        if (layout.boldItems) {
+          buffers.push(ESCPOS.TXT_BOLD_ON);
+        }
         buffers.push(ESCPOS.TXT_SIZE_2H);
-        buffers.push(Buffer.from(`${qty}x ${name}\n`, encoding));
+        
+        // Truncate if needed
+        const itemLine = `${qty}x ${itemName}`;
+        if (itemLine.length > width / 2) {
+          buffers.push(Buffer.from(`${itemLine.slice(0, Math.floor(width / 2) - 1)}...\n`, encoding));
+        } else {
+          buffers.push(Buffer.from(`${itemLine}\n`, encoding));
+        }
         buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+        if (layout.boldItems) {
+          buffers.push(ESCPOS.TXT_BOLD_OFF);
+        }
         
         if (layout.showItemPrices) {
           const price = (item.product_price * qty).toFixed(2);
@@ -274,44 +297,59 @@ class PrinterService {
         }
         
         if (layout.showItemNotes && item.notes) {
-          buffers.push(Buffer.from(`   Obs: ${item.notes}\n`, encoding));
+          buffers.push(Buffer.from(`   -> ${this.removeAccents(item.notes)}\n`, encoding));
         }
         
         buffers.push(lineFeed(1));
       }
     }
     
-    buffers.push(Buffer.from('-'.repeat(Math.min(width, 42)) + '\n', encoding));
+    buffers.push(Buffer.from('-'.repeat(width) + '\n', encoding));
+    
+    // Notes
+    if (order.notes) {
+      buffers.push(lineFeed(1));
+      buffers.push(ESCPOS.TXT_BOLD_ON);
+      buffers.push(Buffer.from('OBS: ', encoding));
+      buffers.push(ESCPOS.TXT_BOLD_OFF);
+      buffers.push(Buffer.from(this.removeAccents(order.notes) + '\n', encoding));
+      buffers.push(lineFeed(1));
+    }
     
     // Totals
     if (layout.showTotals) {
       if (layout.showDeliveryFee && order.delivery_fee && order.delivery_fee > 0) {
-        const line = this.formatLineItem('Taxa de entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width);
+        const line = this.formatLineItem('Taxa entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width);
         buffers.push(Buffer.from(line + '\n', encoding));
       }
       
       // Total with larger font
+      buffers.push(lineFeed(1));
+      if (layout.boldTotal) {
+        buffers.push(ESCPOS.TXT_BOLD_ON);
+      }
       buffers.push(ESCPOS.TXT_SIZE_2X);
-      buffers.push(ESCPOS.TXT_BOLD_ON);
       const totalLine = this.formatLineItem('TOTAL:', `R$ ${(order.total || 0).toFixed(2)}`, Math.floor(width / 2));
       buffers.push(Buffer.from(totalLine + '\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
       buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+      if (layout.boldTotal) {
+        buffers.push(ESCPOS.TXT_BOLD_OFF);
+      }
+    }
+
+    // Payment method
+    if (layout.showPaymentMethod && order.payment_method) {
+      const paymentLabels = {
+        'cash': 'Dinheiro',
+        'credit': 'Credito',
+        'debit': 'Debito',
+        'pix': 'PIX',
+      };
+      buffers.push(Buffer.from(this.formatLineItem('Pagamento:', paymentLabels[order.payment_method] || order.payment_method, width) + '\n', encoding));
     }
     
     buffers.push(lineFeed(1));
-    
-    // Notes
-    if (order.notes) {
-      buffers.push(Buffer.from('='.repeat(Math.min(width, 42)) + '\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from('OBSERVACOES:\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(Buffer.from(order.notes + '\n', encoding));
-    }
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 42)) + '\n', encoding));
+    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
     
     // Footer
     buffers.push(ESCPOS.TXT_ALIGN_CENTER);
@@ -319,13 +357,13 @@ class PrinterService {
     if (layout.showDateTime) {
       const now = new Date();
       const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       buffers.push(Buffer.from(`${dateStr} ${timeStr}\n`, encoding));
     }
     
     if (layout.footerMessage) {
       buffers.push(lineFeed(1));
-      buffers.push(Buffer.from(layout.footerMessage + '\n', encoding));
+      buffers.push(Buffer.from(this.removeAccents(layout.footerMessage) + '\n', encoding));
     }
     
     // Feed and cut
@@ -333,6 +371,18 @@ class PrinterService {
     buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
     
     return Buffer.concat(buffers);
+  }
+
+  /**
+   * Remove accents for better thermal printer compatibility
+   */
+  removeAccents(str) {
+    if (!str) return '';
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ç/g, 'c')
+      .replace(/Ç/g, 'C');
   }
 
   /**
@@ -474,28 +524,28 @@ class PrinterService {
   // TEXT PRINTING (Fallback)
   // ============================================
 
-  formatReceipt(order, layout) {
-    const width = layout.paperWidth || 48;
+  formatReceipt(order, layout, restaurantInfo = {}) {
+    const width = layout.paperWidth || (layout.paperSize === '58mm' ? 32 : 48);
     const divider = '='.repeat(width);
     const thinDivider = '-'.repeat(width);
     
     const lines = [];
     
     // Header
-    if (layout.showRestaurantName) {
-      lines.push(this.center('MEU RESTAURANTE', width));
+    if (layout.showRestaurantName && restaurantInfo.name) {
+      lines.push(this.center(this.removeAccents(restaurantInfo.name.toUpperCase()), width));
     }
     
-    if (layout.showAddress) {
-      lines.push(this.center('Rua Exemplo, 123 - Centro', width));
+    if (layout.showAddress && restaurantInfo.address) {
+      lines.push(this.center(this.removeAccents(restaurantInfo.address), width));
     }
     
-    if (layout.showPhone) {
-      lines.push(this.center('Tel: (11) 99999-9999', width));
+    if (layout.showPhone && restaurantInfo.phone) {
+      lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
     }
     
-    if (layout.showCnpj) {
-      lines.push(this.center('CNPJ: 12.345.678/0001-90', width));
+    if (layout.showCnpj && restaurantInfo.cnpj) {
+      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
     }
     
     if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {

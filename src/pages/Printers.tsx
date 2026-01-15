@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrinters, Printer } from '@/hooks/usePrinters';
 import { PrinterModal } from '@/components/printers/PrinterModal';
+import { ReceiptLayoutEditor } from '@/components/printers/ReceiptLayoutEditor';
 import {
   Download,
   Copy,
@@ -28,6 +29,7 @@ import {
   ExternalLink,
   Github,
   Send,
+  LayoutTemplate,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -61,7 +63,7 @@ export default function Printers() {
   const [uploading, setUploading] = useState(false);
   const [fileExists, setFileExists] = useState(false);
   const [checkingFile, setCheckingFile] = useState(true);
-  const [activeTab, setActiveTab] = useState<'printers' | 'templates'>('printers');
+  const [activeTab, setActiveTab] = useState<'printers' | 'layout'>('printers');
   
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
@@ -265,14 +267,17 @@ LARGURA_PAPEL = 48
                 1. Lista de Impressoras
               </button>
               <button
-                onClick={() => setActiveTab('templates')}
+                onClick={() => setActiveTab('layout')}
                 className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
-                  activeTab === 'templates'
+                  activeTab === 'layout'
                     ? 'bg-primary/10 text-primary border-l-4 border-primary'
                     : 'text-muted-foreground hover:bg-muted'
                 }`}
               >
-                2. Modelos de Impressão
+                <span className="flex items-center gap-2">
+                  <LayoutTemplate className="w-4 h-4" />
+                  2. Layout do Cupom
+                </span>
               </button>
             </nav>
           </div>
@@ -609,19 +614,16 @@ LARGURA_PAPEL = 48
               </div>
             )}
 
-            {activeTab === 'templates' && (
+            {activeTab === 'layout' && (
               <div className="space-y-6">
-                <h1 className="text-2xl font-bold text-foreground">2. Modelos de Impressão</h1>
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">2. Layout do Cupom</h1>
+                  <p className="text-muted-foreground mt-1">
+                    Personalize como o cupom será impresso na impressora térmica
+                  </p>
+                </div>
                 
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <PrinterIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">Em breve</h3>
-                    <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                      Aqui você poderá personalizar o layout dos cupons impressos, escolher quais informações aparecem e definir o tamanho do papel.
-                    </p>
-                  </CardContent>
-                </Card>
+                <ReceiptLayoutEditor />
               </div>
             )}
           </div>

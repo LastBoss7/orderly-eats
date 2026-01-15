@@ -4,12 +4,11 @@ const Store = require('electron-store');
 const { createClient } = require('@supabase/supabase-js');
 const PrinterService = require('./services/printer');
 
-// Default layout configuration
+// Default layout configuration (will be overridden by database settings)
 const defaultLayout = {
-  paperSize: '58mm',
+  paperSize: '80mm',
   paperWidth: 48,
   showLogo: false,
-  logoData: null,
   showRestaurantName: true,
   showAddress: false,
   showPhone: false,
@@ -18,18 +17,26 @@ const defaultLayout = {
   showOrderNumber: true,
   showOrderType: true,
   showTable: true,
+  showWaiter: true,
   showItemPrices: true,
   showItemNotes: true,
+  showItemSize: true,
   showCustomerName: true,
   showCustomerPhone: true,
   showDeliveryAddress: true,
   showDateTime: true,
   showTotals: true,
   showDeliveryFee: true,
+  showPaymentMethod: true,
   footerMessage: 'Obrigado pela preferência!',
-  fontSize: 12,
+  fontSize: 'normal',
+  boldItems: true,
   boldTotal: true,
 };
+
+// Cached restaurant info and layout
+let cachedRestaurantInfo = null;
+let cachedPrintLayout = null;
 
 // Configuração persistente
 const store = new Store({
@@ -218,6 +225,11 @@ async function checkPendingOrders() {
   if (!restaurantId) return;
 
   try {
+    // Fetch restaurant info and layout if not cached
+    if (!cachedRestaurantInfo || !cachedPrintLayout) {
+      await refreshRestaurantConfig(restaurantId);
+    }
+
     // Fetch orders with items and products (for category)
     const { data: orders, error } = await supabase
       .from('orders')
@@ -226,7 +238,9 @@ async function checkPendingOrders() {
         order_items (
           *,
           products (category_id)
-        )
+        ),
+        tables (number),
+        waiters (name)
       `)
       .eq('restaurant_id', restaurantId)
       .eq('print_status', 'pending')
@@ -245,11 +259,53 @@ async function checkPendingOrders() {
       sendToRenderer('log', `Encontrados ${orders.length} pedidos para imprimir`);
       
       for (const order of orders) {
-        await printOrderToAllPrinters(order, dbPrinters || []);
+        // Enrich order with table number and waiter name
+        const enrichedOrder = {
+          ...order,
+          table_number: order.tables?.number || null,
+          waiter_name: order.waiters?.name || null,
+        };
+        await printOrderToAllPrinters(enrichedOrder, dbPrinters || []);
       }
     }
   } catch (error) {
     sendToRenderer('log', `Erro ao buscar pedidos: ${error.message}`);
+  }
+}
+
+/**
+ * Fetch and cache restaurant info and print layout
+ */
+async function refreshRestaurantConfig(restaurantId) {
+  try {
+    // Fetch restaurant info
+    const { data: restData } = await supabase
+      .from('restaurants')
+      .select('name, phone, address, cnpj')
+      .eq('id', restaurantId)
+      .single();
+
+    if (restData) {
+      cachedRestaurantInfo = restData;
+    }
+
+    // Fetch print layout from salon_settings
+    const { data: salonData } = await supabase
+      .from('salon_settings')
+      .select('print_layout')
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle();
+
+    if (salonData?.print_layout) {
+      cachedPrintLayout = { ...defaultLayout, ...salonData.print_layout };
+    } else {
+      cachedPrintLayout = defaultLayout;
+    }
+
+    sendToRenderer('log', `Configurações carregadas: ${cachedRestaurantInfo?.name || 'N/A'}`);
+  } catch (error) {
+    sendToRenderer('log', `Erro ao carregar config: ${error.message}`);
+    cachedPrintLayout = defaultLayout;
   }
 }
 
@@ -376,10 +432,13 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
   }
   
   try {
-    const layout = store.get('layout') || defaultLayout;
+    // Use cached layout from database, or fallback to default
+    const layout = cachedPrintLayout || defaultLayout;
+    const restaurantInfo = cachedRestaurantInfo || { name: 'Restaurante', phone: null, address: null, cnpj: null };
     
     const success = await printerService.printOrder(order, {
       layout,
+      restaurantInfo,
       printerName,
     });
 
