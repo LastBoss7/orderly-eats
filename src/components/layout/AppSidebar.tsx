@@ -59,6 +59,8 @@ import {
   PanelLeft,
   ShieldCheck,
 } from 'lucide-react';
+import logoGamako from '@/assets/logo-gamako.png';
+import logoGamakoIcon from '@/assets/logo-gamako-icon.png';
 
 const mainMenuItems = [
   { title: 'Meus pedidos', url: '/dashboard', icon: ClipboardList, badge: 0 },
@@ -155,31 +157,51 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r-0 bg-sidebar-background">
       <SidebarHeader className={`border-b border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
-        {/* Collapse toggle button */}
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-2`}>
+        {/* Logo */}
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-3`}>
+          <Link to="/dashboard" className="flex items-center">
+            {isCollapsed ? (
+              <img src={logoGamakoIcon} alt="Gamako" className="h-8 w-8 object-contain" />
+            ) : (
+              <img src={logoGamako} alt="Gamako" className="h-10 object-contain" />
+            )}
+          </Link>
           {!isCollapsed && (
-            <span className="text-xs text-sidebar-foreground/50 uppercase tracking-wider">Menu</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSidebar}
+                  className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                Recolher menu
+              </TooltipContent>
+            </Tooltip>
           )}
+        </div>
+
+        {isCollapsed && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={toggleSidebar}
-                className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent mt-2"
               >
-                {isCollapsed ? (
-                  <PanelLeft className="w-4 h-4" />
-                ) : (
-                  <PanelLeftClose className="w-4 h-4" />
-                )}
+                <PanelLeft className="w-4 h-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+              Expandir menu
             </TooltipContent>
           </Tooltip>
-        </div>
+        )}
 
         {/* Caixa status - hidden when collapsed */}
         {!isCollapsed && (
