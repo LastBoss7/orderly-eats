@@ -50,6 +50,8 @@ import {
   FileText,
   LayoutGrid,
   LayoutList,
+  Delete,
+  KeyRound,
 } from 'lucide-react';
 
 interface Waiter {
@@ -192,7 +194,6 @@ export default function WaiterApp({
   // States
   const [view, setView] = useState<AppView>(externalWaiter ? 'tables' : 'login');
   const [activeTab, setActiveTab] = useState<'mesas' | 'comandas'>('mesas');
-  const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(externalWaiter || null);
   const [tables, setTables] = useState<Table[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -208,6 +209,11 @@ export default function WaiterApp({
   const [submitting, setSubmitting] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
+  
+  // PIN login states
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinAuthenticating, setPinAuthenticating] = useState(false);
   
   // Table action modal
   const [showTableModal, setShowTableModal] = useState(false);
@@ -273,17 +279,6 @@ export default function WaiterApp({
           waiterData.fetchCategories(),
           waiterData.fetchProducts(),
         ]);
-
-        // Only fetch waiters for non-public access (login selection)
-        if (!isPublicAccess) {
-          const { data: waitersRes } = await supabase
-            .from('waiters')
-            .select('*')
-            .eq('restaurant_id', restaurant.id)
-            .eq('status', 'active')
-            .order('name');
-          setWaiters(waitersRes || []);
-        }
 
         setTables(tablesData as Table[]);
         setTabs(tabsData as Tab[]);
@@ -469,11 +464,82 @@ export default function WaiterApp({
     return matchesCategory && matchesSearch;
   });
 
-  const handleSelectWaiter = (waiter: Waiter) => {
-    setSelectedWaiter(waiter);
-    setView('tables');
-    toast.success(`Bem-vindo, ${waiter.name}!`);
+  // PIN Login function
+  const handlePinLogin = async (pinValue?: string) => {
+    const currentPin = pinValue || pinInput;
+    
+    if (!restaurant?.id || currentPin.length < 4) {
+      return;
+    }
+
+    if (pinAuthenticating) return;
+
+    setPinAuthenticating(true);
+    setPinError(null);
+    
+    try {
+      const { data: waiter, error: queryError } = await supabase
+        .from('waiters')
+        .select('id, name, status, restaurant_id')
+        .eq('restaurant_id', restaurant.id)
+        .eq('pin', currentPin)
+        .maybeSingle();
+
+      if (queryError) {
+        console.error('Query error:', queryError);
+        setPinError('Erro ao verificar PIN');
+        setPinInput('');
+        return;
+      }
+
+      if (!waiter) {
+        setPinError('PIN não encontrado');
+        setPinInput('');
+        return;
+      }
+
+      if (waiter.status !== 'active') {
+        setPinError('Garçom inativo');
+        setPinInput('');
+        return;
+      }
+
+      setSelectedWaiter(waiter);
+      setView('tables');
+      toast.success(`Bem-vindo, ${waiter.name}!`);
+    } catch (error) {
+      console.error('Login exception:', error);
+      setPinError('Erro ao autenticar');
+      setPinInput('');
+    } finally {
+      setPinAuthenticating(false);
+    }
   };
+
+  const handlePinDigit = (digit: string) => {
+    if (pinInput.length < 6) {
+      const newPin = pinInput + digit;
+      setPinInput(newPin);
+      setPinError(null);
+      
+      if (newPin.length >= 4) {
+        setTimeout(() => handlePinLogin(newPin), 200);
+      }
+    }
+  };
+
+  const handlePinDelete = () => {
+    if (pinInput.length > 0) {
+      setPinInput(pinInput.slice(0, -1));
+      setPinError(null);
+    }
+  };
+
+  const handlePinClear = () => {
+    setPinInput('');
+    setPinError(null);
+  };
+
 
   const handleTableClick = async (table: Table) => {
     setModalTable(table);
@@ -1390,58 +1456,129 @@ export default function WaiterApp({
     );
   }
 
-  // Login / Waiter Selection View
+  // Login / PIN Entry View
   if (view === 'login') {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <header className="p-6 text-center border-b">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground mb-4">
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+        {/* Header */}
+        <header className="pt-8 pb-4 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-900 mb-3 shadow-lg shadow-amber-400/30">
             <ChefHat className="w-8 h-8" />
           </div>
-          <h1 className="text-xl font-bold">{restaurant?.name}</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Selecione seu perfil</p>
+          <h1 className="text-lg font-bold text-white">{restaurant?.name}</h1>
+          <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
         </header>
 
-        <div className="flex-1 p-4">
-          <div className="max-w-md mx-auto space-y-2">
-            {waiters.map((waiter) => (
-              <button
-                key={waiter.id}
-                onClick={() => handleSelectWaiter(waiter)}
-                className="w-full flex items-center gap-3 p-4 bg-card rounded-xl border hover:border-primary transition-all active:scale-[0.98]"
-              >
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                    {getInitials(waiter.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left">
-                  <p className="font-medium">{waiter.name}</p>
-                  <p className="text-xs text-muted-foreground">Garçom</p>
-                </div>
-              </button>
-            ))}
-
-            {waiters.length === 0 && (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground text-sm">Nenhum garçom cadastrado</p>
+        {/* PIN Display */}
+        <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4">
+          <div className="w-full max-w-xs">
+            {/* PIN Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
+                <KeyRound className="w-6 h-6 text-amber-400" />
               </div>
-            )}
+            </div>
+            
+            {/* PIN Dots */}
+            <div className="flex justify-center gap-3 mb-4">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
+                    i < pinInput.length 
+                      ? 'bg-amber-400 scale-110 shadow-lg shadow-amber-400/50' 
+                      : 'bg-white/20 border border-white/30'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Error/Status message */}
+            <div className="h-6 flex items-center justify-center mb-3">
+              {pinAuthenticating ? (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Verificando...</span>
+                </div>
+              ) : pinError ? (
+                <p className="text-red-400 text-sm font-medium animate-shake">{pinError}</p>
+              ) : (
+                <p className="text-white/40 text-xs">Digite seu PIN de 4-6 dígitos</p>
+              )}
+            </div>
+
+            {/* Numeric Keypad */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  onClick={() => handlePinDigit(num.toString())}
+                  disabled={pinAuthenticating || pinInput.length >= 6}
+                  className="aspect-square text-xl font-semibold rounded-xl bg-white/10 text-white 
+                           hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
+                           transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                           border border-white/10 hover:border-white/30 active:border-amber-400
+                           shadow-lg backdrop-blur-sm"
+                >
+                  {num}
+                </button>
+              ))}
+              
+              {/* Clear button */}
+              <button
+                onClick={handlePinClear}
+                disabled={pinAuthenticating || pinInput.length === 0}
+                className="aspect-square text-xs font-medium rounded-xl bg-white/5 text-white/60
+                         hover:bg-white/10 hover:text-white active:bg-red-500/20 active:text-red-400
+                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                         border border-white/10 flex items-center justify-center"
+              >
+                Limpar
+              </button>
+              
+              {/* Zero */}
+              <button
+                onClick={() => handlePinDigit('0')}
+                disabled={pinAuthenticating || pinInput.length >= 6}
+                className="aspect-square text-xl font-semibold rounded-xl bg-white/10 text-white 
+                         hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
+                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                         border border-white/10 hover:border-white/30 active:border-amber-400
+                         shadow-lg backdrop-blur-sm"
+              >
+                0
+              </button>
+              
+              {/* Delete button */}
+              <button
+                onClick={handlePinDelete}
+                disabled={pinAuthenticating || pinInput.length === 0}
+                className="aspect-square rounded-xl bg-white/5 text-white/60
+                         hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400
+                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                         border border-white/10 flex items-center justify-center"
+              >
+                <Delete className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="p-4 text-center border-t">
+        {/* Footer */}
+        <footer className="p-4 flex flex-col items-center gap-2">
+          <p className="text-white/30 text-xs">
+            Fale com seu gerente caso não tenha seu PIN
+          </p>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onExternalLogout || signOut} 
-            className="text-muted-foreground"
+            className="text-white/50 hover:text-white hover:bg-white/10"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Sair
           </Button>
-        </div>
+        </footer>
       </div>
     );
   }
