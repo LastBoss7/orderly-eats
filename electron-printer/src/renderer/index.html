@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Configurar</title>
+  <title>Gamako Impressora</title>
   <style>
     * {
       margin: 0;
@@ -110,6 +110,20 @@
 
     .footer .btn {
       min-width: 80px;
+    }
+
+    /* Header with logo */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background: #0056b3;
+      margin: -8px -8px 10px -8px;
+    }
+
+    .header img {
+      height: 32px;
     }
 
     /* Status indicator */
@@ -253,6 +267,11 @@
   </style>
 </head>
 <body>
+  <!-- Header with Logo -->
+  <div class="header">
+    <img src="../../assets/logo.png" alt="Gamako" onerror="this.style.display='none'">
+  </div>
+
   <!-- Status Bar -->
   <div class="status-bar">
     <div id="statusDot" class="status-dot disconnected"></div>
