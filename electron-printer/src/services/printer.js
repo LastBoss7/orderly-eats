@@ -755,24 +755,35 @@ class PrinterService {
 
   formatTestReceipt(layout) {
     const width = parseInt(layout.paperWidth, 10) || 48;
-    const divider = this.createLine('=', width);
+    const divider = this.createLine('-', width);
     const lines = [];
     
-    lines.push(this.center('*** TESTE DE IMPRESSAO ***', width));
-    lines.push('');
+    lines.push(divider);
+    lines.push(this.center('TESTE DE IMPRESSAO', width));
     lines.push(divider);
     lines.push('');
-    lines.push(this.center('Impressora configurada', width));
-    lines.push(this.center('com sucesso!', width));
+    lines.push(this.center('Impressora OK!', width));
     lines.push('');
+    lines.push(this.alignBoth('Largura:', `${width} chars`, width));
+    lines.push('');
+    
+    // Test alignment
     lines.push(divider);
-    lines.push('');
-    lines.push(this.center(`Largura: ${width} caracteres`, width));
-    lines.push(this.center(`Papel: ${layout.paperSize || '80mm'}`, width));
+    lines.push(this.alignBoth('(2) X-Burguer', 'R$ 29,90', width));
+    lines.push(this.alignBoth('(1) Batata Frita', 'R$ 12,50', width));
+    lines.push(this.alignBoth('(1) Refrigerante', 'R$ 6,00', width));
+    lines.push(divider);
+    lines.push(this.alignBoth('Subtotal:', 'R$ 48,40', width));
+    lines.push(this.alignBoth('Taxa:', 'R$ 5,00', width));
+    lines.push(this.alignBoth('Total:', 'R$ 53,40', width));
+    lines.push(divider);
     lines.push('');
     
     const now = new Date();
     lines.push(this.center(now.toLocaleString('pt-BR'), width));
+    lines.push('');
+    lines.push(this.center('Powered By: Gamako', width));
+    lines.push('');
     lines.push('');
     lines.push('');
     lines.push('');
