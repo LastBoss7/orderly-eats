@@ -29,12 +29,14 @@ interface Order {
   table_id: string | null;
   print_status: string | null;
   waiter_id: string | null;
+  order_number: number | null;
   order_items: OrderItem[];
   tables: { number: number }[] | null;
   waiters: { id: string; name: string }[] | null;
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -47,6 +49,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const restaurantId = url.searchParams.get("restaurant_id");
     const action = url.searchParams.get("action") || "get";
+
+    console.log(`[print-orders] Action: ${action}, Restaurant: ${restaurantId}`);
 
     if (!restaurantId) {
       return new Response(
@@ -73,6 +77,7 @@ Deno.serve(async (req) => {
           table_id,
           print_status,
           waiter_id,
+          order_number,
           order_items (
             id,
             product_name,
@@ -104,10 +109,12 @@ Deno.serve(async (req) => {
         );
       }
 
+      console.log(`[print-orders] Found ${orders?.length || 0} pending orders`);
+
       // Format orders for printing
       const formattedOrders = (orders as Order[]).map((order) => ({
         id: order.id,
-        orderNumber: order.id.slice(0, 4).toUpperCase(),
+        orderNumber: order.order_number || order.id.slice(0, 4).toUpperCase(),
         createdAt: order.created_at,
         customerName: order.customer_name,
         orderType: order.order_type,
@@ -164,6 +171,8 @@ Deno.serve(async (req) => {
         );
       }
 
+      console.log(`[print-orders] Marked ${orderIds.length} orders as printed`);
+
       return new Response(
         JSON.stringify({ success: true, marked: orderIds.length }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -195,6 +204,8 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      console.log(`[print-orders] Set order ${orderId} to reprint`);
 
       return new Response(
         JSON.stringify({ success: true }),
