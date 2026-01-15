@@ -7,7 +7,7 @@ const PrinterService = require('./services/printer');
 // Default layout configuration (will be overridden by database settings)
 const defaultLayout = {
   paperSize: '80mm',
-  paperWidth: 48,
+  paperWidth: 42, // 32 = 58mm compact, 42 = 80mm standard, 48 = 80mm wide
   showLogo: false,
   showRestaurantName: true,
   showAddress: false,
@@ -509,10 +509,14 @@ async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdat
   
   try {
     // Use cached layout from database, or fallback to default
-    const layout = cachedPrintLayout || defaultLayout;
+    // If dbPrinter has paper_width, override the layout
+    const baseLayout = cachedPrintLayout || defaultLayout;
+    const layout = dbPrinter?.paper_width 
+      ? { ...baseLayout, paperWidth: dbPrinter.paper_width }
+      : baseLayout;
     const restaurantInfo = cachedRestaurantInfo || { name: 'Restaurante', phone: null, address: null, cnpj: null };
     
-    sendToRenderer('log', `Imprimindo pedido ${orderLabel} em "${printerName || 'padrao'}"...`);
+    sendToRenderer('log', `Imprimindo pedido ${orderLabel} em "${printerName || 'padrao'}" (${layout.paperWidth || 42} chars)...`);
     
     const success = await printerService.printOrder(order, {
       layout,

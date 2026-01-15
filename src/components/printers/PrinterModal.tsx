@@ -66,8 +66,9 @@ const ORDER_TYPE_OPTIONS = [
 ];
 
 const PAPER_SIZE_OPTIONS = [
-  { value: 58, label: '58mm (32 caracteres)', chars: 32 },
-  { value: 80, label: '80mm (48 caracteres)', chars: 48 },
+  { value: 32, label: '58mm', chars: 32, description: 'Compacto' },
+  { value: 42, label: '80mm', chars: 42, description: 'Padrão' },
+  { value: 48, label: '80mm', chars: 48, description: 'Largo' },
 ];
 
 const PRINTER_MODELS = [
@@ -97,13 +98,13 @@ export function PrinterModal({
     name: '',
     model: '',
     printer_name: '',
-    paper_width: 48,
+    paper_width: 42,
     linked_order_types: ['counter', 'table', 'delivery'],
     linked_categories: null,
     is_active: true,
   });
   const [activeTab, setActiveTab] = useState('basic');
-  const [paperSize, setPaperSize] = useState<58 | 80>(80);
+  const [paperWidth, setPaperWidth] = useState<32 | 42 | 48>(42);
   const [customModel, setCustomModel] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [filterByCategory, setFilterByCategory] = useState(false);
@@ -175,11 +176,14 @@ export function PrinterModal({
         is_active: printer.is_active ?? true,
       });
       
-      // Determine paper size
-      if (printer.paper_width && printer.paper_width <= 32) {
-        setPaperSize(58);
+      // Determine paper width
+      const width = printer.paper_width || 42;
+      if (width <= 32) {
+        setPaperWidth(32);
+      } else if (width <= 42) {
+        setPaperWidth(42);
       } else {
-        setPaperSize(80);
+        setPaperWidth(48);
       }
       
       // Check if model matches predefined
@@ -199,13 +203,13 @@ export function PrinterModal({
         name: '',
         model: '',
         printer_name: '',
-        paper_width: 48,
+        paper_width: 42,
         linked_order_types: ['counter', 'table', 'delivery'],
         linked_categories: null,
         is_active: true,
       });
       setActiveTab('basic');
-      setPaperSize(80);
+      setPaperWidth(42);
       setSelectedModel('');
       setCustomModel('');
       setFilterByCategory(false);
@@ -227,7 +231,7 @@ export function PrinterModal({
     await onSave({
       ...formData,
       model,
-      paper_width: paperSize === 58 ? 32 : 48,
+      paper_width: paperWidth,
       linked_categories: filterByCategory ? formData.linked_categories : null,
     });
   };
@@ -467,11 +471,11 @@ export function PrinterModal({
               )}
 
               <div className="space-y-3">
-                <Label>Largura do papel</Label>
+                <Label>Largura do papel (caracteres por linha)</Label>
                 <RadioGroup
-                  value={String(paperSize)}
-                  onValueChange={(val) => setPaperSize(parseInt(val) as 58 | 80)}
-                  className="grid grid-cols-2 gap-3"
+                  value={String(paperWidth)}
+                  onValueChange={(val) => setPaperWidth(parseInt(val) as 32 | 42 | 48)}
+                  className="grid grid-cols-3 gap-2"
                 >
                   {PAPER_SIZE_OPTIONS.map((option) => (
                     <div key={option.value}>
@@ -482,10 +486,11 @@ export function PrinterModal({
                       />
                       <Label
                         htmlFor={`paper-${option.value}`}
-                        className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
+                        className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
                       >
-                        <span className="text-lg font-semibold">{option.value}mm</span>
-                        <span className="text-xs text-muted-foreground">{option.chars} caracteres</span>
+                        <span className="text-lg font-semibold">{option.chars}</span>
+                        <span className="text-[10px] text-muted-foreground">{option.label}</span>
+                        <span className="text-[10px] text-muted-foreground">{option.description}</span>
                       </Label>
                     </div>
                   ))}
