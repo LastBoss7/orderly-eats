@@ -117,7 +117,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       .select(`*, order_items (*), waiters (id, name)`)
       .eq('restaurant_id', restaurantId)
       .eq('table_id', tableId)
-      .in('status', ['pending', 'preparing', 'ready'])
+      .in('status', ['pending', 'preparing', 'ready', 'served'])
       .order('created_at', { ascending: true });
     return data || [];
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
@@ -132,7 +132,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       .select(`*, order_items (*), waiters (id, name)`)
       .eq('restaurant_id', restaurantId)
       .eq('tab_id', tabId)
-      .in('status', ['pending', 'preparing', 'ready'])
+      .in('status', ['pending', 'preparing', 'ready', 'served'])
       .order('created_at', { ascending: true });
     return data || [];
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
@@ -161,7 +161,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       .select('total')
       .eq('restaurant_id', restaurantId)
       .eq('table_id', tableId)
-      .in('status', ['pending', 'preparing', 'ready']);
+      .in('status', ['pending', 'preparing', 'ready', 'served']);
     return data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 

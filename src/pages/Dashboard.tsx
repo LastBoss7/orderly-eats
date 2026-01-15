@@ -316,7 +316,7 @@ export default function Dashboard() {
           order_items (*)
         `)
         .eq('restaurant_id', restaurant.id)
-        .in('status', ['pending', 'preparing', 'ready', 'out_for_delivery', 'delivered'])
+        .in('status', ['pending', 'preparing', 'ready', 'served', 'out_for_delivery', 'delivered'])
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -504,10 +504,12 @@ export default function Dashboard() {
   const allPendingOrders = orders.filter(o => o.status === 'pending');
   const allPreparingOrders = orders.filter(o => o.status === 'preparing');
   const allReadyOrders = orders.filter(o => o.status === 'ready' || o.status === 'out_for_delivery');
+  const allServedOrders = orders.filter(o => o.status === 'served');
 
   const pendingOrders = filterOrdersByType(allPendingOrders);
   const preparingOrders = filterOrdersByType(allPreparingOrders);
   const readyOrders = filterOrdersByType(allReadyOrders);
+  const servedOrders = filterOrdersByType(allServedOrders);
 
   // Count orders by filter type for badges
   const activeOrders = orders.filter(o => ['pending', 'preparing', 'ready', 'out_for_delivery'].includes(o.status || ''));
@@ -975,6 +977,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   <span className="flex items-center gap-2">
                     {order.status === 'preparing' && '🔥 Preparando'}
                     {order.status === 'ready' && '✅ Pronto'}
+                    {order.status === 'served' && '🍽️ Servido'}
                     {order.status === 'out_for_delivery' && (
                       <>
                         <Truck className="w-4 h-4" />
@@ -1023,7 +1026,62 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   className="text-green-600"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Entregue
+                  Finalizado
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Table/Tab Status Dropdown */}
+        {(order.order_type === 'table' || order.order_type === 'tab') && order.status !== 'pending' && (
+          <div className="mt-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className={`w-full justify-between ${
+                    order.status === 'served' 
+                      ? 'border-purple-500 text-purple-600 bg-purple-50' 
+                      : ''
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    {order.status === 'preparing' && '🔥 Preparando'}
+                    {order.status === 'ready' && '✅ Pronto'}
+                    {order.status === 'served' && '🍽️ Servido'}
+                  </span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[200px]">
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'preparing');
+                  }}
+                  className={order.status === 'preparing' ? 'bg-accent' : ''}
+                >
+                  🔥 Preparando
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'ready');
+                  }}
+                  className={order.status === 'ready' ? 'bg-accent' : ''}
+                >
+                  ✅ Pronto
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateOrderStatus(order.id, 'served');
+                  }}
+                  className={order.status === 'served' ? 'bg-accent' : ''}
+                >
+                  🍽️ Servido
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1037,10 +1095,16 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground mt-2"
             onClick={(e) => {
               e.stopPropagation();
-              updateOrderStatus(order.id, order.status === 'pending' ? 'preparing' : 'ready');
+              // For table/tab: pending -> preparing -> ready -> served
+              const nextStatus = order.status === 'pending' 
+                ? 'preparing' 
+                : order.status === 'preparing' 
+                  ? 'ready' 
+                  : 'served';
+              updateOrderStatus(order.id, nextStatus);
             }}
           >
-            Avançar pedido
+            {order.status === 'ready' ? 'Marcar servido' : 'Avançar pedido'}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         )}
@@ -1060,7 +1124,8 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </Button>
         )}
 
-        {showFinalizeButton && order.order_type !== 'delivery' && (
+        {/* Finalize button - only for counter orders (table/tab finalized on close) */}
+        {showFinalizeButton && order.order_type === 'counter' && (
           <Button 
             variant="outline" 
             className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white mt-2"
@@ -1071,6 +1136,20 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           >
             <CheckCircle className="w-4 h-4 mr-2" />
             Produto Entregue
+          </Button>
+        )}
+
+        {/* Mark as served button for table/tab orders that are ready */}
+        {showFinalizeButton && (order.order_type === 'table' || order.order_type === 'tab') && order.status === 'ready' && (
+          <Button 
+            variant="outline" 
+            className="w-full border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white mt-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              updateOrderStatus(order.id, 'served');
+            }}
+          >
+            🍽️ Marcar como Servido
           </Button>
         )}
       </div>
@@ -1432,6 +1511,33 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   )}
                 </div>
               </DroppableColumn>
+
+              {/* Served Orders Column - Only for table/tab orders awaiting table close */}
+              {servedOrders.length > 0 && (
+                <DroppableColumn 
+                  id="served" 
+                  className="flex-1 min-w-[300px] rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800"
+                >
+                  <div className="p-3 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
+                    <span className="flex items-center gap-2 font-medium text-purple-700 dark:text-purple-300">
+                      🍽️
+                      <span>Servidos</span>
+                    </span>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                      {servedOrders.length}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                    {servedOrders.map(order => (
+                      <DraggableOrderCard key={order.id} order={order} />
+                    ))}
+                    <p className="text-xs text-center text-muted-foreground mt-2">
+                      Aguardando fechamento da mesa/comanda
+                    </p>
+                  </div>
+                </DroppableColumn>
+              )}
             </div>
           </div>
 
@@ -1465,11 +1571,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     selectedOrder.status === 'ready' ? 'bg-green-500' :
                     selectedOrder.status === 'out_for_delivery' ? 'bg-blue-500' :
                     selectedOrder.status === 'preparing' ? 'bg-orange-500' : 
+                    selectedOrder.status === 'served' ? 'bg-purple-500' :
                     selectedOrder.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'
                   }>
                     {selectedOrder.status === 'pending' && 'Pendente'}
                     {selectedOrder.status === 'preparing' && 'Preparando'}
                     {selectedOrder.status === 'ready' && 'Pronto'}
+                    {selectedOrder.status === 'served' && 'Servido'}
                     {selectedOrder.status === 'out_for_delivery' && 'Em entrega'}
                     {selectedOrder.status === 'delivered' && 'Entregue'}
                   </Badge>
