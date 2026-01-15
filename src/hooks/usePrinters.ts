@@ -12,6 +12,7 @@ export interface Printer {
   status: string;
   paper_width: number;
   linked_order_types: string[];
+  linked_categories: string[] | null;
   is_active: boolean;
   last_seen_at: string | null;
   created_at: string;

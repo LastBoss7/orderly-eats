@@ -218,11 +218,15 @@ async function checkPendingOrders() {
   if (!restaurantId) return;
 
   try {
+    // Fetch orders with items and products (for category)
     const { data: orders, error } = await supabase
       .from('orders')
       .select(`
         *,
-        order_items (*)
+        order_items (
+          *,
+          products (category_id)
+        )
       `)
       .eq('restaurant_id', restaurantId)
       .eq('print_status', 'pending')
@@ -230,11 +234,18 @@ async function checkPendingOrders() {
 
     if (error) throw error;
 
+    // Fetch printers from database
+    const { data: dbPrinters } = await supabase
+      .from('printers')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('is_active', true);
+
     if (orders && orders.length > 0) {
       sendToRenderer('log', `Encontrados ${orders.length} pedidos para imprimir`);
       
       for (const order of orders) {
-        await printOrder(order);
+        await printOrderToAllPrinters(order, dbPrinters || []);
       }
     }
   } catch (error) {
@@ -243,9 +254,9 @@ async function checkPendingOrders() {
 }
 
 /**
- * Get the appropriate printer for an order based on its type
+ * Get the appropriate local printer for an order based on its type (fallback)
  */
-function getPrinterForOrder(order) {
+function getLocalPrinterForOrder(order) {
   const printers = store.get('printers') || {};
   const orderType = order.order_type || 'counter';
   
@@ -267,17 +278,104 @@ function getOrderTypeLabel(orderType) {
   return labels[orderType] || orderType;
 }
 
-async function printOrder(order) {
+/**
+ * Print order to all matching printers based on order type and categories
+ */
+async function printOrderToAllPrinters(order, dbPrinters) {
   const orderType = order.order_type || 'counter';
-  const printerName = getPrinterForOrder(order);
+  
+  // If no database printers, use local config
+  if (!dbPrinters || dbPrinters.length === 0) {
+    const success = await printOrder(order, getLocalPrinterForOrder(order), null, true);
+    return success;
+  }
+
+  // Find printers that match this order type
+  const matchingPrinters = dbPrinters.filter(printer => {
+    const linkedTypes = printer.linked_order_types || ['counter', 'table', 'delivery'];
+    return linkedTypes.includes(orderType);
+  });
+
+  if (matchingPrinters.length === 0) {
+    // Fallback to local config
+    const success = await printOrder(order, getLocalPrinterForOrder(order), null, true);
+    return success;
+  }
+
+  sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)} (${getOrderTypeLabel(orderType)}) em ${matchingPrinters.length} impressora(s)...`);
+
+  let anyPrinted = false;
+  let printersWithItems = 0;
+
+  // Print to each matching printer
+  for (const printer of matchingPrinters) {
+    const printerName = printer.printer_name || getLocalPrinterForOrder(order);
+    const linkedCategories = printer.linked_categories;
+    
+    // If printer has category filter, filter items
+    let itemsToPrint = order.order_items;
+    if (linkedCategories && linkedCategories.length > 0) {
+      itemsToPrint = order.order_items.filter(item => {
+        const categoryId = item.products?.category_id;
+        return categoryId && linkedCategories.includes(categoryId);
+      });
+      
+      // Skip if no items match this printer's categories
+      if (itemsToPrint.length === 0) {
+        sendToRenderer('log', `  → "${printer.name}": nenhum item desta categoria`);
+        continue;
+      }
+    }
+
+    printersWithItems++;
+    sendToRenderer('log', `  → "${printer.name}": ${itemsToPrint.length} item(s)`);
+    
+    // Create a copy of order with filtered items
+    const orderForPrinter = { ...order, order_items: itemsToPrint };
+    
+    // Only update order status on last printer
+    const isLast = printersWithItems === matchingPrinters.length;
+    const success = await printOrder(orderForPrinter, printerName, printer, isLast && !anyPrinted);
+    
+    if (success) anyPrinted = true;
+  }
+
+  // If we had printers but none had matching items, still mark as printed
+  if (printersWithItems === 0 && matchingPrinters.length > 0) {
+    sendToRenderer('log', `  → Nenhuma impressora com itens correspondentes, marcando como impresso`);
+    await markOrderPrinted(order);
+  }
+
+  return anyPrinted || printersWithItems === 0;
+}
+
+/**
+ * Mark order as printed in database
+ */
+async function markOrderPrinted(order) {
+  try {
+    await supabase
+      .from('orders')
+      .update({ 
+        print_status: 'printed',
+        printed_at: new Date().toISOString(),
+        print_count: (order.print_count || 0) + 1
+      })
+      .eq('id', order.id);
+  } catch (error) {
+    sendToRenderer('log', `Erro ao marcar pedido como impresso: ${error.message}`);
+  }
+}
+
+async function printOrder(order, printerName = '', dbPrinter = null, shouldUpdateStatus = true) {
+  const orderType = order.order_type || 'counter';
+  
+  // Use provided printerName or fallback to local config
+  if (!printerName) {
+    printerName = getLocalPrinterForOrder(order);
+  }
   
   try {
-    sendToRenderer('log', `Imprimindo pedido #${order.id.slice(0, 8)} (${getOrderTypeLabel(orderType)})...`);
-    
-    if (printerName) {
-      sendToRenderer('log', `  → Impressora: ${printerName}`);
-    }
-    
     const layout = store.get('layout') || defaultLayout;
     
     const success = await printerService.printOrder(order, {
@@ -286,14 +384,10 @@ async function printOrder(order) {
     });
 
     if (success) {
-      await supabase
-        .from('orders')
-        .update({ 
-          print_status: 'printed',
-          printed_at: new Date().toISOString(),
-          print_count: (order.print_count || 0) + 1
-        })
-        .eq('id', order.id);
+      // Only update order status if requested
+      if (shouldUpdateStatus) {
+        await markOrderPrinted(order);
+      }
 
       // Log success
       try {
@@ -303,7 +397,7 @@ async function printOrder(order) {
           order_number: order.order_number?.toString() || order.id.slice(0, 8),
           event_type: 'auto_print',
           status: 'success',
-          printer_name: printerName || 'default',
+          printer_name: dbPrinter?.name || printerName || 'default',
           items_count: order.order_items?.length || 0,
         });
       } catch (logError) {
@@ -320,7 +414,10 @@ async function printOrder(order) {
       if (store.get('soundNotification')) {
         // Sound will be played by the renderer
       }
+      
+      return true;
     }
+    return false;
   } catch (error) {
     sendToRenderer('log', `✗ Erro ao imprimir pedido: ${error.message}`);
     
@@ -332,12 +429,14 @@ async function printOrder(order) {
         event_type: 'auto_print',
         status: 'error',
         error_message: error.message,
-        printer_name: printerName || 'default',
+        printer_name: dbPrinter?.name || printerName || 'default',
         items_count: order.order_items?.length || 0,
       });
     } catch (logError) {
       console.error('Error logging print failure:', logError);
     }
+    
+    return false;
   }
 }
 
@@ -383,10 +482,6 @@ ipcMain.handle('save-config', async (event, config) => {
   return { success: true };
 });
 
-ipcMain.handle('save-layout', async (event, layout) => {
-  store.set('layout', layout);
-  return { success: true };
-});
 
 ipcMain.handle('get-system-printers', async () => {
   try {
@@ -448,28 +543,6 @@ ipcMain.handle('test-print', async () => {
   }
 });
 
-ipcMain.handle('test-print-layout', async (event, layout) => {
-  try {
-    const useEscPos = store.get('useEscPos');
-    const usbPrinter = store.get('usbPrinter');
-    
-    let printerInfo = null;
-    if (useEscPos && usbPrinter) {
-      const [vendorId, productId] = usbPrinter.split(':');
-      printerInfo = { type: 'usb', vendorId, productId };
-    }
-    
-    await printerService.printTestWithLayout({
-      layout,
-      printerName: store.get('printerName'),
-      useEscPos,
-      printerInfo,
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
 
 ipcMain.handle('get-stats', () => {
   return {

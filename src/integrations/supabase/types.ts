@@ -489,6 +489,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_seen_at: string | null
+          linked_categories: string[] | null
           linked_order_types: string[] | null
           model: string | null
           name: string
@@ -503,6 +504,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_seen_at?: string | null
+          linked_categories?: string[] | null
           linked_order_types?: string[] | null
           model?: string | null
           name: string
@@ -517,6 +519,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_seen_at?: string | null
+          linked_categories?: string[] | null
           linked_order_types?: string[] | null
           model?: string | null
           name?: string
@@ -719,6 +722,7 @@ export type Database = {
           last_opened_at: string | null
           operation_type: string | null
           order_tab_count: number | null
+          print_layout: Json | null
           receipt_footer: string | null
           receipt_header: string | null
           restaurant_id: string
@@ -749,6 +753,7 @@ export type Database = {
           last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
+          print_layout?: Json | null
           receipt_footer?: string | null
           receipt_header?: string | null
           restaurant_id: string
@@ -779,6 +784,7 @@ export type Database = {
           last_opened_at?: string | null
           operation_type?: string | null
           order_tab_count?: number | null
+          print_layout?: Json | null
           receipt_footer?: string | null
           receipt_header?: string | null
           restaurant_id?: string
