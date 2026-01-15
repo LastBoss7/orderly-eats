@@ -105,6 +105,7 @@ interface Order {
   total: number | null;
   customer_name: string | null;
   table_id: string | null;
+  tab_id: string | null;
   created_at: string;
   notes: string | null;
   delivery_address: string | null;
@@ -130,6 +131,12 @@ interface Table {
   number: number;
 }
 
+interface Tab {
+  id: string;
+  number: number;
+  customer_name: string | null;
+}
+
 interface DeliveryDriver {
   id: string;
   name: string;
@@ -142,6 +149,7 @@ export default function Dashboard() {
   const { restaurant } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,6 +234,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchOrders();
     fetchTables();
+    fetchTabs();
     fetchDrivers();
   }, [restaurant?.id]);
 
@@ -307,6 +316,15 @@ export default function Dashboard() {
     if (data) setTables(data);
   };
 
+  const fetchTabs = async () => {
+    if (!restaurant?.id) return;
+    const { data } = await supabase
+      .from('tabs')
+      .select('id, number, customer_name')
+      .eq('restaurant_id', restaurant.id);
+    if (data) setTabs(data);
+  };
+
   const fetchDrivers = async () => {
     if (!restaurant?.id) return;
     const { data } = await supabase
@@ -339,6 +357,26 @@ export default function Dashboard() {
     if (!tableId) return null;
     const table = tables.find(t => t.id === tableId);
     return table?.number;
+  };
+
+  const getTabInfo = (tabId: string | null) => {
+    if (!tabId) return null;
+    const tab = tabs.find(t => t.id === tabId);
+    return tab;
+  };
+
+  const getOrderLocationLabel = (order: Order) => {
+    if (order.table_id) {
+      const tableNumber = getTableNumber(order.table_id);
+      return tableNumber ? `Mesa ${tableNumber}` : null;
+    }
+    if (order.tab_id) {
+      const tab = getTabInfo(order.tab_id);
+      if (tab) {
+        return tab.customer_name ? `Comanda ${tab.number} - ${tab.customer_name}` : `Comanda ${tab.number}`;
+      }
+    }
+    return null;
   };
 
   const formatCurrency = (value: number | null) => {
@@ -606,7 +644,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       opacity: isDragging ? 0.5 : 1,
     };
 
-    const tableNumber = getTableNumber(order.table_id);
+    const locationLabel = getOrderLocationLabel(order);
     const delayed = isDelayed(order);
 
     return (
@@ -657,11 +695,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         </div>
 
-        {/* Table or delivery info */}
-        {tableNumber && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        {/* Table or Tab info */}
+        {locationLabel && (
+          <div className="flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded">
             <UtensilsCrossed className="w-4 h-4" />
-            Mesa {tableNumber}
+            {locationLabel}
           </div>
         )}
 
@@ -1324,10 +1362,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <span>{selectedOrder.delivery_phone}</span>
                     </div>
                   )}
-                  {getTableNumber(selectedOrder.table_id) && (
-                    <div className="flex items-center gap-2">
-                      <UtensilsCrossed className="w-4 h-4 text-muted-foreground" />
-                      <span>Mesa {getTableNumber(selectedOrder.table_id)}</span>
+                  {getOrderLocationLabel(selectedOrder) && (
+                    <div className="flex items-center gap-2 font-medium text-primary">
+                      <UtensilsCrossed className="w-4 h-4" />
+                      <span>{getOrderLocationLabel(selectedOrder)}</span>
                     </div>
                   )}
                   {selectedOrder.delivery_address && (
