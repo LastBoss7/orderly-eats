@@ -48,6 +48,8 @@ import {
   Check,
   RotateCcw,
   FileText,
+  LayoutGrid,
+  LayoutList,
 } from 'lucide-react';
 
 interface Waiter {
@@ -229,6 +231,9 @@ export default function WaiterApp({
   
   // Size selection modal
   const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
+  
+  // Menu view mode
+  const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>('list');
   
   // Delivery states
   const [orderMode, setOrderMode] = useState<OrderMode>('table');
@@ -1734,14 +1739,34 @@ export default function WaiterApp({
 
         {/* Search */}
         <div className="p-3 bg-background border-b">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar produtos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar produtos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex border rounded-lg overflow-hidden">
+              <Button
+                variant={menuViewMode === 'list' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-10 w-10 rounded-none"
+                onClick={() => setMenuViewMode('list')}
+              >
+                <LayoutList className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={menuViewMode === 'grid' ? 'default' : 'ghost'}
+                size="icon"
+                className="h-10 w-10 rounded-none"
+                onClick={() => setMenuViewMode('grid')}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1773,9 +1798,61 @@ export default function WaiterApp({
 
         {/* Products */}
         <ScrollArea className="flex-1">
-          <div className="p-3 grid gap-2">
+          <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}`}>
             {filteredProducts.map((product) => {
               const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
+              
+              if (menuViewMode === 'grid') {
+                return (
+                  <button
+                    key={product.id}
+                    className={`flex flex-col p-2 bg-card rounded-xl border text-left transition-all relative ${
+                      totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
+                    }`}
+                    onClick={() => handleProductClick(product)}
+                  >
+                    {/* Quantity Badge */}
+                    {totalQty > 0 && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10">
+                        {totalQty}
+                      </div>
+                    )}
+                    
+                    {/* Product Image */}
+                    <div className="w-full aspect-square rounded-lg bg-muted overflow-hidden mb-2">
+                      {product.image_url ? (
+                        <img 
+                          src={product.image_url} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                          <Package className="w-8 h-8" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{product.name}</p>
+                      {product.has_sizes && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-block mt-0.5">P/M/G</span>
+                      )}
+                      <p className="text-primary font-semibold text-sm mt-1">
+                        {product.has_sizes 
+                          ? (() => {
+                              const prices = [product.price_small, product.price_medium, product.price_large].filter((p): p is number => p != null && p > 0);
+                              const minPrice = prices.length > 0 ? Math.min(...prices) : product.price;
+                              return `A partir de ${formatCurrency(minPrice ?? 0)}`;
+                            })()
+                          : formatCurrency(product.price ?? 0)}
+                      </p>
+                    </div>
+                  </button>
+                );
+              }
+              
+              // List mode (default)
               return (
                 <button
                   key={product.id}
