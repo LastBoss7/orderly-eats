@@ -412,11 +412,15 @@ class PrinterService {
   async printTest(options = {}) {
     const { layout = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
     
+    // Debug log
+    console.log('[PrintTest] Layout paperWidth:', layout.paperWidth);
+    
     if (useEscPos && printerInfo && printerInfo.type === 'usb') {
       return this.printTestEscPos(layout, printerInfo);
     }
     
     const testText = this.formatTestReceipt(layout);
+    console.log('[PrintTest] Generated text length per line:', testText.split('\n').map(l => l.length).join(', '));
     return this.printText(testText, printerName);
   }
 
