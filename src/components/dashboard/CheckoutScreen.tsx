@@ -69,6 +69,13 @@ interface CheckoutScreenProps {
 
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 
+interface PaymentEntry {
+  id: string;
+  method: PaymentMethod;
+  amount: number;
+  cashReceived?: number;
+}
+
 export function CheckoutScreen({
   type,
   entityId,
@@ -81,8 +88,9 @@ export function CheckoutScreen({
   const { restaurant } = useAuth();
   
   // States
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
-  const [paidAmount, setPaidAmount] = useState(0);
+  const [payments, setPayments] = useState<PaymentEntry[]>([]);
+  const [currentPaymentMethod, setCurrentPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [currentPaymentAmount, setCurrentPaymentAmount] = useState(0);
   const [splitCount, setSplitCount] = useState(1);
   const [discount, setDiscount] = useState(0);
   const [addition, setAddition] = useState(0);
@@ -106,8 +114,70 @@ export function CheckoutScreen({
   const subtotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
   const totalWithModifiers = subtotal - discount + addition;
   const perPerson = splitCount > 0 ? totalWithModifiers / splitCount : totalWithModifiers;
+  const paidAmount = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = totalWithModifiers - paidAmount;
-  const change = selectedPayment === 'cash' && cashReceived > remaining ? cashReceived - remaining : 0;
+  const currentChange = currentPaymentMethod === 'cash' && cashReceived > currentPaymentAmount 
+    ? cashReceived - currentPaymentAmount 
+    : 0;
+
+  // Helper to get payment method label
+  const getPaymentMethodLabel = (method: PaymentMethod) => {
+    const labels: Record<PaymentMethod, string> = {
+      cash: 'Dinheiro',
+      credit: 'Cartão de Crédito',
+      debit: 'Cartão de Débito',
+      pix: 'Pix',
+    };
+    return labels[method];
+  };
+
+  // Helper to get payment method icon
+  const getPaymentMethodIcon = (method: PaymentMethod) => {
+    switch (method) {
+      case 'cash': return Banknote;
+      case 'credit': 
+      case 'debit': return CreditCard;
+      case 'pix': return QrCode;
+    }
+  };
+
+  // Add a payment entry
+  const addPayment = () => {
+    if (!currentPaymentMethod || currentPaymentAmount <= 0) {
+      toast.error('Selecione uma forma de pagamento e informe o valor');
+      return;
+    }
+
+    const newPayment: PaymentEntry = {
+      id: crypto.randomUUID(),
+      method: currentPaymentMethod,
+      amount: Math.min(currentPaymentAmount, remaining), // Don't pay more than remaining
+      cashReceived: currentPaymentMethod === 'cash' ? cashReceived : undefined,
+    };
+
+    setPayments([...payments, newPayment]);
+    setCurrentPaymentMethod(null);
+    setCurrentPaymentAmount(0);
+    setCashReceived(0);
+    toast.success(`Pagamento de ${formatCurrency(newPayment.amount)} adicionado`);
+  };
+
+  // Remove a payment entry
+  const removePayment = (id: string) => {
+    setPayments(payments.filter(p => p.id !== id));
+    toast.success('Pagamento removido');
+  };
+
+  // Auto-fill remaining amount when selecting payment method
+  const handleSelectPaymentMethod = (method: PaymentMethod) => {
+    setCurrentPaymentMethod(method);
+    if (currentPaymentAmount === 0) {
+      setCurrentPaymentAmount(remaining);
+    }
+    if (method === 'cash' && cashReceived === 0) {
+      setCashReceived(remaining);
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -223,24 +293,42 @@ export function CheckoutScreen({
   };
 
   const handleCloseAccount = async () => {
-    if (!selectedPayment) {
-      toast.error('Selecione uma forma de pagamento');
+    if (payments.length === 0 && !currentPaymentMethod) {
+      toast.error('Adicione pelo menos uma forma de pagamento');
+      return;
+    }
+
+    // If there's a pending payment being added, add it first
+    if (currentPaymentMethod && currentPaymentAmount > 0) {
+      addPayment();
+    }
+
+    if (remaining > 0.01 && payments.length === 0) {
+      toast.error('O valor pago não cobre o total');
       return;
     }
 
     setLoading(true);
     
     try {
+      // Combine all payment methods into a string
+      const paymentMethods = payments.map(p => p.method).join(',');
+      const totalCashReceived = payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + (p.cashReceived || 0), 0);
+      const totalChange = payments.filter(p => p.method === 'cash').reduce((sum, p) => {
+        const received = p.cashReceived || 0;
+        return sum + Math.max(0, received - p.amount);
+      }, 0);
+
       // Update all orders to 'delivered' status with payment info
       for (const order of orders) {
         await supabase
           .from('orders')
           .update({ 
             status: 'delivered',
-            payment_method: selectedPayment,
+            payment_method: paymentMethods || payments[0]?.method,
             closed_at: new Date().toISOString(),
-            cash_received: selectedPayment === 'cash' ? cashReceived : null,
-            change_given: selectedPayment === 'cash' ? change : null,
+            cash_received: totalCashReceived > 0 ? totalCashReceived : null,
+            change_given: totalChange > 0 ? totalChange : null,
             split_people: splitCount > 1 ? splitCount : null,
           })
           .eq('id', order.id);
@@ -547,134 +635,211 @@ export function CheckoutScreen({
               </div>
             </div>
 
-            {/* Payment Methods */}
-            <div className="pt-4">
-              <div className="text-sm font-medium mb-3 text-muted-foreground">
-                Escolha a 1ª forma de pagamento:
+            {/* Registered Payments List */}
+            {payments.length > 0 && (
+              <div className="pt-4 space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Pagamentos registrados:</div>
+                {payments.map((payment) => {
+                  const Icon = getPaymentMethodIcon(payment.method);
+                  return (
+                    <div 
+                      key={payment.id}
+                      className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm font-medium">{getPaymentMethodLabel(payment.method)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          {formatCurrency(payment.amount)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => removePayment(payment.id)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    selectedPayment === 'cash'
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-border bg-sky-500 text-white hover:bg-sky-600'
-                  }`}
-                  onClick={() => setSelectedPayment('cash')}
-                >
-                  <Banknote className="w-5 h-5" />
-                  <span className="text-sm font-medium">Dinheiro</span>
-                </button>
-                <button
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    selectedPayment === 'credit' || selectedPayment === 'debit'
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-border bg-sky-500 text-white hover:bg-sky-600'
-                  }`}
-                  onClick={() => setSelectedPayment('credit')}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  <span className="text-sm font-medium">Cartão</span>
-                </button>
-                <button
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    selectedPayment === 'pix'
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-border bg-sky-500 text-white hover:bg-sky-600'
-                  }`}
-                  onClick={() => setSelectedPayment('pix')}
-                >
-                  <QrCode className="w-5 h-5" />
-                  <span className="text-sm font-medium">Pix</span>
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Cash received input */}
-            {selectedPayment === 'cash' && (
-              <div className="space-y-3 pt-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Valor recebido</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={cashReceived || ''}
-                    onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                    placeholder="0,00"
-                    className="text-lg h-12"
-                  />
+            {/* Payment Methods - only show if remaining > 0 */}
+            {remaining > 0.01 && (
+              <div className="pt-4">
+                <div className="text-sm font-medium mb-3 text-muted-foreground">
+                  {payments.length > 0 ? 'Adicionar outro pagamento:' : 'Escolha a forma de pagamento:'}
                 </div>
-                
-                {/* Quick cash buttons */}
                 <div className="grid grid-cols-4 gap-2">
-                  {[10, 20, 50, 100].map((value) => (
-                    <Button
-                      key={value}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setCashReceived(value)}
-                    >
-                      R$ {value}
-                    </Button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[150, 200].map((value) => (
-                    <Button
-                      key={value}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setCashReceived(value)}
-                    >
-                      R$ {value}
-                    </Button>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => setCashReceived(totalWithModifiers)}
+                  <button
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      currentPaymentMethod === 'cash'
+                        ? 'border-sky-500 bg-sky-500 text-white'
+                        : 'border-border bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => handleSelectPaymentMethod('cash')}
                   >
-                    Exato
-                  </Button>
+                    <Banknote className="w-4 h-4" />
+                    <span className="text-xs font-medium">Dinheiro</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      currentPaymentMethod === 'credit'
+                        ? 'border-sky-500 bg-sky-500 text-white'
+                        : 'border-border bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => handleSelectPaymentMethod('credit')}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-xs font-medium">Crédito</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      currentPaymentMethod === 'debit'
+                        ? 'border-sky-500 bg-sky-500 text-white'
+                        : 'border-border bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => handleSelectPaymentMethod('debit')}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-xs font-medium">Débito</span>
+                  </button>
+                  <button
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                      currentPaymentMethod === 'pix'
+                        ? 'border-sky-500 bg-sky-500 text-white'
+                        : 'border-border bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => handleSelectPaymentMethod('pix')}
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span className="text-xs font-medium">Pix</span>
+                  </button>
                 </div>
 
-                {/* Change display - prominent */}
-                <div className={`rounded-xl p-4 transition-all ${
-                  change > 0 
-                    ? 'bg-emerald-100 dark:bg-emerald-900/30 border-2 border-emerald-400' 
-                    : cashReceived > 0 && cashReceived < remaining
-                      ? 'bg-red-100 dark:bg-red-900/30 border-2 border-red-400'
-                      : 'bg-muted border-2 border-transparent'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <span className={`font-medium ${
-                      change > 0 
-                        ? 'text-emerald-700 dark:text-emerald-400' 
-                        : cashReceived > 0 && cashReceived < remaining
-                          ? 'text-red-700 dark:text-red-400'
-                          : 'text-muted-foreground'
-                    }`}>
-                      {change > 0 ? '💵 Troco a devolver' : cashReceived > 0 && cashReceived < remaining ? 'Valor insuficiente' : 'Troco'}
-                    </span>
-                    <span className={`text-2xl font-bold ${
-                      change > 0 
-                        ? 'text-emerald-700 dark:text-emerald-400' 
-                        : cashReceived > 0 && cashReceived < remaining
-                          ? 'text-red-700 dark:text-red-400'
-                          : 'text-muted-foreground'
-                    }`}>
-                      {formatCurrency(change > 0 ? change : 0)}
-                    </span>
+                {/* Payment Amount Input */}
+                {currentPaymentMethod && (
+                  <div className="mt-4 space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Valor do pagamento</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={currentPaymentAmount || ''}
+                        onChange={(e) => setCurrentPaymentAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0,00"
+                        className="text-lg h-12"
+                      />
+                    </div>
+
+                    {/* Quick amount buttons */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setCurrentPaymentAmount(remaining)}
+                      >
+                        Restante ({formatCurrency(remaining)})
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setCurrentPaymentAmount(remaining / 2)}
+                      >
+                        Metade
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                        onClick={() => setCurrentPaymentAmount(perPerson)}
+                      >
+                        Por pessoa
+                      </Button>
+                    </div>
+
+                    {/* Cash specific: received amount and change */}
+                    {currentPaymentMethod === 'cash' && (
+                      <div className="space-y-3 pt-2 border-t">
+                        <div className="space-y-2">
+                          <label className="text-sm text-muted-foreground">Valor recebido em dinheiro</label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={cashReceived || ''}
+                            onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                            placeholder="0,00"
+                            className="text-lg h-10"
+                          />
+                        </div>
+                        
+                        {/* Quick cash buttons */}
+                        <div className="grid grid-cols-4 gap-1">
+                          {[10, 20, 50, 100].map((value) => (
+                            <Button
+                              key={value}
+                              variant="outline"
+                              size="sm"
+                              className="text-xs h-8"
+                              onClick={() => setCashReceived(value)}
+                            >
+                              R$ {value}
+                            </Button>
+                          ))}
+                        </div>
+
+                        {/* Change display */}
+                        <div className={`rounded-lg p-3 transition-all ${
+                          currentChange > 0 
+                            ? 'bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-400' 
+                            : cashReceived > 0 && cashReceived < currentPaymentAmount
+                              ? 'bg-red-100 dark:bg-red-900/30 border border-red-400'
+                              : 'bg-muted border border-transparent'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-medium ${
+                              currentChange > 0 
+                                ? 'text-emerald-700 dark:text-emerald-400' 
+                                : cashReceived > 0 && cashReceived < currentPaymentAmount
+                                  ? 'text-red-700 dark:text-red-400'
+                                  : 'text-muted-foreground'
+                            }`}>
+                              {currentChange > 0 ? '💵 Troco' : cashReceived > 0 && cashReceived < currentPaymentAmount ? 'Insuficiente' : 'Troco'}
+                            </span>
+                            <span className={`text-xl font-bold ${
+                              currentChange > 0 
+                                ? 'text-emerald-700 dark:text-emerald-400' 
+                                : cashReceived > 0 && cashReceived < currentPaymentAmount
+                                  ? 'text-red-700 dark:text-red-400'
+                                  : 'text-muted-foreground'
+                            }`}>
+                              {formatCurrency(currentChange > 0 ? currentChange : 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add payment button */}
+                    <Button
+                      className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
+                      onClick={addPayment}
+                      disabled={currentPaymentAmount <= 0}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar pagamento de {formatCurrency(currentPaymentAmount)}
+                    </Button>
                   </div>
-                  {change > 0 && (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
-                      Recebido: {formatCurrency(cashReceived)} → Devolver: {formatCurrency(change)}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -726,7 +891,7 @@ export function CheckoutScreen({
             <Button
               className="w-full h-12 bg-sky-500 hover:bg-sky-600 text-white font-medium text-base"
               onClick={handleCloseAccount}
-              disabled={loading || !selectedPayment}
+              disabled={loading || (payments.length === 0 && !currentPaymentMethod)}
             >
               {loading ? (
                 <>
