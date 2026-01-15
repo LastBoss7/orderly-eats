@@ -210,6 +210,7 @@ async function initializeSupabase() {
 
 /**
  * Sync available system printers to database for web app selection
+ * Also auto-registers printers in the printers table for the restaurant
  */
 async function syncAvailablePrinters() {
   const restaurantId = store.get('restaurantId');
@@ -231,9 +232,20 @@ async function syncAvailablePrinters() {
 
     sendToRenderer('log', `Sincronizando ${systemPrinters.length} impressora(s) com o servidor...`);
 
-    // Upsert each printer
+    // Get existing printers for this restaurant to avoid duplicates
+    const { data: existingPrinters } = await supabase
+      .from('printers')
+      .select('printer_name')
+      .eq('restaurant_id', restaurantId);
+
+    const existingPrinterNames = new Set(
+      (existingPrinters || []).map(p => p.printer_name)
+    );
+
+    // Upsert each printer to available_printers and auto-register in printers table
     for (const printer of systemPrinters) {
-      const { error } = await supabase
+      // Sync to available_printers table
+      const { error: availableError } = await supabase
         .from('available_printers')
         .upsert({
           restaurant_id: restaurantId,
@@ -247,12 +259,36 @@ async function syncAvailablePrinters() {
           onConflict: 'restaurant_id,printer_name',
         });
 
-      if (error) {
-        console.error('Error syncing printer:', printer.name, error);
+      if (availableError) {
+        console.error('Error syncing available printer:', printer.name, availableError);
+      }
+
+      // Auto-register in printers table if not already registered
+      if (!existingPrinterNames.has(printer.name)) {
+        const { error: printerError } = await supabase
+          .from('printers')
+          .insert({
+            restaurant_id: restaurantId,
+            name: printer.displayName || printer.name,
+            printer_name: printer.name,
+            model: printer.description || 'Impressora do Windows',
+            paper_width: 42, // Default 80mm standard
+            linked_order_types: ['counter', 'table', 'delivery'],
+            linked_categories: null,
+            is_active: true,
+            status: 'connected',
+            last_seen_at: new Date().toISOString(),
+          });
+
+        if (printerError) {
+          console.error('Error auto-registering printer:', printer.name, printerError);
+        } else {
+          sendToRenderer('log', `✓ Impressora "${printer.displayName || printer.name}" cadastrada automaticamente`);
+        }
       }
     }
 
-    sendToRenderer('log', `✓ Impressoras sincronizadas com sucesso`);
+    sendToRenderer('log', `✓ ${systemPrinters.length} impressora(s) sincronizadas com sucesso`);
   } catch (error) {
     sendToRenderer('log', `Erro ao sincronizar impressoras: ${error.message}`);
   }
