@@ -326,6 +326,7 @@ export function CloseTableModal({
             change_given: paymentMethod === 'cash' ? change : null,
             split_mode: splitMode,
             split_people: splitMode === 'equal' ? numPeople : null,
+            service_charge: serviceCharge,
           })
           .eq('id', order.id);
       }

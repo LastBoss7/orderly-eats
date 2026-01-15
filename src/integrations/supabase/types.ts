@@ -384,6 +384,7 @@ export type Database = {
           printed_at: string | null
           ready_at: string | null
           restaurant_id: string
+          service_charge: number | null
           split_mode: string | null
           split_people: number | null
           status: string | null
@@ -415,6 +416,7 @@ export type Database = {
           printed_at?: string | null
           ready_at?: string | null
           restaurant_id: string
+          service_charge?: number | null
           split_mode?: string | null
           split_people?: number | null
           status?: string | null
@@ -446,6 +448,7 @@ export type Database = {
           printed_at?: string | null
           ready_at?: string | null
           restaurant_id?: string
+          service_charge?: number | null
           split_mode?: string | null
           split_people?: number | null
           status?: string | null
