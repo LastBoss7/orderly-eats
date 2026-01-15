@@ -28,7 +28,9 @@ import {
   ChevronRight,
   Minus,
   Plus,
+  Percent,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface OrderItem {
   id: string;
@@ -90,6 +92,10 @@ export function CloseTableModal({
   const [loading, setLoading] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
   const [step, setStep] = useState<'summary' | 'split' | 'payment'>('summary');
+  const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
+  
+  // Service charge rate (10%)
+  const SERVICE_CHARGE_RATE = 0.10;
 
   // All items from all orders
   const allItems = orders.flatMap(order => 
@@ -100,7 +106,9 @@ export function CloseTableModal({
   );
 
   // Calculate totals
-  const grandTotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const subtotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const serviceCharge = includeServiceCharge ? subtotal * SERVICE_CHARGE_RATE : 0;
+  const grandTotal = subtotal + serviceCharge;
   
   const selectedTotal = splitMode === 'by-item'
     ? selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
@@ -141,6 +149,7 @@ export function CloseTableModal({
       setPaymentMethod('pix');
       setCashReceived(0);
       setStep('summary');
+      setIncludeServiceCharge(false);
     }
   }, [open]);
 
@@ -390,7 +399,20 @@ export function CloseTableModal({
         {/* Total Banner */}
         <div className="bg-primary/10 px-4 py-3 border-b shrink-0">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Total da Mesa</span>
+            <span className="text-sm font-medium text-muted-foreground">Subtotal</span>
+            <span className="text-lg font-semibold">{formatCurrency(subtotal)}</span>
+          </div>
+          {includeServiceCharge && (
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Percent className="w-3 h-3" />
+                Taxa de Serviço (10%)
+              </span>
+              <span className="text-sm font-medium text-primary">{formatCurrency(serviceCharge)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-1 pt-1 border-t border-primary/20">
+            <span className="text-sm font-medium text-foreground">Total</span>
             <span className="text-2xl font-bold">{formatCurrency(grandTotal)}</span>
           </div>
           {splitMode === 'equal' && (
@@ -454,6 +476,29 @@ export function CloseTableModal({
                       </span>
                     </div>
                   ))}
+                </div>
+
+                {/* Service Charge Toggle */}
+                <div className="bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                        <Percent className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">Taxa de Serviço (10%)</p>
+                        <p className="text-xs text-muted-foreground">
+                          {includeServiceCharge 
+                            ? `+ ${formatCurrency(serviceCharge)}` 
+                            : 'Não incluída'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={includeServiceCharge}
+                      onCheckedChange={setIncludeServiceCharge}
+                    />
+                  </div>
                 </div>
 
                 <Button 
