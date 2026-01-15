@@ -678,34 +678,59 @@ export function ReceiptLayoutEditor() {
 
       {/* Preview Panel */}
       <div className="lg:sticky lg:top-6 h-fit">
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-3 bg-muted/50">
             <CardTitle className="text-base flex items-center gap-2">
               <Eye className="w-4 h-4" />
               Preview do Cupom
             </CardTitle>
             <CardDescription>
-              Visualização em tempo real • {layout.paperSize} ({layout.paperWidth} caracteres)
+              {layout.paperSize} • {layout.paperWidth} caracteres
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex justify-center">
+          <CardContent className="p-0">
+            <div className="flex justify-center bg-gradient-to-b from-muted/30 to-muted/50 p-6">
+              {/* Receipt paper simulation */}
               <div
-                className="bg-white text-black rounded shadow-lg p-4 font-mono text-xs leading-relaxed overflow-hidden"
+                className="bg-white text-black rounded-sm shadow-xl relative"
                 style={{
-                  width: layout.paperSize === '58mm' ? '220px' : '300px',
-                  minHeight: '400px',
+                  width: layout.paperSize === '58mm' ? '200px' : '280px',
+                  minHeight: '350px',
                 }}
               >
-                <ScrollArea className="h-[500px]">
-                  <pre className="whitespace-pre-wrap break-all" style={{ fontSize: layout.fontSize === 'small' ? '10px' : layout.fontSize === 'large' ? '14px' : '12px' }}>
+                {/* Torn paper effect top */}
+                <div className="absolute -top-2 left-0 right-0 h-4 bg-white" 
+                  style={{
+                    maskImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 100 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 10 Q5 0 10 10 Q15 0 20 10 Q25 0 30 10 Q35 0 40 10 Q45 0 50 10 Q55 0 60 10 Q65 0 70 10 Q75 0 80 10 Q85 0 90 10 Q95 0 100 10 L100 10 L0 10 Z\' fill=\'white\'/%3E%3C/svg%3E")',
+                    WebkitMaskImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 100 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 10 Q5 0 10 10 Q15 0 20 10 Q25 0 30 10 Q35 0 40 10 Q45 0 50 10 Q55 0 60 10 Q65 0 70 10 Q75 0 80 10 Q85 0 90 10 Q95 0 100 10 L100 10 L0 10 Z\' fill=\'white\'/%3E%3C/svg%3E")',
+                    maskSize: '100% 100%',
+                    WebkitMaskSize: '100% 100%',
+                  }}
+                />
+                <ScrollArea className="h-[400px]">
+                  <pre 
+                    className="whitespace-pre-wrap break-all p-4 font-mono leading-relaxed" 
+                    style={{ 
+                      fontSize: layout.fontSize === 'small' ? '9px' : layout.fontSize === 'large' ? '13px' : '11px',
+                      fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                    }}
+                  >
                     {generatePreview()}
                   </pre>
                 </ScrollArea>
+                {/* Torn paper effect bottom */}
+                <div className="absolute -bottom-2 left-0 right-0 h-4 bg-white rotate-180" 
+                  style={{
+                    maskImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 100 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 10 Q5 0 10 10 Q15 0 20 10 Q25 0 30 10 Q35 0 40 10 Q45 0 50 10 Q55 0 60 10 Q65 0 70 10 Q75 0 80 10 Q85 0 90 10 Q95 0 100 10 L100 10 L0 10 Z\' fill=\'white\'/%3E%3C/svg%3E")',
+                    WebkitMaskImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 100 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 10 Q5 0 10 10 Q15 0 20 10 Q25 0 30 10 Q35 0 40 10 Q45 0 50 10 Q55 0 60 10 Q65 0 70 10 Q75 0 80 10 Q85 0 90 10 Q95 0 100 10 L100 10 L0 10 Z\' fill=\'white\'/%3E%3C/svg%3E")',
+                    maskSize: '100% 100%',
+                    WebkitMaskSize: '100% 100%',
+                  }}
+                />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Este é um exemplo. Os dados reais do pedido aparecerão na impressão.
+            <p className="text-xs text-muted-foreground text-center py-3 border-t">
+              Preview com dados de exemplo
             </p>
           </CardContent>
         </Card>

@@ -241,358 +241,190 @@ LARGURA_PAPEL = 48
   return (
     <DashboardLayout>
       <div className="p-6">
-        {/* Breadcrumb */}
-        <div className="text-sm text-muted-foreground mb-4">
-          <span>Início</span>
-          <span className="mx-2">›</span>
-          <span>Configurações</span>
-          <span className="mx-2">›</span>
-          <span className="text-primary font-medium">Impressora</span>
-          <span className="mx-2">›</span>
-          <span className="text-foreground">Lista de Impressoras</span>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Impressoras</h1>
+            <p className="text-muted-foreground">Gerencie suas impressoras e configure o layout do cupom</p>
+          </div>
+          {activeTab === 'printers' && (
+            <Button onClick={handleOpenAddModal}>
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Impressora
+            </Button>
+          )}
         </div>
 
-        <div className="flex gap-6">
-          {/* Sidebar Navigation */}
-          <div className="w-64 flex-shrink-0">
-            <nav className="space-y-1">
-              <button
-                onClick={() => setActiveTab('printers')}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
-                  activeTab === 'printers'
-                    ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                1. Lista de Impressoras
-              </button>
-              <button
-                onClick={() => setActiveTab('layout')}
-                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-colors ${
-                  activeTab === 'layout'
-                    ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <LayoutTemplate className="w-4 h-4" />
-                  2. Layout do Cupom
-                </span>
-              </button>
-            </nav>
-          </div>
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b">
+          <button
+            onClick={() => setActiveTab('printers')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'printers'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <PrinterIcon className="w-4 h-4" />
+              Impressoras
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('layout')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'layout'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <LayoutTemplate className="w-4 h-4" />
+              Layout do Cupom
+            </span>
+          </button>
+        </div>
 
-          {/* Main Content */}
-          <div className="flex-1 max-w-3xl">
-            {activeTab === 'printers' && (
-              <div className="space-y-6">
-                <h1 className="text-2xl font-bold text-foreground">1. Lista de Impressoras</h1>
-
-                {/* App Download Section */}
-                <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-primary/10">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-4">
-                      <div className="p-3 rounded-full bg-primary/20">
-                        <Monitor className="w-6 h-6 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground mb-1">Aplicativo de Impressão Desktop</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Baixe e instale o aplicativo no computador conectado à impressora térmica.
-                          Funciona no Windows, macOS e Linux.
-                        </p>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                          <div className="flex items-center gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span>Impressão automática</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span>Minimiza na bandeja</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span>Interface amigável</span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          {fileExists ? (
-                            <Button asChild>
-                              <a href={electronAppUrl} download>
-                                <Download className="w-4 h-4 mr-2" />
-                                Baixar para Windows
-                              </a>
-                            </Button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="file"
-                                accept=".exe,.zip"
-                                onChange={handleUploadExecutable}
-                                disabled={uploading}
-                                className="w-auto"
-                                id="upload-exec"
-                              />
-                              {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+        {/* Content */}
+        {activeTab === 'printers' && (
+          <div className="space-y-6">
+            {/* App Download Card - Simplified */}
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-full bg-primary/20">
+                    <Monitor className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Aplicativo de Impressão</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Baixe e instale no computador conectado à impressora térmica
+                    </p>
+                  </div>
+                  {fileExists ? (
+                    <Button asChild>
+                      <a href={electronAppUrl} download>
+                        <Download className="w-4 h-4 mr-2" />
+                        Baixar
+                      </a>
+                    </Button>
+                  ) : checkingFile ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept=".exe,.zip"
+                        onChange={handleUploadExecutable}
+                        disabled={uploading}
+                        className="w-48"
+                        id="upload-exec"
+                      />
+                      {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-                {/* How it Works */}
-                <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5 text-blue-500" />
-                      Como funciona a impressão automática?
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                          <Send className="w-6 h-6 text-primary" />
-                        </div>
-                        <p className="font-medium text-sm">1. Pedido criado</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Garçom ou sistema cria pedido
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
-                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
-                          <Monitor className="w-6 h-6 text-orange-500" />
-                        </div>
-                        <p className="font-medium text-sm">2. App detecta</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Aplicativo desktop monitora novos pedidos
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-center text-center p-4 bg-background rounded-lg">
-                        <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mb-3">
-                          <PrinterIcon className="w-6 h-6 text-green-500" />
-                        </div>
-                        <p className="font-medium text-sm">3. Imprime</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Pedido é impresso automaticamente
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+            {/* Loading State */}
+            {loadingPrinters && (
+              <Card>
+                <CardContent className="py-12 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </CardContent>
+              </Card>
+            )}
 
-                {/* Quick Setup Guide */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">🚀 Instalação Rápida</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                          1
-                        </div>
-                        <div>
-                          <p className="font-medium">Baixe o aplicativo</p>
-                          <p className="text-sm text-muted-foreground">
-                            Clique em "Baixar para Windows" acima
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                          2
-                        </div>
-                        <div>
-                          <p className="font-medium">Instale e abra</p>
-                          <p className="text-sm text-muted-foreground">
-                            Execute o instalador e siga as instruções
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">
-                          3
-                        </div>
-                        <div>
-                          <p className="font-medium">Configure com seus dados</p>
-                          <p className="text-sm text-muted-foreground">
-                            Use as credenciais abaixo para conectar ao sistema
-                          </p>
-                        </div>
-                      </div>
+            {/* Empty State */}
+            {!loadingPrinters && printers.length === 0 && (
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <PrinterIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="font-semibold text-foreground mb-2">Nenhuma impressora configurada</h3>
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
+                    Adicione uma impressora para começar a imprimir pedidos automaticamente.
+                  </p>
+                  <Button onClick={handleOpenAddModal}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar impressora
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
-                          ✓
-                        </div>
-                        <div>
-                          <p className="font-medium">Pronto!</p>
-                          <p className="text-sm text-muted-foreground">
-                            Pedidos serão impressos automaticamente quando criados
-                          </p>
-                        </div>
+            {/* Printers List */}
+            {printers.map((printer) => (
+              <Card key={printer.id}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 rounded-lg bg-muted">
+                        <PrinterIcon className="w-6 h-6 text-muted-foreground" />
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Loading State */}
-                {loadingPrinters && (
-                  <Card>
-                    <CardContent className="py-12 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Empty State */}
-                {!loadingPrinters && printers.length === 0 && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-12 text-center">
-                      <PrinterIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="font-semibold text-foreground mb-2">Nenhuma impressora configurada</h3>
-                      <p className="text-muted-foreground text-sm max-w-md mx-auto mb-4">
-                        Adicione uma impressora para começar a imprimir pedidos automaticamente.
-                      </p>
-                      <Button onClick={handleOpenAddModal}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Adicionar impressora
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Printers List */}
-                {printers.map((printer) => (
-                  <Card key={printer.id} className="relative">
-                    <CardContent className="pt-6">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Impressora</p>
-                          <h3 className="text-lg font-semibold text-foreground">{printer.name}</h3>
-                          <p className="text-sm text-muted-foreground">{printer.model || 'Modelo não especificado'}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant={printer.status === 'connected' ? 'default' : 'destructive'}
-                            className={printer.status === 'connected' 
-                              ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' 
-                              : 'bg-red-500/20 text-red-600 hover:bg-red-500/30'
-                            }
-                          >
-                            {printer.status === 'connected' ? (
-                              <>
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Conectada
-                              </>
-                            ) : (
-                              <>
-                                <XCircle className="w-3 h-3 mr-1" />
-                                Desconectada
-                              </>
-                            )}
-                          </Badge>
-                          {!printer.is_active && (
-                            <Badge variant="secondary">Inativa</Badge>
-                          )}
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleTestPrint(printer.id)}
-                          >
-                            <PrinterIcon className="w-4 h-4 mr-1" />
-                            Testar
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleOpenEditModal(printer)}>
-                                <Pencil className="w-4 h-4 mr-2" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleOpenDeleteDialog(printer)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Remover
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-
-                      {/* Warning Box */}
-                      <div className="bg-muted/50 rounded-lg p-4 mb-4 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                        <div className="text-sm">
-                          <p className="text-foreground">
-                            Verifique se a impressora <strong>{printer.printer_name || 'padrão'}</strong> está conectada neste dispositivo
-                          </p>
-                          <p className="text-primary mt-1">
-                            Você só pode editar as configurações e testar a impressora no dispositivo em que ela foi configurada.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Linked Commands */}
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-2">Comandas vinculadas</p>
-                        <p className="text-sm text-foreground">
+                        <h3 className="font-semibold text-foreground">{printer.name}</h3>
+                        <p className="text-sm text-muted-foreground">{printer.model || 'Modelo não especificado'}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
                           {printer.linked_order_types
                             ?.map((type) => ORDER_TYPE_LABELS[type] || type)
-                            .join(', ') || 'Nenhum tipo vinculado'}
+                            .join(', ') || 'Todos os tipos'}
                         </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        className={printer.status === 'connected' 
+                          ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' 
+                          : 'bg-muted text-muted-foreground'
+                        }
+                      >
+                        {printer.status === 'connected' ? 'Conectada' : 'Aguardando'}
+                      </Badge>
+                      {!printer.is_active && (
+                        <Badge variant="secondary">Inativa</Badge>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenEditModal(printer)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleTestPrint(printer.id)}>
+                            <PrinterIcon className="w-4 h-4 mr-2" />
+                            Testar impressão
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => handleOpenDeleteDialog(printer)}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remover
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
 
-                {/* Add Printer CTA */}
-                {printers.length > 0 && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-6">
-                      <div className="flex items-center justify-between">
-                        <p className="text-foreground font-medium">Tem outra impressora para usar?</p>
-                        <Button 
-                          variant="outline" 
-                          className="text-primary border-primary hover:bg-primary/10"
-                          onClick={handleOpenAddModal}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          Adicionar impressora
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Config Preview */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Sua Configuração (config.ini)
-                    </CardTitle>
-                    <CardDescription>
-                      Arquivo pré-configurado para {restaurant?.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2 mb-4">
+            {/* Config Preview - Collapsible */}
+            {printers.length > 0 && (
+              <details className="group">
+                <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Ver configuração (config.ini)
+                </summary>
+                <Card className="mt-3">
+                  <CardContent className="pt-4">
+                    <div className="flex gap-2 mb-3">
                       <Button variant="outline" size="sm" onClick={handleCopyConfig}>
                         {copied ? (
                           <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" />
@@ -603,31 +435,22 @@ LARGURA_PAPEL = 48
                       </Button>
                       <Button variant="outline" size="sm" onClick={handleDownloadConfig}>
                         <Download className="w-4 h-4 mr-1" />
-                        Baixar arquivo
+                        Baixar
                       </Button>
                     </div>
-                    <pre className="p-4 rounded-lg bg-muted text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                    <pre className="p-3 rounded-lg bg-muted text-xs font-mono overflow-x-auto whitespace-pre-wrap max-h-40">
                       {configContent}
                     </pre>
                   </CardContent>
                 </Card>
-              </div>
-            )}
-
-            {activeTab === 'layout' && (
-              <div className="space-y-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">2. Layout do Cupom</h1>
-                  <p className="text-muted-foreground mt-1">
-                    Personalize como o cupom será impresso na impressora térmica
-                  </p>
-                </div>
-                
-                <ReceiptLayoutEditor />
-              </div>
+              </details>
             )}
           </div>
-        </div>
+        )}
+
+        {activeTab === 'layout' && (
+          <ReceiptLayoutEditor />
+        )}
       </div>
 
       {/* Printer Modal */}
