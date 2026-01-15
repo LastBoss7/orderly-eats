@@ -559,6 +559,10 @@ class PrinterService {
     
     const lines = [];
     
+    // Helper to pad any line to exact width
+    const addLine = (text) => lines.push(this.padLine(text || '', width));
+    const addDivider = () => lines.push(thinDivider);
+    
     // ============================================
     // HEADER - Date/Time + Restaurant Name (centered)
     // ============================================
@@ -566,30 +570,30 @@ class PrinterService {
       const now = new Date(order.created_at || Date.now());
       const dateStr = now.toLocaleDateString('pt-BR');
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      lines.push(this.center(`${dateStr} ${timeStr}`, width));
+      lines.push(this.center(dateStr + ' ' + timeStr, width));
     }
     
     if (layout.showRestaurantName !== false && restaurantInfo.name) {
       lines.push(this.center(this.removeAccents(restaurantInfo.name), width));
     }
     
-    lines.push(thinDivider);
+    addDivider();
     
     // ============================================
     // ORDER NUMBER (centered)
     // ============================================
     if (layout.showOrderNumber !== false) {
-      const orderNum = order.order_number || order.id?.slice(0, 8).toUpperCase() || '0';
-      lines.push(this.center(`Pedido ${orderNum}`, width));
+      const orderNum = order.order_number || (order.id ? order.id.slice(0, 8).toUpperCase() : '0');
+      lines.push(this.center('Pedido ' + orderNum, width));
     }
     
-    lines.push('');
+    addLine('');
     
     // ============================================
     // ITEMS SECTION
     // ============================================
     if (layout.showItems !== false) {
-      lines.push('Itens:');
+      addLine('Itens:');
       
       if (order.order_items && order.order_items.length > 0) {
         for (let i = 0; i < order.order_items.length; i++) {
@@ -599,13 +603,13 @@ class PrinterService {
           const price = item.product_price || 0;
           
           // Main item line: (qty) Name                    R$ price
-          const itemLeft = `(${qty}) ${name}`;
-          const itemRight = layout.showItemPrices !== false ? `R$ ${(price * qty).toFixed(2).replace('.', ',')}` : '';
+          const itemLeft = '(' + qty + ') ' + name;
+          const itemRight = layout.showItemPrices !== false ? 'R$ ' + (price * qty).toFixed(2).replace('.', ',') : '';
           lines.push(this.alignBoth(itemLeft, itemRight, width));
           
           // Observation (OBS:)
           if (layout.showItemNotes !== false && item.notes) {
-            lines.push(`  OBS: ${this.removeAccents(item.notes)}`);
+            addLine('  OBS: ' + this.removeAccents(item.notes));
           }
           
           // Sub-items / Additionals (indented)
@@ -614,21 +618,21 @@ class PrinterService {
               const subQty = subitem.quantity || 1;
               const subName = this.removeAccents(subitem.name || subitem.product_name || '');
               const subPrice = subitem.price || subitem.product_price || 0;
-              const subLeft = `  (${subQty}) ${subName}`;
-              const subRight = subPrice > 0 ? `R$ ${(subPrice * subQty).toFixed(2).replace('.', ',')}` : '';
+              const subLeft = '  (' + subQty + ') ' + subName;
+              const subRight = subPrice > 0 ? 'R$ ' + (subPrice * subQty).toFixed(2).replace('.', ',') : '';
               lines.push(this.alignBoth(subLeft, subRight, width));
             }
           }
           
           // Separator between items (except last)
           if (i < order.order_items.length - 1) {
-            lines.push(thinDivider);
+            addDivider();
           }
         }
       }
     }
     
-    lines.push('');
+    addLine('');
     
     // ============================================
     // CUSTOMER INFO
@@ -636,12 +640,12 @@ class PrinterService {
     let hasCustomerInfo = false;
     
     if (layout.showCustomerName !== false && order.customer_name) {
-      lines.push(`Cliente: ${this.removeAccents(order.customer_name)}`);
+      addLine('Cliente: ' + this.removeAccents(order.customer_name));
       hasCustomerInfo = true;
     }
     
     if (layout.showCustomerPhone !== false && order.delivery_phone) {
-      lines.push(`Telefone: ${order.delivery_phone}`);
+      addLine('Telefone: ' + order.delivery_phone);
       hasCustomerInfo = true;
     }
     
@@ -655,24 +659,24 @@ class PrinterService {
       const typeLabel = orderTypeLabels[order.order_type] || order.order_type || '';
       
       if (order.order_type === 'delivery' && order.delivery_address) {
-        lines.push(`Entrega: ${this.removeAccents(order.delivery_address)}`);
+        addLine('Entrega: ' + this.removeAccents(order.delivery_address));
       } else if (order.order_type === 'table' && (order.table_number || order.table_id)) {
-        lines.push(`Mesa: ${order.table_number || order.table_id}`);
+        addLine('Mesa: ' + (order.table_number || order.table_id));
       } else if (typeLabel) {
-        lines.push(`Entrega: ${typeLabel}`);
+        addLine('Entrega: ' + typeLabel);
       }
       hasCustomerInfo = true;
     }
     
     if (hasCustomerInfo) {
-      lines.push('');
+      addLine('');
     }
     
     // ============================================
     // PAYMENT METHOD
     // ============================================
     if (layout.showPaymentMethod !== false && order.payment_method) {
-      lines.push(thinDivider);
+      addDivider();
       const paymentLabels = {
         'cash': 'Dinheiro',
         'credit': 'Cartao de Credito',
@@ -681,15 +685,15 @@ class PrinterService {
         'card': 'Cartao',
       };
       const paymentLabel = paymentLabels[order.payment_method] || this.removeAccents(order.payment_method);
-      lines.push(`Forma de Pagamento: ${paymentLabel}`);
-      lines.push('');
+      addLine('Forma de Pagamento: ' + paymentLabel);
+      addLine('');
     }
     
     // ============================================
     // TOTALS
     // ============================================
     if (layout.showTotals !== false) {
-      lines.push(thinDivider);
+      addDivider();
       
       // Calculate subtotal
       let subtotal = 0;
@@ -701,19 +705,19 @@ class PrinterService {
       
       // Delivery fee
       if (layout.showDeliveryFee !== false && order.delivery_fee && order.delivery_fee > 0) {
-        lines.push(this.alignBoth('Taxa de Entrega:', `R$ ${order.delivery_fee.toFixed(2).replace('.', ',')}`, width));
+        lines.push(this.alignBoth('Taxa de Entrega:', 'R$ ' + order.delivery_fee.toFixed(2).replace('.', ','), width));
       }
       
       // Subtotal
-      lines.push(this.alignBoth('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width));
+      lines.push(this.alignBoth('Subtotal:', 'R$ ' + subtotal.toFixed(2).replace('.', ','), width));
       
       // Total
       const total = order.total || (subtotal + (order.delivery_fee || 0));
-      lines.push(this.alignBoth('Total:', `R$ ${total.toFixed(2).replace('.', ',')}`, width));
+      lines.push(this.alignBoth('Total:', 'R$ ' + total.toFixed(2).replace('.', ','), width));
     }
     
-    lines.push('');
-    lines.push(thinDivider);
+    addLine('');
+    addDivider();
     
     // ============================================
     // FOOTER
@@ -726,12 +730,12 @@ class PrinterService {
     }
     
     // Extra line feeds for paper feed
-    lines.push('');
-    lines.push('');
-    lines.push('');
-    lines.push('');
+    addLine('');
+    addLine('');
+    addLine('');
+    addLine('');
 
-    return lines.join('\n');
+    return lines.join('\r\n');
   }
 
   /**
@@ -765,11 +769,11 @@ class PrinterService {
     lines.push(divider);
     lines.push(this.center('TESTE DE IMPRESSAO', width));
     lines.push(divider);
-    lines.push('');
+    lines.push(this.padLine('', width));
     lines.push(this.center('Impressora OK!', width));
-    lines.push('');
-    lines.push(this.alignBoth('Largura:', `${width} chars`, width));
-    lines.push('');
+    lines.push(this.padLine('', width));
+    lines.push(this.alignBoth('Largura:', width + ' chars', width));
+    lines.push(this.padLine('', width));
     
     // Test alignment
     lines.push(divider);
@@ -781,56 +785,111 @@ class PrinterService {
     lines.push(this.alignBoth('Taxa:', 'R$ 5,00', width));
     lines.push(this.alignBoth('Total:', 'R$ 53,40', width));
     lines.push(divider);
-    lines.push('');
+    lines.push(this.padLine('', width));
     
     const now = new Date();
     lines.push(this.center(now.toLocaleString('pt-BR'), width));
-    lines.push('');
+    lines.push(this.padLine('', width));
     lines.push(this.center('Powered By: Gamako', width));
-    lines.push('');
-    lines.push('');
-    lines.push('');
-    lines.push('');
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
 
-    return lines.join('\n');
+    return lines.join('\r\n');
+  }
+
+  /**
+   * Pad line to exact width (fill with spaces)
+   */
+  padLine(text, width) {
+    if (!text) return ' '.repeat(width);
+    if (text.length >= width) return text.slice(0, width);
+    return text + ' '.repeat(width - text.length);
   }
 
   center(text, width) {
     if (!text) return ' '.repeat(width);
-    if (text.length >= width) return text.slice(0, width);
-    const padding = Math.floor((width - text.length) / 2);
-    return ' '.repeat(padding) + text;
+    const cleanText = String(text);
+    if (cleanText.length >= width) return cleanText.slice(0, width);
+    const leftPad = Math.floor((width - cleanText.length) / 2);
+    const rightPad = width - cleanText.length - leftPad;
+    return ' '.repeat(leftPad) + cleanText + ' '.repeat(rightPad);
   }
 
   alignRight(text, width) {
-    if (text.length >= width) return text.slice(0, width);
-    const padding = width - text.length;
-    return ' '.repeat(padding) + text;
+    const cleanText = String(text || '');
+    if (cleanText.length >= width) return cleanText.slice(0, width);
+    return ' '.repeat(width - cleanText.length) + cleanText;
   }
 
   alignBoth(left, right, width) {
-    const totalLen = left.length + right.length;
-    if (totalLen >= width) return left + right;
+    const leftText = String(left || '');
+    const rightText = String(right || '');
+    const totalLen = leftText.length + rightText.length;
+    if (totalLen >= width) {
+      // Truncate left side if too long
+      const maxLeft = width - rightText.length - 1;
+      if (maxLeft > 0) {
+        return leftText.slice(0, maxLeft) + ' ' + rightText;
+      }
+      return (leftText + rightText).slice(0, width);
+    }
     const padding = width - totalLen;
-    return left + ' '.repeat(padding) + right;
+    return leftText + ' '.repeat(padding) + rightText;
   }
 
   async printText(text, printerName = '') {
     return new Promise((resolve, reject) => {
       const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.txt`);
-      fs.writeFileSync(tmpFile, text, 'utf8');
+      
+      // Write file with proper encoding for thermal printers
+      // Try iconv-lite first, fallback to Buffer with latin1
+      let encodedText;
+      try {
+        const iconv = require('iconv-lite');
+        encodedText = iconv.encode(text, 'cp850');
+      } catch (e) {
+        // Fallback - use latin1 encoding which preserves bytes 0-255
+        encodedText = Buffer.from(text, 'latin1');
+      }
+      fs.writeFileSync(tmpFile, encodedText);
+      
+      console.log('[PrintText] File saved:', tmpFile);
+      console.log('[PrintText] Printer:', printerName || 'default');
+      console.log('[PrintText] Text preview (first 200 chars):', text.slice(0, 200));
       
       if (this.platform === 'win32') {
-        // Escape single quotes in printer name and use single quotes for PowerShell string
-        const escapedPrinterName = printerName ? printerName.replace(/'/g, "''") : '';
-        const printerParam = escapedPrinterName ? `-PrinterName '${escapedPrinterName}'` : '';
-        const psCommand = `Get-Content -Path '${tmpFile}' -Raw | Out-Printer ${printerParam}`;
+        // Use print command directly for raw output - more reliable for thermal printers
+        const escapedPrinter = printerName ? printerName.replace(/"/g, '\\"') : '';
+        const printCmd = escapedPrinter 
+          ? `print /D:"${escapedPrinter}" "${tmpFile}"`
+          : `print "${tmpFile}"`;
         
-        exec(`powershell -Command "${psCommand}"`, (error) => {
-          try { fs.unlinkSync(tmpFile); } catch (e) {}
+        exec(printCmd, { encoding: 'buffer' }, (error, stdout, stderr) => {
+          // Small delay before deleting to ensure print spooler has read the file
+          setTimeout(() => {
+            try { fs.unlinkSync(tmpFile); } catch (e) {}
+          }, 2000);
           
           if (error) {
-            reject(new Error(`Erro ao imprimir: ${error.message}`));
+            console.error('[PrintText] Error:', error.message);
+            // Try PowerShell as fallback
+            const escapedName = printerName ? printerName.replace(/'/g, "''") : '';
+            const printerParam = escapedName ? `-PrinterName '${escapedName}'` : '';
+            const psCommand = `Get-Content -Path '${tmpFile}' -Encoding Default -Raw | Out-Printer ${printerParam}`;
+            
+            exec(`powershell -Command "${psCommand}"`, (psError) => {
+              setTimeout(() => {
+                try { fs.unlinkSync(tmpFile); } catch (e) {}
+              }, 2000);
+              
+              if (psError) {
+                reject(new Error(`Erro ao imprimir: ${psError.message}`));
+              } else {
+                resolve(true);
+              }
+            });
           } else {
             resolve(true);
           }
@@ -838,7 +897,9 @@ class PrinterService {
       } else {
         const printerParam = printerName ? `-d "${printerName}"` : '';
         exec(`lp ${printerParam} "${tmpFile}"`, (error) => {
-          try { fs.unlinkSync(tmpFile); } catch (e) {}
+          setTimeout(() => {
+            try { fs.unlinkSync(tmpFile); } catch (e) {}
+          }, 2000);
           
           if (error) {
             reject(new Error(`Erro ao imprimir: ${error.message}`));
