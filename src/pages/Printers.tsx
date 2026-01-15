@@ -30,7 +30,9 @@ import {
   Github,
   Send,
   LayoutTemplate,
+  Activity,
 } from 'lucide-react';
+import { PrinterStatusPanel } from '@/components/printers/PrinterStatusPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,7 +66,7 @@ export default function Printers() {
   const [uploading, setUploading] = useState(false);
   const [fileExists, setFileExists] = useState(false);
   const [checkingFile, setCheckingFile] = useState(true);
-  const [activeTab, setActiveTab] = useState<'printers' | 'layout'>('printers');
+  const [activeTab, setActiveTab] = useState<'status' | 'printers' | 'layout'>('status');
   
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
@@ -271,6 +273,19 @@ LARGURA_PAPEL = 48
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b">
           <button
+            onClick={() => setActiveTab('status')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'status'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Status
+            </span>
+          </button>
+          <button
             onClick={() => setActiveTab('printers')}
             className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
               activeTab === 'printers'
@@ -299,6 +314,10 @@ LARGURA_PAPEL = 48
         </div>
 
         {/* Content */}
+        {activeTab === 'status' && (
+          <PrinterStatusPanel />
+        )}
+
         {activeTab === 'printers' && (
           <div className="space-y-6">
             {/* App Download Card - Simplified */}
