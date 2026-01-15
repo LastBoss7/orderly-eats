@@ -155,7 +155,7 @@ class PrinterService {
    */
   buildEscPosReceipt(order, layout, restaurantInfo = {}) {
     const buffers = [];
-    const width = layout.paperWidth || (layout.paperSize === '58mm' ? 32 : 48);
+    const width = layout.paperWidth || 48; // Fixed 80mm = 48 chars
     const encoding = 'cp860'; // Portuguese encoding
     
     // Initialize printer
