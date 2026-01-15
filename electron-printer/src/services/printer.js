@@ -535,168 +535,190 @@ class PrinterService {
   // TEXT PRINTING (Fallback)
   // ============================================
 
+  /**
+   * Format receipt following the standard schema:
+   * - Header: Date/Time + Restaurant Name (centered)
+   * - Separator
+   * - "Pedido X" (centered)
+   * - Items with quantity, name, observation, subitems and price aligned right
+   * - Separator between items
+   * - Customer info (Cliente, Telefone, Entrega)
+   * - Separator
+   * - Payment method
+   * - Separator
+   * - Subtotal and Total
+   * - Footer
+   */
   formatReceipt(order, layout, restaurantInfo = {}) {
-    // For thermal printers via text mode, use fixed width chars
-    // Common widths: 32 (58mm), 42 (80mm standard), 48 (80mm compact)
-    // IMPORTANT: Use layout.paperWidth exactly as configured by user
-    const width = parseInt(layout.paperWidth, 10) || 42;
-    const divider = this.createLine('=', width);
+    const width = parseInt(layout.paperWidth, 10) || 46;
     const thinDivider = this.createLine('-', width);
     
     const lines = [];
     
-    // Header - center text properly for better formatting
-    if (layout.showRestaurantName && restaurantInfo.name) {
-      const name = this.removeAccents(restaurantInfo.name.toUpperCase());
-      lines.push(this.center(name, width));
+    // ============================================
+    // HEADER - Date/Time + Restaurant Name (centered)
+    // ============================================
+    if (layout.showDateTime !== false) {
+      const now = new Date(order.created_at || Date.now());
+      const dateStr = now.toLocaleDateString('pt-BR');
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      lines.push(this.center(`${dateStr} ${timeStr}`, width));
     }
     
-    if (layout.showAddress && restaurantInfo.address) {
-      const addr = this.removeAccents(restaurantInfo.address);
-      // Word wrap if too long
-      this.wrapText(addr, width).forEach(line => lines.push(this.center(line, width)));
-    }
-    
-    if (layout.showPhone && restaurantInfo.phone) {
-      lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
-    }
-    
-    if (layout.showCnpj && restaurantInfo.cnpj) {
-      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
-    }
-    
-    if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {
-      lines.push('');
-    }
-    
-    // Title - centered
-    lines.push(this.center(layout.receiptTitle || '*** PEDIDO ***', width));
-    lines.push(divider);
-    
-    // Order number - prominent
-    if (layout.showOrderNumber) {
-      const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
-      lines.push(`PEDIDO #${orderNum}`);
-      lines.push('');
-    }
-    
-    // Order type
-    if (layout.showOrderType) {
-      const orderTypeLabels = {
-        'counter': 'BALCAO',
-        'table': 'MESA',
-        'delivery': 'ENTREGA'
-      };
-      lines.push(`Tipo: ${orderTypeLabels[order.order_type] || order.order_type}`);
-    }
-    
-    // Table
-    if (layout.showTable && (order.table_number || order.table_id)) {
-      lines.push(`Mesa: ${order.table_number || order.table_id}`);
-    }
-    
-    // Waiter
-    if (layout.showWaiter && order.waiter_name) {
-      lines.push(`Garcom: ${this.removeAccents(order.waiter_name)}`);
-    }
-    
-    // Customer info
-    if (layout.showCustomerName && order.customer_name) {
-      lines.push(`Cliente: ${this.removeAccents(order.customer_name)}`);
-    }
-    
-    if (layout.showCustomerPhone && order.delivery_phone) {
-      lines.push(`Tel: ${order.delivery_phone}`);
-    }
-    
-    if (layout.showDeliveryAddress && order.delivery_address) {
-      const addr = this.removeAccents(order.delivery_address);
-      // Word wrap long addresses
-      if (addr.length > width - 5) {
-        lines.push(`End: ${addr.slice(0, width - 5)}`);
-        lines.push(`     ${addr.slice(width - 5)}`);
-      } else {
-        lines.push(`End: ${addr}`);
-      }
-    }
-    
-    lines.push(divider);
-    
-    // Items
-    lines.push('ITENS:');
-    lines.push(thinDivider);
-    
-    if (order.order_items && order.order_items.length > 0) {
-      for (const item of order.order_items) {
-        const qty = item.quantity || 1;
-        let name = this.removeAccents(item.product_name);
-        
-        // Add size if available
-        if (layout.showItemSize && item.product_size) {
-          name += ` (${this.removeAccents(item.product_size)})`;
-        }
-        
-        // Truncate if needed
-        const itemLine = `${qty}x ${name}`;
-        if (itemLine.length > width - 2) {
-          lines.push(itemLine.slice(0, width - 2));
-        } else {
-          lines.push(itemLine);
-        }
-        
-        if (layout.showItemPrices) {
-          const price = (item.product_price * qty).toFixed(2);
-          lines.push(`   R$ ${price}`);
-        }
-        
-        if (layout.showItemNotes && item.notes) {
-          lines.push(`   Obs: ${this.removeAccents(item.notes)}`);
-        }
-      }
+    if (layout.showRestaurantName !== false && restaurantInfo.name) {
+      lines.push(this.center(this.removeAccents(restaurantInfo.name), width));
     }
     
     lines.push(thinDivider);
     
-    // Totals
-    if (layout.showTotals) {
-      if (layout.showDeliveryFee && order.delivery_fee && order.delivery_fee > 0) {
-        lines.push(`Taxa entrega: R$ ${order.delivery_fee.toFixed(2)}`);
-      }
-      
-      lines.push(`TOTAL: R$ ${(order.total || 0).toFixed(2)}`);
-    }
-    
-    // Payment method
-    if (layout.showPaymentMethod && order.payment_method) {
-      const paymentLabels = {
-        'cash': 'Dinheiro',
-        'credit': 'Credito',
-        'debit': 'Debito',
-        'pix': 'PIX',
-      };
-      lines.push(`Pagamento: ${paymentLabels[order.payment_method] || order.payment_method}`);
-    }
-    
-    // Notes
-    if (order.notes) {
-      lines.push('');
-      lines.push('OBSERVACOES:');
-      lines.push(this.removeAccents(order.notes));
+    // ============================================
+    // ORDER NUMBER (centered)
+    // ============================================
+    if (layout.showOrderNumber !== false) {
+      const orderNum = order.order_number || order.id?.slice(0, 8).toUpperCase() || '0';
+      lines.push(this.center(`Pedido ${orderNum}`, width));
     }
     
     lines.push('');
-    lines.push(divider);
     
-    // Footer
-    if (layout.showDateTime) {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      lines.push(`${dateStr} ${timeStr}`);
+    // ============================================
+    // ITEMS SECTION
+    // ============================================
+    if (layout.showItems !== false) {
+      lines.push('Itens:');
+      
+      if (order.order_items && order.order_items.length > 0) {
+        for (let i = 0; i < order.order_items.length; i++) {
+          const item = order.order_items[i];
+          const qty = item.quantity || 1;
+          const name = this.removeAccents(item.product_name || 'Item');
+          const price = item.product_price || 0;
+          
+          // Main item line: (qty) Name                    R$ price
+          const itemLeft = `(${qty}) ${name}`;
+          const itemRight = layout.showItemPrices !== false ? `R$ ${(price * qty).toFixed(2).replace('.', ',')}` : '';
+          lines.push(this.alignBoth(itemLeft, itemRight, width));
+          
+          // Observation (OBS:)
+          if (layout.showItemNotes !== false && item.notes) {
+            lines.push(`  OBS: ${this.removeAccents(item.notes)}`);
+          }
+          
+          // Sub-items / Additionals (indented)
+          if (item.subitems && item.subitems.length > 0) {
+            for (const subitem of item.subitems) {
+              const subQty = subitem.quantity || 1;
+              const subName = this.removeAccents(subitem.name || subitem.product_name || '');
+              const subPrice = subitem.price || subitem.product_price || 0;
+              const subLeft = `  (${subQty}) ${subName}`;
+              const subRight = subPrice > 0 ? `R$ ${(subPrice * subQty).toFixed(2).replace('.', ',')}` : '';
+              lines.push(this.alignBoth(subLeft, subRight, width));
+            }
+          }
+          
+          // Separator between items (except last)
+          if (i < order.order_items.length - 1) {
+            lines.push(thinDivider);
+          }
+        }
+      }
     }
     
+    lines.push('');
+    
+    // ============================================
+    // CUSTOMER INFO
+    // ============================================
+    let hasCustomerInfo = false;
+    
+    if (layout.showCustomerName !== false && order.customer_name) {
+      lines.push(`Cliente: ${this.removeAccents(order.customer_name)}`);
+      hasCustomerInfo = true;
+    }
+    
+    if (layout.showCustomerPhone !== false && order.delivery_phone) {
+      lines.push(`Telefone: ${order.delivery_phone}`);
+      hasCustomerInfo = true;
+    }
+    
+    // Delivery / Order type info
+    if (layout.showOrderType !== false) {
+      const orderTypeLabels = {
+        'counter': 'Retirada no balcao',
+        'table': 'Consumo no local',
+        'delivery': 'Entrega',
+      };
+      const typeLabel = orderTypeLabels[order.order_type] || order.order_type || '';
+      
+      if (order.order_type === 'delivery' && order.delivery_address) {
+        lines.push(`Entrega: ${this.removeAccents(order.delivery_address)}`);
+      } else if (order.order_type === 'table' && (order.table_number || order.table_id)) {
+        lines.push(`Mesa: ${order.table_number || order.table_id}`);
+      } else if (typeLabel) {
+        lines.push(`Entrega: ${typeLabel}`);
+      }
+      hasCustomerInfo = true;
+    }
+    
+    if (hasCustomerInfo) {
+      lines.push('');
+    }
+    
+    // ============================================
+    // PAYMENT METHOD
+    // ============================================
+    if (layout.showPaymentMethod !== false && order.payment_method) {
+      lines.push(thinDivider);
+      const paymentLabels = {
+        'cash': 'Dinheiro',
+        'credit': 'Cartao de Credito',
+        'debit': 'Cartao de Debito',
+        'pix': 'PIX',
+        'card': 'Cartao',
+      };
+      const paymentLabel = paymentLabels[order.payment_method] || this.removeAccents(order.payment_method);
+      lines.push(`Forma de Pagamento: ${paymentLabel}`);
+      lines.push('');
+    }
+    
+    // ============================================
+    // TOTALS
+    // ============================================
+    if (layout.showTotals !== false) {
+      lines.push(thinDivider);
+      
+      // Calculate subtotal
+      let subtotal = 0;
+      if (order.order_items) {
+        for (const item of order.order_items) {
+          subtotal += (item.product_price || 0) * (item.quantity || 1);
+        }
+      }
+      
+      // Delivery fee
+      if (layout.showDeliveryFee !== false && order.delivery_fee && order.delivery_fee > 0) {
+        lines.push(this.alignBoth('Taxa de Entrega:', `R$ ${order.delivery_fee.toFixed(2).replace('.', ',')}`, width));
+      }
+      
+      // Subtotal
+      lines.push(this.alignBoth('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width));
+      
+      // Total
+      const total = order.total || (subtotal + (order.delivery_fee || 0));
+      lines.push(this.alignBoth('Total:', `R$ ${total.toFixed(2).replace('.', ',')}`, width));
+    }
+    
+    lines.push('');
+    lines.push(thinDivider);
+    
+    // ============================================
+    // FOOTER
+    // ============================================
     if (layout.footerMessage) {
-      lines.push(this.removeAccents(layout.footerMessage));
+      lines.push(this.center(this.removeAccents(layout.footerMessage), width));
+    } else {
+      lines.push(this.center('Powered By: BareRest', width));
+      lines.push(this.center('https://barerest.lovable.app', width));
     }
     
     // Extra line feeds for paper feed

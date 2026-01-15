@@ -115,44 +115,81 @@ export function PrinterModal({
     });
   };
 
-  // Sample receipt preview
-  const receiptPreview = `========================================
-            CONSUMO NO LOCAL
-========================================
-        ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-    ${restaurant?.name || 'Restaurante'}
-            Suzano
-========================================
-            Pedido 2193
-----------------------------------------
-Itens
+  // Sample receipt preview following new schema
+  const generatePreview = () => {
+    const width = 46;
+    const thinDivider = '-'.repeat(width);
+    const lines: string[] = [];
 
-(1) Água                               -
-  - Escolha o sua bebida!
-    (1) Água Mineral       R$     7,90
-        Acqualia Com Gás
-        Crystal 500ml
-                              --------
-(1) Smash Burguer         R$    23,00
-  - Escolha um molho adicional
-    grátis!
-    (1) Molho Mostarda e Mel       -
-                              --------
-(1) Batata Frita          R$     9,90
-    Crocante
-                              --------
-(1) Batata Frita          R$     9,90
-    Crocante
-----------------------------------------
-Cliente
+    const center = (text: string) => {
+      if (text.length >= width) return text.slice(0, width);
+      const padding = Math.floor((width - text.length) / 2);
+      return ' '.repeat(padding) + text;
+    };
 
-Nome: Cliente Teste
-Telefone: (00) 0000-0000
-Quantidade de pedidos: 06
-----------------------------------------
-Pagamento
+    const alignBoth = (left: string, right: string) => {
+      const totalLen = left.length + right.length;
+      if (totalLen >= width) return left + right;
+      const padding = width - totalLen;
+      return left + ' '.repeat(padding) + right;
+    };
 
-Forma de Pagamento: Dinheiro`;
+    // Header
+    const now = new Date();
+    lines.push(center(`${now.toLocaleDateString('pt-BR')} ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`));
+    lines.push(center(restaurant?.name || 'Restaurante'));
+    lines.push(thinDivider);
+    lines.push(center('Pedido 0'));
+    lines.push('');
+
+    // Items
+    lines.push('Itens:');
+    
+    // Item 1
+    lines.push(alignBoth('(1) Item Teste', 'R$ 10,00'));
+    lines.push('  OBS: Observação');
+    lines.push(thinDivider);
+    
+    // Item 2
+    lines.push(alignBoth('(1) Item Teste 2', 'R$ 20,00'));
+    lines.push(thinDivider);
+    
+    // Item 3 with addon
+    lines.push(alignBoth('(1) Item Teste 3', 'R$ 30,00'));
+    lines.push(alignBoth('  (1) Adicional', 'R$ 40,00'));
+    lines.push(thinDivider);
+    
+    // Item 4 with combos
+    lines.push(alignBoth('(1) Item Teste 4', 'R$ 40,00'));
+    lines.push(alignBoth('  (1) Combo Teste 1', 'R$ 5,00'));
+    lines.push(alignBoth('  (1) Combo Teste 2', 'R$ 10,00'));
+    lines.push(alignBoth('  (1) Combo Teste 3', 'R$ 25,00'));
+    lines.push('');
+
+    // Customer info
+    lines.push('Cliente: Teste');
+    lines.push('Telefone: (99) 9 9999-9999');
+    lines.push('Entrega: Vem buscar no local pra levar');
+    lines.push('');
+
+    // Payment
+    lines.push(thinDivider);
+    lines.push('Forma de Pagamento: Cartão (Teste)');
+    lines.push('');
+
+    // Totals
+    lines.push(thinDivider);
+    lines.push(alignBoth('Subtotal:', 'R$ 100,00'));
+    lines.push(alignBoth('Total:', 'R$ 100,00'));
+    lines.push('');
+    lines.push(thinDivider);
+
+    // Footer
+    lines.push(center('Powered By: BareRest'));
+    lines.push(center('Acesse: https://barerest.lovable.app'));
+
+    return lines.join('\n');
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,8 +258,8 @@ Forma de Pagamento: Dinheiro`;
             {/* Right side - Receipt Preview */}
             <div>
               <ScrollArea className="h-[400px] rounded-lg border bg-amber-50 dark:bg-amber-950/20">
-                <pre className="p-4 font-mono text-xs text-amber-900 dark:text-amber-100 whitespace-pre-wrap">
-                  {receiptPreview}
+                <pre className="p-4 font-mono text-xs text-amber-900 dark:text-amber-100 whitespace-pre">
+                  {generatePreview()}
                 </pre>
               </ScrollArea>
             </div>

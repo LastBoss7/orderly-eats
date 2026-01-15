@@ -75,22 +75,57 @@ const defaultLayout: PrintLayout = {
 const sampleOrder = {
   id: 'ABC12345',
   order_number: 42,
-  order_type: 'delivery',
+  order_type: 'counter',
   table_id: null,
-  table_number: 5,
-  waiter_name: 'João',
-  customer_name: 'Maria Silva',
-  delivery_phone: '(11) 98888-7777',
-  delivery_address: 'Av. Brasil, 456, Ap 12 - Centro',
-  delivery_fee: 8.00,
-  total: 98.30,
-  payment_method: 'pix',
-  notes: 'Tocar campainha 2x',
+  table_number: null,
+  waiter_name: null,
+  customer_name: 'Teste',
+  delivery_phone: '(99) 9 9999-9999',
+  delivery_address: null,
+  delivery_fee: 0,
+  total: 200.00,
+  payment_method: 'card',
+  notes: null,
   created_at: new Date().toISOString(),
   order_items: [
-    { quantity: 2, product_name: 'X-Burguer Especial', product_price: 29.90, product_size: 'Grande', notes: null },
-    { quantity: 1, product_name: 'Batata Frita', product_price: 18.50, product_size: 'Média', notes: 'Sem sal' },
-    { quantity: 2, product_name: 'Refrigerante', product_price: 6.00, product_size: null, notes: null },
+    { 
+      quantity: 1, 
+      product_name: 'Item Teste', 
+      product_price: 10.00, 
+      product_size: null, 
+      notes: 'Observação',
+      subitems: [] 
+    },
+    { 
+      quantity: 1, 
+      product_name: 'Item Teste 2', 
+      product_price: 20.00, 
+      product_size: null, 
+      notes: null,
+      subitems: [] 
+    },
+    { 
+      quantity: 1, 
+      product_name: 'Item Teste 3', 
+      product_price: 30.00, 
+      product_size: null, 
+      notes: null,
+      subitems: [
+        { quantity: 1, name: 'Adicional', price: 40.00 }
+      ] 
+    },
+    { 
+      quantity: 1, 
+      product_name: 'Item Teste 4', 
+      product_price: 40.00, 
+      product_size: null, 
+      notes: null,
+      subitems: [
+        { quantity: 1, name: 'Combo Teste 1', price: 5.00 },
+        { quantity: 1, name: 'Combo Teste 2', price: 10.00 },
+        { quantity: 1, name: 'Combo Teste 3', price: 25.00 },
+      ] 
+    },
   ]
 };
 
@@ -211,11 +246,10 @@ export function ReceiptLayoutEditor() {
     setHasChanges(true);
   };
 
-  // Generate preview
+  // Generate preview following new schema
   const generatePreview = () => {
     const width = layout.paperWidth;
-    const divider = '═'.repeat(width);
-    const thinDivider = '─'.repeat(width);
+    const thinDivider = '-'.repeat(width);
     const lines: string[] = [];
 
     const center = (text: string) => {
@@ -231,155 +265,152 @@ export function ReceiptLayoutEditor() {
       return left + ' '.repeat(padding) + right;
     };
 
-    // Header
-    if (layout.showRestaurantName && restaurantInfo?.name) {
-      lines.push(center(restaurantInfo.name.toUpperCase()));
-    }
-
-    if (layout.showAddress && restaurantInfo?.address) {
-      lines.push(center(restaurantInfo.address));
-    }
-
-    if (layout.showPhone && restaurantInfo?.phone) {
-      lines.push(center(`Tel: ${restaurantInfo.phone}`));
-    }
-
-    if (layout.showCnpj && restaurantInfo?.cnpj) {
-      lines.push(center(`CNPJ: ${restaurantInfo.cnpj}`));
-    }
-
-    if (layout.showRestaurantName || layout.showAddress || layout.showPhone || layout.showCnpj) {
-      lines.push('');
-    }
-
-    // Title
-    lines.push(center(layout.receiptTitle || '*** PEDIDO ***'));
-    lines.push('');
-    lines.push(divider);
-
-    // Order number
-    if (layout.showOrderNumber) {
-      const orderNum = sampleOrder.order_number || sampleOrder.id.slice(0, 8).toUpperCase();
-      lines.push(center(`#${orderNum}`));
-      lines.push('');
-    }
-
-    // Order info
-    if (layout.showOrderType) {
-      const orderTypeLabels: Record<string, string> = {
-        'counter': 'BALCÃO',
-        'table': 'MESA',
-        'delivery': 'ENTREGA'
-      };
-      lines.push(`Tipo: ${orderTypeLabels[sampleOrder.order_type] || sampleOrder.order_type}`);
-    }
-
-    if (layout.showTable && sampleOrder.table_number) {
-      lines.push(`Mesa: ${sampleOrder.table_number}`);
-    }
-
-    if (layout.showWaiter && sampleOrder.waiter_name) {
-      lines.push(`Garçom: ${sampleOrder.waiter_name}`);
-    }
-
-    // Customer info
-    if (layout.showCustomerName && sampleOrder.customer_name) {
-      lines.push(`Cliente: ${sampleOrder.customer_name}`);
-    }
-
-    if (layout.showCustomerPhone && sampleOrder.delivery_phone) {
-      lines.push(`Tel: ${sampleOrder.delivery_phone}`);
-    }
-
-    if (layout.showDeliveryAddress && sampleOrder.delivery_address) {
-      // Wrap long address
-      const addr = sampleOrder.delivery_address;
-      if (addr.length > width - 5) {
-        lines.push(`End: ${addr.slice(0, width - 5)}`);
-        lines.push(`     ${addr.slice(width - 5)}`);
-      } else {
-        lines.push(`End: ${addr}`);
-      }
-    }
-
-    lines.push('');
-    lines.push(divider);
-    lines.push('');
-
-    // Items header
-    lines.push('ITENS:');
-    lines.push(thinDivider);
-
-    // Items
-    for (const item of sampleOrder.order_items) {
-      const qty = item.quantity || 1;
-      let itemLine = `${qty}x ${item.product_name}`;
-      
-      if (layout.showItemSize && item.product_size) {
-        itemLine += ` (${item.product_size})`;
-      }
-
-      // Truncate if too long
-      if (itemLine.length > width) {
-        itemLine = itemLine.slice(0, width - 1) + '…';
-      }
-      
-      lines.push(itemLine);
-
-      if (layout.showItemPrices) {
-        const price = (item.product_price * qty).toFixed(2);
-        lines.push(alignBoth('', `R$ ${price}`));
-      }
-
-      if (layout.showItemNotes && item.notes) {
-        lines.push(`   ↳ ${item.notes}`);
-      }
-    }
-
-    lines.push('');
-    lines.push(thinDivider);
-
-    // Notes
-    if (sampleOrder.notes) {
-      lines.push('');
-      lines.push('OBS: ' + sampleOrder.notes);
-      lines.push('');
-    }
-
-    // Totals
-    if (layout.showTotals) {
-      if (layout.showDeliveryFee && sampleOrder.delivery_fee > 0) {
-        lines.push(alignBoth('Taxa entrega:', `R$ ${sampleOrder.delivery_fee.toFixed(2)}`));
-      }
-
-      lines.push('');
-      lines.push(alignBoth('TOTAL:', `R$ ${sampleOrder.total.toFixed(2)}`));
-    }
-
-    if (layout.showPaymentMethod && sampleOrder.payment_method) {
-      const paymentLabels: Record<string, string> = {
-        'cash': 'Dinheiro',
-        'credit': 'Crédito',
-        'debit': 'Débito',
-        'pix': 'PIX',
-      };
-      lines.push(alignBoth('Pagamento:', paymentLabels[sampleOrder.payment_method] || sampleOrder.payment_method));
-    }
-
-    lines.push('');
-    lines.push(divider);
-
-    // Footer
+    // ============================================
+    // HEADER - Date/Time + Restaurant Name (centered)
+    // ============================================
     if (layout.showDateTime) {
-      const now = new Date();
+      const now = new Date(sampleOrder.created_at);
       const dateStr = now.toLocaleDateString('pt-BR');
       const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       lines.push(center(`${dateStr} ${timeStr}`));
     }
 
-    if (layout.footerMessage) {
+    if (layout.showRestaurantName && restaurantInfo?.name) {
+      lines.push(center(restaurantInfo.name));
+    }
+
+    lines.push(thinDivider);
+
+    // ============================================
+    // ORDER NUMBER (centered)
+    // ============================================
+    if (layout.showOrderNumber) {
+      lines.push(center(`Pedido ${sampleOrder.order_number}`));
+    }
+
+    lines.push('');
+
+    // ============================================
+    // ITEMS SECTION
+    // ============================================
+    lines.push('Itens:');
+
+    for (let i = 0; i < sampleOrder.order_items.length; i++) {
+      const item = sampleOrder.order_items[i];
+      const qty = item.quantity || 1;
+      const name = item.product_name;
+      const price = item.product_price || 0;
+
+      // Main item line: (qty) Name                    R$ price
+      const itemLeft = `(${qty}) ${name}`;
+      const itemRight = layout.showItemPrices ? `R$ ${(price * qty).toFixed(2).replace('.', ',')}` : '';
+      lines.push(alignBoth(itemLeft, itemRight));
+
+      // Observation (OBS:)
+      if (layout.showItemNotes && item.notes) {
+        lines.push(`  OBS: ${item.notes}`);
+      }
+
+      // Sub-items / Additionals (indented)
+      if (item.subitems && item.subitems.length > 0) {
+        for (const subitem of item.subitems) {
+          const subQty = subitem.quantity || 1;
+          const subName = subitem.name;
+          const subPrice = subitem.price || 0;
+          const subLeft = `  (${subQty}) ${subName}`;
+          const subRight = subPrice > 0 ? `R$ ${(subPrice * subQty).toFixed(2).replace('.', ',')}` : '';
+          lines.push(alignBoth(subLeft, subRight));
+        }
+      }
+
+      // Separator between items (except last)
+      if (i < sampleOrder.order_items.length - 1) {
+        lines.push(thinDivider);
+      }
+    }
+
+    lines.push('');
+
+    // ============================================
+    // CUSTOMER INFO
+    // ============================================
+    if (layout.showCustomerName && sampleOrder.customer_name) {
+      lines.push(`Cliente: ${sampleOrder.customer_name}`);
+    }
+
+    if (layout.showCustomerPhone && sampleOrder.delivery_phone) {
+      lines.push(`Telefone: ${sampleOrder.delivery_phone}`);
+    }
+
+    if (layout.showOrderType) {
+      const orderTypeLabels: Record<string, string> = {
+        'counter': 'Vem buscar no local pra levar',
+        'table': 'Consumo no local',
+        'delivery': 'Entrega',
+      };
+      const typeLabel = orderTypeLabels[sampleOrder.order_type] || sampleOrder.order_type;
+
+      if (sampleOrder.order_type === 'delivery' && sampleOrder.delivery_address) {
+        lines.push(`Entrega: ${sampleOrder.delivery_address}`);
+      } else {
+        lines.push(`Entrega: ${typeLabel}`);
+      }
+    }
+
+    lines.push('');
+
+    // ============================================
+    // PAYMENT METHOD
+    // ============================================
+    if (layout.showPaymentMethod && sampleOrder.payment_method) {
+      lines.push(thinDivider);
+      const paymentLabels: Record<string, string> = {
+        'cash': 'Dinheiro',
+        'credit': 'Cartão de Crédito',
+        'debit': 'Cartão de Débito',
+        'pix': 'PIX',
+        'card': 'Cartão (Teste)',
+      };
+      lines.push(`Forma de Pagamento: ${paymentLabels[sampleOrder.payment_method] || sampleOrder.payment_method}`);
       lines.push('');
+    }
+
+    // ============================================
+    // TOTALS
+    // ============================================
+    if (layout.showTotals) {
+      lines.push(thinDivider);
+
+      // Calculate subtotal
+      let subtotal = 0;
+      for (const item of sampleOrder.order_items) {
+        subtotal += (item.product_price || 0) * (item.quantity || 1);
+        if (item.subitems) {
+          for (const sub of item.subitems) {
+            subtotal += (sub.price || 0) * (sub.quantity || 1);
+          }
+        }
+      }
+
+      if (layout.showDeliveryFee && sampleOrder.delivery_fee > 0) {
+        lines.push(alignBoth('Taxa de Entrega:', `R$ ${sampleOrder.delivery_fee.toFixed(2).replace('.', ',')}`));
+      }
+
+      lines.push(alignBoth('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`));
+      lines.push(alignBoth('Total:', `R$ ${sampleOrder.total.toFixed(2).replace('.', ',')}`));
+    }
+
+    lines.push('');
+    lines.push(thinDivider);
+
+    // ============================================
+    // FOOTER
+    // ============================================
+    if (layout.footerMessage) {
       lines.push(center(layout.footerMessage));
+    } else {
+      lines.push(center('Powered By: BareRest'));
+      lines.push(center('https://barerest.lovable.app'));
     }
 
     return lines.join('\n');
