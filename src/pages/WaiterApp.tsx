@@ -542,15 +542,26 @@ export default function WaiterApp({
   };
 
   const getProductPrice = (product: Product, size: ProductSize | null): number => {
-    if (!product.has_sizes || !size) {
-      return product.price;
+    // For products with sizes, use the size-specific price
+    if (product.has_sizes && size) {
+      switch (size) {
+        case 'small': return product.price_small ?? product.price ?? 0;
+        case 'medium': return product.price_medium ?? product.price ?? 0;
+        case 'large': return product.price_large ?? product.price ?? 0;
+        default: return product.price ?? 0;
+      }
     }
-    switch (size) {
-      case 'small': return product.price_small ?? product.price;
-      case 'medium': return product.price_medium ?? product.price;
-      case 'large': return product.price_large ?? product.price;
-      default: return product.price;
+    // For products without sizes or no size selected, use base price
+    // If base price is 0 and it has sizes, return smallest available price
+    if (product.has_sizes && !size) {
+      const availablePrices = [
+        product.price_small,
+        product.price_medium,
+        product.price_large,
+      ].filter((p): p is number => p != null && p > 0);
+      return availablePrices.length > 0 ? Math.min(...availablePrices) : product.price ?? 0;
     }
+    return product.price ?? 0;
   };
 
   const getSizeLabel = (size: ProductSize | null | undefined): string => {
@@ -1368,54 +1379,53 @@ export default function WaiterApp({
   // Login / Waiter Selection View
   if (view === 'login') {
     return (
-      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
-        <header className="p-6 text-center">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-400 text-[#0d1b2a] mb-4">
-            <ChefHat className="w-10 h-10" />
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="p-6 text-center border-b">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary text-primary-foreground mb-4">
+            <ChefHat className="w-8 h-8" />
           </div>
-          <h1 className="text-2xl font-bold text-white">{restaurant?.name}</h1>
-          <p className="text-white/70 mt-2">Selecione seu perfil para começar</p>
+          <h1 className="text-xl font-bold">{restaurant?.name}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Selecione seu perfil</p>
         </header>
 
         <div className="flex-1 p-4">
-          <div className="max-w-md mx-auto space-y-3">
+          <div className="max-w-md mx-auto space-y-2">
             {waiters.map((waiter) => (
               <button
                 key={waiter.id}
                 onClick={() => handleSelectWaiter(waiter)}
-                className="w-full flex items-center gap-4 p-4 bg-white/10 rounded-xl border border-white/20 hover:bg-white/20 transition-all active:scale-[0.98]"
+                className="w-full flex items-center gap-3 p-4 bg-card rounded-xl border hover:border-primary transition-all active:scale-[0.98]"
               >
-                <Avatar className="h-14 w-14 border-2 border-yellow-400">
-                  <AvatarFallback className="bg-yellow-400 text-[#0d1b2a] text-lg font-bold">
+                <Avatar className="h-12 w-12">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                     {getInitials(waiter.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-lg text-white">{waiter.name}</p>
-                  <p className="text-sm text-white/60">Garçom</p>
+                  <p className="font-medium">{waiter.name}</p>
+                  <p className="text-xs text-muted-foreground">Garçom</p>
                 </div>
-                <ChefHat className="w-5 h-5 text-yellow-400" />
               </button>
             ))}
 
             {waiters.length === 0 && (
               <div className="text-center py-12">
-                <Users className="w-16 h-16 mx-auto text-white/30 mb-4" />
-                <p className="text-white/60">Nenhum garçom cadastrado</p>
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground text-sm">Nenhum garçom cadastrado</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="p-4 text-center">
+        <div className="p-4 text-center border-t">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onExternalLogout || signOut} 
-            className="text-white/70 hover:text-white hover:bg-white/10"
+            className="text-muted-foreground"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Sair do sistema
+            Sair
           </Button>
         </div>
       </div>
@@ -1694,46 +1704,53 @@ export default function WaiterApp({
       : `Mesa ${selectedTable?.number}`;
       
     return (
-      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-        <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="sticky top-0 bg-primary text-primary-foreground p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10"
-              onClick={() => { setView('tables'); setCart([]); setSelectedTab(null); }}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => { 
+                if (orderMode === 'tab') {
+                  setView('tab-orders');
+                } else {
+                  setView('tables'); 
+                }
+                setCart([]); 
+              }}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="font-bold">{orderTitle}</h1>
+              <h1 className="font-semibold">{orderTitle}</h1>
               <p className="text-xs opacity-80">
-                {cart.length > 0 ? `${cart.length} itens no pedido` : 'Adicionar itens'}
+                {cart.length > 0 ? `${cart.length} item(ns)` : 'Novo pedido'}
               </p>
             </div>
           </div>
         </header>
 
         {/* Search */}
-        <div className="p-3 bg-white border-b">
+        <div className="p-3 bg-background border-b">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar produtos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-11 bg-gray-50"
+              className="pl-10"
             />
           </div>
         </div>
 
         {/* Categories */}
-        <div className="px-3 py-2 bg-white border-b overflow-x-auto">
+        <div className="px-3 py-2 bg-muted/30 border-b overflow-x-auto">
           <div className="flex gap-2">
             <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               size="sm"
-              className={`shrink-0 ${selectedCategory === null ? 'bg-[#0ea5e9]' : ''}`}
+              className="shrink-0"
               onClick={() => setSelectedCategory(null)}
             >
               Todos
@@ -1743,7 +1760,7 @@ export default function WaiterApp({
                 key={category.id}
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 size="sm"
-                className={`shrink-0 ${selectedCategory === category.id ? 'bg-[#0ea5e9]' : ''}`}
+                className="shrink-0"
                 onClick={() => setSelectedCategory(category.id)}
               >
                 {category.icon && <span className="mr-1">{category.icon}</span>}
@@ -1761,28 +1778,28 @@ export default function WaiterApp({
               return (
                 <button
                   key={product.id}
-                  className={`flex items-center justify-between p-4 bg-white rounded-xl border-2 text-left ${
-                    totalQty > 0 ? 'border-[#0ea5e9] bg-[#0ea5e9]/5' : 'border-transparent shadow-sm'
+                  className={`flex items-center justify-between p-3 bg-card rounded-xl border text-left transition-all ${
+                    totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
                   }`}
                   onClick={() => handleProductClick(product)}
                 >
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900">{product.name}</p>
+                      <p className="font-medium truncate">{product.name}</p>
                       {product.has_sizes && (
-                        <span className="text-[10px] bg-[#0ea5e9]/10 text-[#0ea5e9] px-1 py-0.5 rounded">P/M/G</span>
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">P/M/G</span>
                       )}
                     </div>
-                    <p className="text-[#0ea5e9] font-bold">
+                    <p className="text-primary font-semibold text-sm">
                       {product.has_sizes 
-                        ? `A partir de ${formatCurrency(Math.min(product.price_small ?? Infinity, product.price_medium ?? Infinity, product.price_large ?? Infinity))}`
+                        ? `A partir de ${formatCurrency(Math.min(product.price_small ?? Infinity, product.price_medium ?? Infinity, product.price_large ?? Infinity, product.price ?? Infinity))}`
                         : formatCurrency(product.price)}
                     </p>
                   </div>
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    totalQty > 0 ? 'bg-[#0ea5e9] text-white' : 'bg-gray-100 text-gray-400'
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ml-2 ${
+                    totalQty > 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
-                    {totalQty > 0 ? <span className="text-lg font-bold">{totalQty}</span> : <Plus className="w-5 h-5" />}
+                    {totalQty > 0 ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
                   </div>
                 </button>
               );
@@ -1792,101 +1809,75 @@ export default function WaiterApp({
 
         {/* Cart Summary */}
         {cart.length > 0 && (
-          <div className="sticky bottom-0 bg-white border-t shadow-lg">
-            <ScrollArea className="max-h-48 p-3">
+          <div className="sticky bottom-0 bg-background border-t shadow-lg">
+            <ScrollArea className="max-h-40 p-3">
               <div className="space-y-2">
                 {cart.map((item, index) => (
-                  <div key={`${item.product.id}-${item.size}-${index}`} className="bg-gray-50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={`${item.product.id}-${item.size}-${index}`} className="bg-muted/50 rounded-lg p-2">
+                    <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-gray-900">
+                        <p className="font-medium text-sm truncate">
                           {item.product.name}
                           {item.size && (
-                            <span className="ml-1 text-xs bg-[#0ea5e9]/10 text-[#0ea5e9] px-1.5 py-0.5 rounded">
+                            <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">
                               {getSizeLabel(item.size)}
                             </span>
                           )}
                         </p>
-                        <p className="text-sm text-gray-500">{formatCurrency(item.unitPrice)} cada</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-9 w-9"
+                          className="h-7 w-7"
                           onClick={() => updateQuantity(item.product.id, item.size, -1)}
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-3 h-3" />
                         </Button>
-                        <span className="w-8 text-center font-bold">{item.quantity}</span>
+                        <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
                         <Button
                           variant="outline"
                           size="icon"
-                          className="h-9 w-9"
+                          className="h-7 w-7"
                           onClick={() => updateQuantity(item.product.id, item.size, 1)}
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3 h-3" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 text-red-500"
+                          className="h-7 w-7 text-destructive"
                           onClick={() => removeFromCart(item.product.id, item.size)}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
-                    {editingItemNotes === `${item.product.id}-${item.size}` ? (
-                      <Input
-                        placeholder="Observações..."
-                        value={item.notes}
-                        onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
-                        onBlur={() => setEditingItemNotes(null)}
-                        autoFocus
-                        className="h-9 text-sm"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setEditingItemNotes(`${item.product.id}-${item.size}`)}
-                        className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {item.notes || 'Adicionar observação'}
-                      </button>
-                    )}
                   </div>
                 ))}
               </div>
             </ScrollArea>
 
-            <div className="p-3 pt-0">
-              <Textarea
-                placeholder="Observações gerais do pedido..."
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                className="mb-3 min-h-[60px]"
-              />
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-500">Total</p>
-                  <p className="text-xl font-bold text-[#0d1b2a]">{formatCurrency(cartTotal)}</p>
-                </div>
-                <Button
-                  className="h-14 px-8 text-lg bg-[#0ea5e9] hover:bg-[#0284c7]"
-                  disabled={submitting}
-                  onClick={handleSubmitOrder}
-                >
-                  {submitting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5 mr-2" />
-                      Enviar
-                    </>
-                  )}
-                </Button>
+            <div className="p-3 pt-0 flex items-center gap-3">
+              <div className="flex-1">
+                <p className="text-xs text-muted-foreground">Total</p>
+                <p className="text-lg font-bold">{formatCurrency(cartTotal)}</p>
               </div>
+              <Button
+                className="h-12 px-6"
+                disabled={submitting}
+                onClick={handleSubmitOrder}
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Enviar
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         )}
@@ -1894,38 +1885,38 @@ export default function WaiterApp({
         {/* Size Modal */}
         {sizeModalProduct && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
-              <h3 className="text-lg font-bold text-gray-900">Escolha o tamanho</h3>
-              <p className="text-sm text-gray-600">{sizeModalProduct.name}</p>
+            <div className="bg-background rounded-xl w-full max-w-sm p-5 space-y-4">
+              <h3 className="font-bold">{sizeModalProduct.name}</h3>
+              <p className="text-sm text-muted-foreground">Escolha o tamanho</p>
               <div className="space-y-2">
-                {sizeModalProduct.price_small != null && (
+                {sizeModalProduct.price_small != null && sizeModalProduct.price_small > 0 && (
                   <Button
                     variant="outline"
-                    className="w-full justify-between h-14"
+                    className="w-full justify-between h-12"
                     onClick={() => addToCartWithSize(sizeModalProduct, 'small')}
                   >
                     <span>Pequeno (P)</span>
-                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_small)}</span>
+                    <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_small)}</span>
                   </Button>
                 )}
-                {sizeModalProduct.price_medium != null && (
+                {sizeModalProduct.price_medium != null && sizeModalProduct.price_medium > 0 && (
                   <Button
                     variant="outline"
-                    className="w-full justify-between h-14"
+                    className="w-full justify-between h-12"
                     onClick={() => addToCartWithSize(sizeModalProduct, 'medium')}
                   >
                     <span>Médio (M)</span>
-                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_medium)}</span>
+                    <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_medium)}</span>
                   </Button>
                 )}
-                {sizeModalProduct.price_large != null && (
+                {sizeModalProduct.price_large != null && sizeModalProduct.price_large > 0 && (
                   <Button
                     variant="outline"
-                    className="w-full justify-between h-14"
+                    className="w-full justify-between h-12"
                     onClick={() => addToCartWithSize(sizeModalProduct, 'large')}
                   >
                     <span>Grande (G)</span>
-                    <span className="font-bold text-[#0ea5e9]">{formatCurrency(sizeModalProduct.price_large)}</span>
+                    <span className="font-bold text-primary">{formatCurrency(sizeModalProduct.price_large)}</span>
                   </Button>
                 )}
               </div>
@@ -1939,44 +1930,60 @@ export default function WaiterApp({
     );
   }
 
-  // Main View - Tables/Comandas (like image 1)
+  // Main View - Tables/Comandas
   return (
-    <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="bg-[#0d1b2a] text-white">
+      <header className="bg-primary text-primary-foreground">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
+            {!isPublicAccess && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-primary-foreground hover:bg-primary-foreground/10"
+                onClick={() => setView('login')}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+            )}
+            <div>
+              <span className="font-semibold">{restaurant?.name || 'Garçom'}</span>
+              {selectedWaiter && (
+                <p className="text-xs opacity-80">{selectedWaiter.name}</p>
+              )}
+            </div>
+          </div>
+          {(isPublicAccess && onExternalLogout) && (
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10 relative"
-              onClick={() => setView('login')}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={onExternalLogout}
             >
-              <Menu className="w-6 h-6" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-400 rounded-full" />
+              <LogOut className="w-5 h-5" />
             </Button>
-            <span className="font-semibold">Mapa de mesas e comandas</span>
-          </div>
+          )}
         </div>
 
         {/* Tabs */}
-        <div className="flex">
+        <div className="flex border-t border-primary-foreground/20">
           <button
             onClick={() => setActiveTab('mesas')}
-            className={`flex-1 py-3 text-center font-semibold transition-all ${
+            className={`flex-1 py-3 text-center font-medium transition-all ${
               activeTab === 'mesas' 
-                ? 'bg-[#0ea5e9] text-white' 
-                : 'bg-[#0d1b2a] text-white/70 hover:text-white'
+                ? 'bg-primary-foreground/20 text-primary-foreground' 
+                : 'text-primary-foreground/70 hover:text-primary-foreground'
             }`}
           >
             Mesas
           </button>
           <button
             onClick={() => setActiveTab('comandas')}
-            className={`flex-1 py-3 text-center font-semibold transition-all ${
+            className={`flex-1 py-3 text-center font-medium transition-all ${
               activeTab === 'comandas' 
-                ? 'bg-[#0ea5e9] text-white' 
-                : 'bg-[#0d1b2a] text-white/70 hover:text-white'
+                ? 'bg-primary-foreground/20 text-primary-foreground' 
+                : 'text-primary-foreground/70 hover:text-primary-foreground'
             }`}
           >
             Comandas
@@ -1985,38 +1992,34 @@ export default function WaiterApp({
       </header>
 
       {/* Search */}
-      <div className="p-3 bg-[#1b3a4b]">
+      <div className="p-3 bg-muted/50">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome da mesa"
+            placeholder={activeTab === 'mesas' ? "Buscar mesa..." : "Buscar comanda..."}
             value={tableSearchTerm}
             onChange={(e) => setTableSearchTerm(e.target.value)}
-            className="pl-10 h-12 bg-[#1b3a4b] border-white/20 text-white placeholder:text-white/40"
+            className="pl-10 h-10"
           />
         </div>
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 bg-[#1b3a4b] flex items-center gap-4 text-sm">
+      <div className="px-4 py-2 bg-muted/30 flex items-center gap-4 text-xs">
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-          <span className="text-white/70">Livres</span>
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-muted-foreground">Livres</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <span className="text-white/70">Ocupadas</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-          <span className="text-white/70">Em pagamento</span>
+          <div className="w-2 h-2 rounded-full bg-destructive" />
+          <span className="text-muted-foreground">Ocupadas</span>
         </div>
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 bg-background">
         {activeTab === 'mesas' ? (
-          <div className="p-3 grid grid-cols-3 gap-3">
+          <div className="p-3 grid grid-cols-3 gap-2">
             {filteredTables.map((table) => {
               const hasReadyOrder = tableReadyOrders[table.id];
               
@@ -2024,18 +2027,18 @@ export default function WaiterApp({
                 <button
                   key={table.id}
                   onClick={() => handleTableClick(table)}
-                  className={`relative rounded-lg p-4 min-h-[100px] flex flex-col justify-between text-left transition-all active:scale-95 ${
+                  className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left transition-all active:scale-95 shadow-sm ${
                     table.status === 'available' 
-                      ? 'bg-[#2a5a4a]' 
+                      ? 'bg-green-500/90 text-white' 
                       : table.status === 'closing' 
-                        ? 'bg-yellow-600' 
-                        : 'bg-[#d35b47]'
+                        ? 'bg-amber-500 text-white' 
+                        : 'bg-destructive text-destructive-foreground'
                   }`}
                 >
-                  <span className="font-bold text-white text-lg">Mesa {table.number}</span>
+                  <span className="font-bold text-base">Mesa {table.number}</span>
                   {hasReadyOrder && (
-                    <Badge className="bg-green-300 text-green-900 text-xs font-semibold w-fit">
-                      Pronto
+                    <Badge className="bg-white text-green-700 text-[10px] font-semibold w-fit">
+                      Pronto!
                     </Badge>
                   )}
                 </button>
@@ -2043,7 +2046,7 @@ export default function WaiterApp({
             })}
           </div>
         ) : (
-          <div className="p-3 grid grid-cols-3 gap-3">
+          <div className="p-3 grid grid-cols-3 gap-2">
             {tabs.filter(tab => {
               if (!tableSearchTerm) return true;
               return tab.number.toString().includes(tableSearchTerm) ||
@@ -2056,27 +2059,25 @@ export default function WaiterApp({
                   fetchTabOrders(tab.id);
                   setView('tab-orders');
                 }}
-                className={`relative rounded-lg p-4 min-h-[100px] flex flex-col justify-between text-left transition-all active:scale-95 ${
+                className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left transition-all active:scale-95 shadow-sm ${
                   tab.status === 'available' 
-                    ? 'bg-[#2a5a4a]' 
+                    ? 'bg-green-500/90 text-white' 
                     : tab.status === 'closing' 
-                      ? 'bg-yellow-600' 
-                      : 'bg-[#d35b47]'
+                      ? 'bg-amber-500 text-white' 
+                      : 'bg-destructive text-destructive-foreground'
                 }`}
               >
-                <div>
-                  <span className="font-bold text-white text-lg">#{tab.number}</span>
-                  {tab.customer_name && (
-                    <p className="text-white/80 text-xs truncate mt-1">{tab.customer_name}</p>
-                  )}
-                </div>
+                <span className="font-bold">#{tab.number}</span>
+                {tab.customer_name && (
+                  <p className="text-[10px] opacity-80 truncate">{tab.customer_name}</p>
+                )}
               </button>
             ))}
             
             {tabs.length === 0 && (
-              <div className="col-span-3 flex flex-col items-center justify-center h-64 text-white/40">
-                <ClipboardList className="w-16 h-16 mb-4 opacity-50" />
-                <p>Nenhuma comanda cadastrada</p>
+              <div className="col-span-3 flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <ClipboardList className="w-12 h-12 mb-3 opacity-50" />
+                <p className="text-sm">Nenhuma comanda</p>
               </div>
             )}
           </div>
@@ -2084,89 +2085,77 @@ export default function WaiterApp({
       </ScrollArea>
 
       {/* Bottom Button */}
-      <div className="p-3 bg-[#0d1b2a]">
+      <div className="p-3 border-t bg-background">
         <Button 
-          className="w-full h-14 bg-[#1b3a4b] hover:bg-[#2a4a5b] text-white gap-2 font-semibold border border-[#0ea5e9]"
+          className="w-full h-12 gap-2"
           onClick={() => handleStartDelivery('delivery')}
         >
-          <Rocket className="w-5 h-5" />
-          Delivery/Para Levar
+          <Bike className="w-5 h-5" />
+          Delivery / Para Levar
         </Button>
       </div>
 
-      {/* Table Action Modal (like image 2) */}
+      {/* Table Action Modal */}
       {showTableModal && modalTable && (
         <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
-          <div className="bg-white w-full max-w-md rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom">
-            {/* Modal Header */}
+          <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-xl font-bold">Mesa {modalTable.number}</h3>
+              <h3 className="text-lg font-bold">Mesa {modalTable.number}</h3>
               <Button variant="ghost" size="icon" onClick={() => setShowTableModal(false)}>
                 <X className="w-5 h-5" />
               </Button>
             </div>
             
-            {/* Total */}
-            <div className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-yellow-600" />
+            <div className="p-4 flex items-center gap-3 border-b">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <span className="text-gray-600">Conta: </span>
-                <span className="text-xl font-bold">{formatCurrency(tableTotal)}</span>
+                <span className="text-muted-foreground text-sm">Total: </span>
+                <span className="text-lg font-bold">{formatCurrency(tableTotal)}</span>
               </div>
             </div>
             
-            {/* Actions */}
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-2">
               <Button 
                 variant="outline" 
-                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                className="w-full h-12 justify-start gap-3"
                 onClick={() => handleViewOrders(modalTable)}
               >
-                <Eye className="w-5 h-5" />
+                <Eye className="w-4 h-4" />
                 Ver pedidos
               </Button>
               
               <Button 
                 variant="outline" 
-                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                className="w-full h-12 justify-start gap-3"
                 onClick={() => {
                   handleViewOrders(modalTable);
                   setTimeout(() => handlePrintReceipt(), 500);
                 }}
               >
-                <Printer className="w-5 h-5" />
+                <Printer className="w-4 h-4" />
                 Imprimir conferência
               </Button>
               
               <Button 
                 variant="outline" 
-                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
-                onClick={() => toast.info('Função de transferência em breve')}
-              >
-                <ArrowRightLeft className="w-5 h-5" />
-                Transferir entre mesas
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full h-14 justify-start gap-3 text-[#0ea5e9] border-[#0ea5e9]"
+                className="w-full h-12 justify-start gap-3"
                 onClick={async () => {
                   await handleViewOrders(modalTable);
                   setTableTotal(tableTotal);
                   setShowCloseModal(true);
                 }}
               >
-                <DollarSign className="w-5 h-5" />
+                <DollarSign className="w-4 h-4" />
                 Fechar conta
               </Button>
               
               <Button 
-                className="w-full h-14 justify-start gap-3 bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+                className="w-full h-12 justify-start gap-3"
                 onClick={() => handleNewOrder(modalTable)}
               >
-                <PlusCircle className="w-5 h-5" />
+                <PlusCircle className="w-4 h-4" />
                 Novo pedido
               </Button>
             </div>

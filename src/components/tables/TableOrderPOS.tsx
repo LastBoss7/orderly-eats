@@ -202,6 +202,20 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
     price: number, 
     notes: string
   ) => {
+    // Ensure price is never 0 for products with sizes
+    let finalPrice = price;
+    if ((!finalPrice || finalPrice === 0) && product.has_sizes) {
+      const availablePrices = [
+        product.price_small,
+        product.price_medium,
+        product.price_large,
+      ].filter((p): p is number => p != null && p > 0);
+      finalPrice = availablePrices.length > 0 ? Math.min(...availablePrices) : product.price || 0;
+    }
+    if (!finalPrice || finalPrice === 0) {
+      finalPrice = product.price || 0;
+    }
+
     const cartKey = `${product.id}-${size || 'default'}`;
     
     setCart(prev => {
@@ -217,7 +231,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         product, 
         quantity: 1, 
         size, 
-        unitPrice: price, 
+        unitPrice: finalPrice, 
         notes: notes || undefined,
         cartKey 
       }];
