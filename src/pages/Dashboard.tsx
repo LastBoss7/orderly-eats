@@ -270,12 +270,12 @@ export default function Dashboard() {
     fetchDrivers();
   }, [restaurant?.id]);
 
-  // Timer update every minute
+  // Timer update every second for real-time countdown
   const [, setTimerTick] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => {
       setTimerTick(t => t + 1);
-    }, 60000); // Update every minute
+    }, 1000); // Update every second
     return () => clearInterval(interval);
   }, []);
 
@@ -444,22 +444,24 @@ export default function Dashboard() {
     return { min: prepTimes.counter_min, max: prepTimes.counter_max };
   };
 
-  const getOrderTimer = (order: Order): { elapsed: number; limit: number; isOverdue: boolean; percentage: number } | null => {
-    // Only show timer for orders that are being prepared
-    if (order.status !== 'preparing' && order.status !== 'ready' && order.status !== 'out_for_delivery') {
+  const getOrderTimer = (order: Order): { elapsed: number; elapsedSeconds: number; limit: number; isOverdue: boolean; percentage: number } | null => {
+    // Show timer for all active orders (not just preparing)
+    if (order.status === 'delivered' || order.status === 'cancelled') {
       return null;
     }
     
-    // Use updated_at as the time when status changed to preparing
-    const startTime = new Date(order.updated_at);
+    // Use created_at as the time when order was created
+    const startTime = new Date(order.created_at);
     const now = new Date();
-    const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / 1000 / 60);
+    const totalSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+    const elapsedMinutes = Math.floor(totalSeconds / 60);
     
     const { max } = getOrderPrepTime(order.order_type);
     const percentage = Math.min((elapsedMinutes / max) * 100, 100);
     
     return {
       elapsed: elapsedMinutes,
+      elapsedSeconds: totalSeconds,
       limit: max,
       isOverdue: elapsedMinutes > max,
       percentage,
@@ -473,6 +475,12 @@ export default function Dashboard() {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h${mins > 0 ? `${mins}min` : ''}`;
+  };
+
+  const formatElapsedTimeWithSeconds = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
   const formatCurrency = (value: number | null) => {
@@ -876,21 +884,21 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </span>
             </div>
             
-            {/* Timer Badge */}
+            {/* Timer Badge - Real-time countdown */}
             {timer && (
-              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-bold ${
                 timer.isOverdue 
-                  ? 'bg-destructive/10 text-destructive' 
+                  ? 'bg-destructive/10 text-destructive animate-pulse' 
                   : timer.percentage > 75
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                     : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               }`}>
-                <Clock className="w-2.5 h-2.5" />
-                <span>{formatElapsedTime(timer.elapsed)}</span>
+                <Clock className="w-3 h-3" />
+                <span>{formatElapsedTimeWithSeconds(timer.elapsedSeconds)}</span>
               </div>
             )}
             
-            {/* Time badge if no timer */}
+            {/* Time badge if no timer (for delivered orders) */}
             {!timer && (
               <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
                 delayed ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
