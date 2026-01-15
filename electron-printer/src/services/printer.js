@@ -717,8 +717,8 @@ class PrinterService {
     if (layout.footerMessage) {
       lines.push(this.center(this.removeAccents(layout.footerMessage), width));
     } else {
-      lines.push(this.center('Powered By: BareRest', width));
-      lines.push(this.center('https://barerest.lovable.app', width));
+      lines.push(this.center('Powered By: Gamako', width));
+      lines.push(this.center('https://gamako.com.br', width));
     }
     
     // Extra line feeds for paper feed
