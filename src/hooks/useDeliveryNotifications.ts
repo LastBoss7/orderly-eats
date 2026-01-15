@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useRestaurantBell } from './useRestaurantBell';
 
 interface UseDeliveryNotificationsOptions {
   restaurantId?: string;
@@ -16,59 +17,12 @@ export function useDeliveryNotifications({
   playSound = true,
 }: UseDeliveryNotificationsOptions) {
   const { toast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Create audio element for notification sound
-  useEffect(() => {
-    if (playSound && typeof window !== 'undefined') {
-      // Create a simple beep sound using Web Audio API
-      audioRef.current = new Audio();
-      audioRef.current.volume = 0.5;
-    }
-  }, [playSound]);
+  const { playDoubleBell } = useRestaurantBell();
 
   const playNotificationSound = useCallback(() => {
     if (!playSound) return;
-    
-    try {
-      // Use Web Audio API to create a notification sound
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800;
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-      
-      // Second beep
-      setTimeout(() => {
-        const oscillator2 = audioContext.createOscillator();
-        const gainNode2 = audioContext.createGain();
-        
-        oscillator2.connect(gainNode2);
-        gainNode2.connect(audioContext.destination);
-        
-        oscillator2.frequency.value = 1000;
-        oscillator2.type = 'sine';
-        
-        gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator2.start(audioContext.currentTime);
-        oscillator2.stop(audioContext.currentTime + 0.5);
-      }, 200);
-    } catch (error) {
-      console.log('Could not play notification sound:', error);
-    }
-  }, [playSound]);
+    playDoubleBell(0.6);
+  }, [playSound, playDoubleBell]);
 
   useEffect(() => {
     if (!enabled || !restaurantId) return;
