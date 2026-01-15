@@ -365,15 +365,16 @@ export default function Dashboard() {
     return tab;
   };
 
-  const getOrderLocationLabel = (order: Order) => {
+  const getOrderLocationInfo = (order: Order): { label: string; type: 'table' | 'tab' } | null => {
     if (order.table_id) {
       const tableNumber = getTableNumber(order.table_id);
-      return tableNumber ? `Mesa ${tableNumber}` : null;
+      return tableNumber ? { label: `Mesa ${tableNumber}`, type: 'table' } : null;
     }
     if (order.tab_id) {
       const tab = getTabInfo(order.tab_id);
       if (tab) {
-        return tab.customer_name ? `Comanda ${tab.number} - ${tab.customer_name}` : `Comanda ${tab.number}`;
+        const label = tab.customer_name ? `Comanda ${tab.number} - ${tab.customer_name}` : `Comanda ${tab.number}`;
+        return { label, type: 'tab' };
       }
     }
     return null;
@@ -644,7 +645,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       opacity: isDragging ? 0.5 : 1,
     };
 
-    const locationLabel = getOrderLocationLabel(order);
+    const locationInfo = getOrderLocationInfo(order);
     const delayed = isDelayed(order);
 
     return (
@@ -696,10 +697,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         </div>
 
         {/* Table or Tab info */}
-        {locationLabel && (
-          <div className="flex items-center gap-2 text-sm font-medium text-primary bg-primary/10 px-2 py-1 rounded">
+        {locationInfo && (
+          <div className={`flex items-center gap-2 text-sm font-medium px-2 py-1 rounded ${
+            locationInfo.type === 'table' 
+              ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40' 
+              : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40'
+          }`}>
             <UtensilsCrossed className="w-4 h-4" />
-            {locationLabel}
+            {locationInfo.label}
           </div>
         )}
 
@@ -1362,10 +1367,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <span>{selectedOrder.delivery_phone}</span>
                     </div>
                   )}
-                  {getOrderLocationLabel(selectedOrder) && (
-                    <div className="flex items-center gap-2 font-medium text-primary">
+                  {getOrderLocationInfo(selectedOrder) && (
+                    <div className={`flex items-center gap-2 font-medium px-2 py-1 rounded ${
+                      getOrderLocationInfo(selectedOrder)?.type === 'table'
+                        ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40'
+                        : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40'
+                    }`}>
                       <UtensilsCrossed className="w-4 h-4" />
-                      <span>{getOrderLocationLabel(selectedOrder)}</span>
+                      <span>{getOrderLocationInfo(selectedOrder)?.label}</span>
                     </div>
                   )}
                   {selectedOrder.delivery_address && (
