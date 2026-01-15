@@ -193,6 +193,9 @@ async function initializeSupabase() {
     sendToRenderer('connection-status', { connected: true, message: 'Conectado' });
     updateTrayMenu();
     
+    // Sync available printers to database
+    await syncAvailablePrinters();
+    
     startOrderMonitoring();
     
     return true;
@@ -201,6 +204,56 @@ async function initializeSupabase() {
     sendToRenderer('connection-status', { connected: false, message: error.message });
     updateTrayMenu();
     return false;
+  }
+}
+
+/**
+ * Sync available system printers to database for web app selection
+ */
+async function syncAvailablePrinters() {
+  const restaurantId = store.get('restaurantId');
+  if (!restaurantId || !supabase) return;
+
+  try {
+    // Get system printers using Electron API
+    let systemPrinters = [];
+    if (mainWindow && mainWindow.webContents) {
+      systemPrinters = mainWindow.webContents.getPrintersAsync 
+        ? await mainWindow.webContents.getPrintersAsync()
+        : mainWindow.webContents.getPrinters();
+    }
+
+    if (systemPrinters.length === 0) {
+      sendToRenderer('log', 'Nenhuma impressora do sistema encontrada');
+      return;
+    }
+
+    sendToRenderer('log', `Sincronizando ${systemPrinters.length} impressora(s) com o servidor...`);
+
+    // Upsert each printer
+    for (const printer of systemPrinters) {
+      const { error } = await supabase
+        .from('available_printers')
+        .upsert({
+          restaurant_id: restaurantId,
+          printer_name: printer.name,
+          display_name: printer.displayName || printer.name,
+          driver_name: printer.description || null,
+          port_name: null,
+          is_default: printer.isDefault || false,
+          last_seen_at: new Date().toISOString(),
+        }, {
+          onConflict: 'restaurant_id,printer_name',
+        });
+
+      if (error) {
+        console.error('Error syncing printer:', printer.name, error);
+      }
+    }
+
+    sendToRenderer('log', `✓ Impressoras sincronizadas com sucesso`);
+  } catch (error) {
+    sendToRenderer('log', `Erro ao sincronizar impressoras: ${error.message}`);
   }
 }
 

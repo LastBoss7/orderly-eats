@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Printer, Settings, Link2, Info, Tag } from 'lucide-react';
+import { Loader2, Printer, Settings, Link2, Info, Tag, RefreshCw, Monitor, Clock } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +29,15 @@ interface Category {
   id: string;
   name: string;
   icon: string | null;
+}
+
+interface AvailablePrinter {
+  id: string;
+  printer_name: string;
+  display_name: string | null;
+  driver_name: string | null;
+  is_default: boolean;
+  last_seen_at: string;
 }
 
 interface PrinterData {
@@ -81,6 +90,8 @@ export function PrinterModal({
   const { restaurant } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [availablePrinters, setAvailablePrinters] = useState<AvailablePrinter[]>([]);
+  const [loadingAvailablePrinters, setLoadingAvailablePrinters] = useState(false);
   
   const [formData, setFormData] = useState<Omit<PrinterData, 'id'>>({
     name: '',
@@ -96,6 +107,34 @@ export function PrinterModal({
   const [customModel, setCustomModel] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
   const [filterByCategory, setFilterByCategory] = useState(false);
+
+  // Fetch available printers from Electron app
+  const fetchAvailablePrinters = async () => {
+    if (!restaurant?.id) return;
+    
+    setLoadingAvailablePrinters(true);
+    try {
+      const { data, error } = await supabase
+        .from('available_printers')
+        .select('*')
+        .eq('restaurant_id', restaurant.id)
+        .order('is_default', { ascending: false })
+        .order('printer_name', { ascending: true });
+
+      if (error) throw error;
+      setAvailablePrinters(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar impressoras disponíveis:', err);
+    } finally {
+      setLoadingAvailablePrinters(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open && restaurant?.id) {
+      fetchAvailablePrinters();
+    }
+  }, [open, restaurant?.id]);
 
   // Fetch categories
   useEffect(() => {
@@ -272,21 +311,107 @@ export function PrinterModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="printer_name">Impressora do Windows</Label>
-                <Input
-                  id="printer_name"
-                  placeholder="Ex: EPSON TM-T20X (deixe vazio para padrão)"
-                  value={formData.printer_name}
-                  onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
-                  className="h-11"
-                />
-                <div className="flex items-start gap-2 p-3 rounded-md bg-muted/50">
-                  <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-muted-foreground">
-                    O nome exato da impressora será selecionado no aplicativo desktop. 
-                    Deixe em branco aqui se ainda não souber o nome.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="printer_name">Impressora do Windows</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={fetchAvailablePrinters}
+                    disabled={loadingAvailablePrinters}
+                    className="h-7 text-xs"
+                  >
+                    {loadingAvailablePrinters ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
+                    <span className="ml-1">Atualizar</span>
+                  </Button>
                 </div>
+                
+                {loadingAvailablePrinters ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : availablePrinters.length > 0 ? (
+                  <div className="space-y-2">
+                    <ScrollArea className="h-[150px] rounded-md border">
+                      <div className="p-2 space-y-1">
+                        {availablePrinters.map((ap) => {
+                          const isSelected = formData.printer_name === ap.printer_name;
+                          const lastSeen = new Date(ap.last_seen_at);
+                          const isRecent = (Date.now() - lastSeen.getTime()) < 5 * 60 * 1000; // 5 min
+                          
+                          return (
+                            <div
+                              key={ap.id}
+                              onClick={() => setFormData({ ...formData, printer_name: ap.printer_name })}
+                              className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                                isSelected
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-transparent hover:bg-muted/50'
+                              }`}
+                            >
+                              <Monitor className={`w-4 h-4 ${isRecent ? 'text-green-500' : 'text-muted-foreground'}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm truncate ${isSelected ? 'font-medium' : ''}`}>
+                                  {ap.display_name || ap.printer_name}
+                                </p>
+                                {ap.driver_name && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {ap.driver_name}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {ap.is_default && (
+                                  <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                                    Padrão
+                                  </span>
+                                )}
+                                {isRecent ? (
+                                  <span className="w-2 h-2 bg-green-500 rounded-full" aria-label="Online" />
+                                ) : (
+                                  <span aria-label="Offline"><Clock className="w-3 h-3 text-muted-foreground" /></span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                    <p className="text-xs text-muted-foreground">
+                      Impressoras detectadas pelo aplicativo de impressão
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-500/30">
+                      <Monitor className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                          Nenhuma impressora detectada
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Abra o aplicativo de impressão no computador para detectar as impressoras disponíveis automaticamente.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="printer_name_manual" className="text-xs text-muted-foreground">
+                        Ou digite manualmente:
+                      </Label>
+                      <Input
+                        id="printer_name_manual"
+                        placeholder="Ex: EPSON TM-T20X"
+                        value={formData.printer_name}
+                        onChange={(e) => setFormData({ ...formData, printer_name: e.target.value })}
+                        className="h-10"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">

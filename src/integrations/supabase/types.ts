@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      available_printers: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          driver_name: string | null
+          id: string
+          is_default: boolean | null
+          last_seen_at: string
+          port_name: string | null
+          printer_name: string
+          restaurant_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          driver_name?: string | null
+          id?: string
+          is_default?: boolean | null
+          last_seen_at?: string
+          port_name?: string | null
+          printer_name: string
+          restaurant_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          driver_name?: string | null
+          id?: string
+          is_default?: boolean | null
+          last_seen_at?: string
+          port_name?: string | null
+          printer_name?: string
+          restaurant_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
