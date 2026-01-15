@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Loader2, ChefHat, ArrowLeft, Delete } from 'lucide-react';
 import { toast } from 'sonner';
+import logoGamakoWhite from '@/assets/logo-gamako-white.png';
 
 interface Restaurant {
   id: string;
@@ -187,17 +188,11 @@ export default function WaiterLogin() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col">
       {/* Header */}
       <header className="pt-10 pb-6 text-center">
-        {restaurant?.logo_url ? (
-          <img 
-            src={restaurant.logo_url} 
-            alt={restaurant.name} 
-            className="w-20 h-20 rounded-2xl mx-auto mb-4 object-cover border-2 border-amber-400/50 shadow-lg shadow-amber-400/20"
-          />
-        ) : (
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-900 mb-4 shadow-lg shadow-amber-400/30">
-            <ChefHat className="w-10 h-10" />
-          </div>
-        )}
+        <img 
+          src={logoGamakoWhite} 
+          alt="Gamako" 
+          className="h-16 mx-auto mb-4 object-contain"
+        />
         <h1 className="text-xl font-bold text-white">{restaurant?.name}</h1>
         <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
       </header>
