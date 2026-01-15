@@ -1424,8 +1424,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 overflow-hidden p-3">
-            <div className="h-full flex gap-3 kanban-scroll">
+          <div className="flex-1 overflow-hidden p-3 flex gap-3">
+            {/* Kanban Columns */}
+            <div className="flex-1 h-full flex gap-3 kanban-scroll overflow-x-auto">
               {/* Column: Em análise */}
               <DroppableColumn 
                 id="column-pending" 
@@ -1566,6 +1567,48 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   </div>
                 </DroppableColumn>
               )}
+            </div>
+
+            {/* Right Sidebar - Table/Tab Stats */}
+            <div className="w-14 flex-shrink-0 flex flex-col gap-2">
+              {/* Open Tables Counter */}
+              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <span className="text-lg font-bold text-foreground">
+                  {orders.filter(o => o.table_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
+                    if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
+                    return acc;
+                  }, [] as string[]).length}
+                </span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight">Mesas</span>
+              </div>
+
+              {/* Open Tabs Counter */}
+              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                  <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+                <span className="text-lg font-bold text-foreground">
+                  {orders.filter(o => o.tab_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
+                    if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
+                    return acc;
+                  }, [] as string[]).length}
+                </span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight">Comandas</span>
+              </div>
+
+              {/* Delivery Counter */}
+              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-lg font-bold text-foreground">
+                  {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status || '')).length}
+                </span>
+                <span className="text-[9px] text-muted-foreground text-center leading-tight">Delivery</span>
+              </div>
             </div>
           </div>
 
