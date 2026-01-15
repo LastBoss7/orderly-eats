@@ -7,7 +7,7 @@ const PrinterService = require('./services/printer');
 // Default layout configuration (will be overridden by database settings)
 const defaultLayout = {
   paperSize: '80mm',
-  paperWidth: 42, // 32 = 58mm compact, 42 = 80mm standard, 48 = 80mm wide
+  paperWidth: 48, // 32 = 58mm compact, 42 = 80mm standard, 48 = 80mm wide (default)
   showLogo: false,
   showRestaurantName: true,
   showAddress: false,
@@ -776,7 +776,7 @@ ipcMain.handle('get-config', () => {
     layout: store.get('layout') || defaultLayout,
     printers: store.get('printers') || { table: '', counter: '', delivery: '', default: '' },
     // New simple config fields
-    paperWidth: store.get('paperWidth') || 46,
+    paperWidth: store.get('paperWidth') || 48,
     fontSize: store.get('fontSize') || 1,
     fontType: store.get('fontType') || '1',
     cnpj: store.get('cnpj') || '',
@@ -845,7 +845,7 @@ ipcMain.handle('save-config', async (event, config) => {
   // Update layout based on new config
   const updatedLayout = {
     ...defaultLayout,
-    paperWidth: config.paperWidth || 46,
+    paperWidth: config.paperWidth || 48,
     fontSize: config.fontSize === 2 ? 'large' : 'normal',
     boldItems: config.bold !== false,
     boldTotal: config.bold !== false,
