@@ -805,7 +805,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     }
   };
 
-  // Draggable Order Card Component - New design like reference image
+  // Draggable Order Card Component - Compact design
   const DraggableOrderCard = ({ 
     order, 
     showAdvanceButton = false, 
@@ -835,10 +835,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     
     // Determine the card border color based on type
     const getCardBorderClass = () => {
-      if (order.table_id) return 'border-l-4 border-l-emerald-500';
-      if (order.tab_id) return 'border-l-4 border-l-violet-500';
-      if (order.order_type === 'delivery') return 'border-l-4 border-l-blue-500';
-      if (order.order_type === 'counter' || order.order_type === 'takeaway') return 'border-l-4 border-l-amber-500';
+      if (order.table_id) return 'border-l-[3px] border-l-emerald-500';
+      if (order.tab_id) return 'border-l-[3px] border-l-violet-500';
+      if (order.order_type === 'delivery') return 'border-l-[3px] border-l-blue-500';
+      if (order.order_type === 'counter' || order.order_type === 'takeaway') return 'border-l-[3px] border-l-amber-500';
       return '';
     };
 
@@ -846,113 +846,102 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${getCardBorderClass()} ${
-          delayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''
+        className={`bg-card rounded-lg border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${getCardBorderClass()} ${
+          delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
         } ${isDragging ? 'shadow-xl z-50' : ''}`}
       >
         {/* Drag Handle */}
         <div 
           {...listeners} 
           {...attributes}
-          className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors z-10"
+          className="absolute top-1.5 right-1.5 p-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors z-10"
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="w-4 h-4" />
+          <GripVertical className="w-3.5 h-3.5" />
         </div>
 
         {/* Card Content - Clickable area */}
         <div 
-          className="p-4 pb-3 cursor-pointer"
+          className="p-3 cursor-pointer"
           onClick={() => handleOpenOrderDetail(order)}
         >
           {/* Header Row: Order number, Timer */}
-          <div className="flex items-center justify-between mb-2 pr-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+          <div className="flex items-center justify-between mb-1.5 pr-5">
+            <div className="flex items-center gap-1.5">
+              <span className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs">
                 {getOrderTypeIcon(order.order_type)}
-              </div>
-              <span className="font-bold text-foreground">
-                Pedido {getOrderDisplayNumber(order)}
+              </span>
+              <span className="font-semibold text-sm text-foreground">
+                #{getOrderDisplayNumber(order)}
               </span>
             </div>
             
             {/* Timer Badge */}
             {timer && (
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
                 timer.isOverdue 
-                  ? 'bg-destructive/10 text-destructive border border-destructive/30' 
+                  ? 'bg-destructive/10 text-destructive' 
                   : timer.percentage > 75
-                    ? 'bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-400'
-                    : 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400'
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
               }`}>
-                <Clock className="w-3 h-3" />
-                <span>{String(Math.floor(timer.elapsed / 60)).padStart(2, '0')}:{String(timer.elapsed % 60).padStart(2, '0')}</span>
+                <Clock className="w-2.5 h-2.5" />
+                <span>{formatElapsedTime(timer.elapsed)}</span>
               </div>
             )}
             
             {/* Time badge if no timer */}
             {!timer && (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
                 delayed ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
               }`}>
-                <Clock className="w-3 h-3" />
+                <Clock className="w-2.5 h-2.5" />
                 {formatTime(order.created_at)}
               </div>
             )}
           </div>
 
           {/* Customer Name and Total Row */}
-          <div className="flex items-start justify-between text-sm mb-2">
-            <div className="space-y-0.5">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                {order.customer_name || 'Não identificado'}
-              </span>
-              {/* Payment status for ready/served orders */}
-              {(order.status === 'ready' || order.status === 'served') && !order.payment_method && (
-                <span className="text-xs text-muted-foreground">• Não registrado</span>
-              )}
-            </div>
-            
-            {/* Total */}
-            <div className="text-right">
-              <div className="text-xs text-muted-foreground">Total:</div>
-              <div className="font-bold text-base">{formatCurrency(order.total)}</div>
-            </div>
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="text-muted-foreground truncate max-w-[120px]">
+              {order.customer_name || 'Não identificado'}
+            </span>
+            <span className="font-bold text-sm">{formatCurrency(order.total)}</span>
           </div>
 
-          {/* Waiter info */}
+          {/* Waiter info - compact */}
           {waiterName && (
-            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 mb-2">
-              <ChefHat className="w-3 h-3" />
-              <span>Garçom: {waiterName}</span>
+            <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 mb-1.5">
+              <ChefHat className="w-2.5 h-2.5" />
+              <span className="truncate">{waiterName}</span>
             </div>
           )}
 
-          {/* Table or Tab location badge */}
+          {/* Table or Tab location badge - compact */}
           {locationInfo && (
-            <div className={`inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg ${
+            <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
               locationInfo.type === 'table' 
-                ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800' 
-                : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-800'
+                ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/30' 
+                : 'text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-900/30'
             }`}>
-              <UtensilsCrossed className="w-4 h-4" />
+              <UtensilsCrossed className="w-3 h-3" />
               {locationInfo.label}
             </div>
           )}
 
-          {/* Order type badge for non-table orders */}
+          {/* Order type badge for non-table orders - compact */}
           {order.order_type && order.order_type !== 'table' && !locationInfo && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
               {getOrderTypeIcon(order.order_type)}
-              <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
+              <span className="ml-0.5">{getOrderTypeLabel(order.order_type)}</span>
             </Badge>
           )}
         </div>
 
-        {/* Timer Progress Bar for preparing */}
+        {/* Timer Progress Bar for preparing - thinner */}
         {timer && order.status === 'preparing' && (
-          <div className="px-4 pb-2">
-            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className="px-3 pb-1.5">
+            <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
               <div 
                 className={`h-full transition-all duration-300 rounded-full ${
                   timer.isOverdue 
@@ -967,31 +956,31 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Driver selector for delivery orders */}
+        {/* Driver selector for delivery orders - compact */}
         {order.order_type === 'delivery' && (
-          <div className="px-4 pb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className={`w-full justify-between text-xs ${
+                  className={`w-full h-7 justify-between text-[11px] ${
                     order.driver_id 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-dashed'
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5">
                     <Bike className="w-3 h-3" />
-                    {order.driver_id ? getDriverName(order.driver_id) : 'Selecionar motoboy'}
+                    {order.driver_id ? getDriverName(order.driver_id) : 'Motoboy'}
                   </span>
                   <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[180px]">
+              <DropdownMenuContent align="start" className="w-[160px]">
                 {drivers.length === 0 ? (
-                  <DropdownMenuItem disabled>
-                    Nenhum motoboy cadastrado
+                  <DropdownMenuItem disabled className="text-xs">
+                    Nenhum cadastrado
                   </DropdownMenuItem>
                 ) : (
                   <>
@@ -999,9 +988,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <DropdownMenuItem
                         key={driver.id}
                         onClick={() => updateOrderDriver(order.id, driver.id, order)}
-                        className={order.driver_id === driver.id ? 'bg-accent' : ''}
+                        className={`text-xs ${order.driver_id === driver.id ? 'bg-accent' : ''}`}
                       >
-                        <Bike className="w-4 h-4 mr-2" />
+                        <Bike className="w-3 h-3 mr-1.5" />
                         {driver.name}
                       </DropdownMenuItem>
                     ))}
@@ -1010,10 +999,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => updateOrderDriver(order.id, null)}
-                          className="text-destructive"
+                          className="text-destructive text-xs"
                         >
-                          <X className="w-4 h-4 mr-2" />
-                          Remover motoboy
+                          <X className="w-3 h-3 mr-1.5" />
+                          Remover
                         </DropdownMenuItem>
                       </>
                     )}
@@ -1022,25 +1011,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* WhatsApp button for assigned driver */}
+            {/* WhatsApp button for assigned driver - inline compact */}
             {order.driver_id && getDriverPhone(order.driver_id) && (
               <a
                 href={formatWhatsAppLink(getDriverPhone(order.driver_id)!)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1.5 rounded-md transition-colors"
+                className="flex items-center gap-1.5 text-[10px] text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded transition-colors"
               >
-                <Phone className="w-3 h-3" />
+                <Phone className="w-2.5 h-2.5" />
                 <span>{getDriverPhone(order.driver_id)}</span>
               </a>
             )}
           </div>
         )}
 
-        {/* Items preview */}
+        {/* Items preview - compact */}
         {order.order_items && order.order_items.length > 0 && (
           <div 
-            className="px-4 py-2 border-t text-xs text-muted-foreground cursor-pointer"
+            className="px-3 py-1.5 border-t text-[10px] text-muted-foreground cursor-pointer"
             onClick={() => handleOpenOrderDetail(order)}
           >
             {order.order_items.slice(0, 2).map((item) => (
@@ -1049,56 +1038,56 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </div>
             ))}
             {order.order_items.length > 2 && (
-              <div className="text-primary">+{order.order_items.length - 2} mais itens</div>
+              <div className="text-primary">+{order.order_items.length - 2} mais</div>
             )}
           </div>
         )}
 
-        {/* Delivery Status Dropdown */}
+        {/* Delivery Status Dropdown - compact */}
         {order.order_type === 'delivery' && order.status !== 'pending' && (
-          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  className={`w-full justify-between ${
+                  className={`w-full h-7 justify-between text-xs ${
                     order.status === 'out_for_delivery' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : ''
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5">
                     {order.status === 'preparing' && '🔥 Preparando'}
                     {order.status === 'ready' && '✅ Pronto'}
                     {order.status === 'served' && '🍽️ Servido'}
                     {order.status === 'out_for_delivery' && (
                       <>
-                        <Truck className="w-4 h-4" />
+                        <Truck className="w-3 h-3" />
                         Em entrega
                       </>
                     )}
                   </span>
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[200px]">
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>
+              <DropdownMenuContent align="start" className="w-[160px]">
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')} className="text-xs">
                   🔥 Preparando
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')}>
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')} className="text-xs">
                   ✅ Pronto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}>
-                  <Truck className="w-4 h-4 mr-2" />
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')} className="text-xs">
+                  <Truck className="w-3 h-3 mr-1.5" />
                   Em entrega
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={() => updateOrderStatus(order.id, 'delivered')}
-                  className="text-green-600"
+                  className="text-green-600 text-xs"
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
+                  <CheckCircle className="w-3 h-3 mr-1.5" />
                   Finalizado
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1106,14 +1095,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Close Table/Tab Button - Main action for ready/served orders */}
+        {/* Close Table/Tab Button - Main action for ready/served orders - compact */}
         {showCloseButton && locationInfo && (
           <div 
-            className="px-4 pb-4" 
+            className="px-3 pb-3" 
             onClick={(e) => e.stopPropagation()}
           >
             <Button 
-              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-11 text-sm"
+              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs"
               onClick={() => handleCloseTableFromOrder(order)}
             >
               Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
@@ -1121,12 +1110,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Action buttons for non-delivery, non-table/tab orders */}
+        {/* Action buttons for non-delivery, non-table/tab orders - compact */}
         {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
-          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="outline" 
-              className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              size="sm"
+              className="w-full h-7 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
               onClick={() => {
                 const nextStatus = order.status === 'pending' 
                   ? 'preparing' 
@@ -1136,50 +1126,53 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 updateOrderStatus(order.id, nextStatus);
               }}
             >
-              {order.status === 'ready' ? 'Marcar servido' : 'Avançar pedido'}
-              <ArrowRight className="w-4 h-4 ml-2" />
+              {order.status === 'ready' ? 'Marcar servido' : 'Avançar'}
+              <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
         )}
 
-        {/* Advance button for delivery in pending status */}
+        {/* Advance button for delivery in pending status - compact */}
         {order.order_type === 'delivery' && order.status === 'pending' && (
-          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="outline" 
-              className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              size="sm"
+              className="w-full h-7 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
               onClick={() => updateOrderStatus(order.id, 'preparing')}
             >
-              Aceitar pedido
-              <ArrowRight className="w-4 h-4 ml-2" />
+              Aceitar
+              <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
         )}
 
-        {/* Finalize button - only for counter/takeaway orders (not table/tab) */}
+        {/* Finalize button - only for counter/takeaway orders (not table/tab) - compact */}
         {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
-          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="outline" 
-              className="w-full border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+              size="sm"
+              className="w-full h-7 text-xs border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
               onClick={() => updateOrderStatus(order.id, 'delivered')}
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Produto Entregue
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Entregue
             </Button>
           </div>
         )}
 
-        {/* Mark as served button - for table/tab orders in ready status */}
+        {/* Mark as served button - for table/tab orders in ready status - compact */}
         {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
-          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="outline" 
-              className="w-full border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
+              size="sm"
+              className="w-full h-7 text-xs border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
               onClick={() => updateOrderStatus(order.id, 'served')}
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Marcar Servido
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Servido
             </Button>
           </div>
         )}
@@ -1238,15 +1231,15 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
   return (
     <DashboardLayout>
       <div className="h-full flex flex-col">
-        {/* Top Bar */}
-        <div className="bg-card border-b px-4 py-3">
-          <div className="flex items-center gap-4">
+        {/* Top Bar - Compact */}
+        <div className="bg-card border-b px-3 py-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <SidebarTrigger />
 
-            {/* Store Logo & Status */}
+            {/* Store Logo & Status - compact */}
             <button
               onClick={() => setShowStoreControlModal(true)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all text-xs ${
                 isStoreOpen 
                   ? 'bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20' 
                   : 'bg-muted border-muted-foreground/20 text-muted-foreground hover:bg-muted/80'
@@ -1256,90 +1249,88 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 <img 
                   src={restaurant.logo_url} 
                   alt={restaurant.name} 
-                  className="w-6 h-6 rounded-full object-cover"
+                  className="w-5 h-5 rounded-full object-cover"
                 />
               ) : (
-                <Store className="w-5 h-5" />
+                <Store className="w-4 h-4" />
               )}
-              <span className="text-sm font-medium">
+              <span className="font-medium hidden sm:inline">
                 {isStoreOpen ? 'Aberta' : 'Fechada'}
               </span>
               {isStoreOpen ? (
-                <Power className="w-4 h-4" />
+                <Power className="w-3 h-3" />
               ) : (
-                <PowerOff className="w-4 h-4" />
+                <PowerOff className="w-3 h-3" />
               )}
             </button>
             
-            {/* Filter tabs */}
-            <div className="flex items-center gap-1 bg-muted p-1 rounded-full">
+            {/* Filter tabs - compact */}
+            <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-lg overflow-x-auto">
               <button 
-                className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'all' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
                 onClick={() => setFilter('all')}
-                title="Todos os pedidos"
+                title="Todos"
               >
                 <span className="flex items-center gap-1">
                   Todos
                   {orderCounts.all > 0 && (
-                    <Badge variant="secondary" className="h-5 min-w-[20px] px-1.5 text-xs">
+                    <Badge variant="secondary" className="h-4 min-w-[16px] px-1 text-[10px]">
                       {orderCounts.all}
                     </Badge>
                   )}
                 </span>
               </button>
               <button 
-                className={`filter-tab ${filter === 'table' ? 'active' : ''}`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'table' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
                 onClick={() => setFilter('table')}
-                title="Pedidos de mesa"
+                title="Mesa"
               >
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  <UtensilsCrossed className="w-4 h-4" />
-                  <span className="text-xs">Mesa</span>
+                  <UtensilsCrossed className="w-3 h-3" />
                   {orderCounts.table > 0 && (
-                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-emerald-500 hover:bg-emerald-500 text-white">
+                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-emerald-500 hover:bg-emerald-500 text-white">
                       {orderCounts.table}
                     </Badge>
                   )}
                 </span>
               </button>
               <button 
-                className={`filter-tab ${filter === 'tab' ? 'active' : ''}`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'tab' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
                 onClick={() => setFilter('tab')}
-                title="Pedidos de comanda"
+                title="Comanda"
               >
                 <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
-                  <User className="w-4 h-4" />
-                  <span className="text-xs">Comanda</span>
+                  <User className="w-3 h-3" />
                   {orderCounts.tab > 0 && (
-                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-violet-500 hover:bg-violet-500 text-white">
+                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-violet-500 hover:bg-violet-500 text-white">
                       {orderCounts.tab}
                     </Badge>
                   )}
                 </span>
               </button>
               <button 
-                className={`filter-tab ${filter === 'delivery' ? 'active' : ''}`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'delivery' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
                 onClick={() => setFilter('delivery')}
-                title="Pedidos para entrega"
+                title="Delivery"
               >
                 <span className="flex items-center gap-1">
-                  <Bike className="w-4 h-4" />
+                  <Bike className="w-3 h-3 text-blue-500" />
                   {orderCounts.delivery > 0 && (
-                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-blue-500 hover:bg-blue-500 text-white">
+                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-blue-500 hover:bg-blue-500 text-white">
                       {orderCounts.delivery}
                     </Badge>
                   )}
                 </span>
               </button>
               <button 
-                className={`filter-tab ${filter === 'counter' ? 'active' : ''}`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'counter' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
                 onClick={() => setFilter('counter')}
-                title="Pedidos para retirada"
+                title="Balcão"
               >
                 <span className="flex items-center gap-1">
-                  <Package className="w-4 h-4" />
+                  <Package className="w-3 h-3 text-amber-500" />
                   {orderCounts.counter > 0 && (
-                    <Badge className="h-5 min-w-[20px] px-1.5 text-xs bg-amber-500 hover:bg-amber-500 text-white">
+                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-amber-500 hover:bg-amber-500 text-white">
                       {orderCounts.counter}
                     </Badge>
                   )}
@@ -1347,13 +1338,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </button>
             </div>
 
-            {/* Search */}
-            <div className="flex-1 max-w-md">
+            {/* Search - compact */}
+            <div className="flex-1 min-w-[160px] max-w-xs">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input 
-                  placeholder="Busque por cliente ou número do pedido"
-                  className="pl-9"
+                  placeholder="Buscar pedido..."
+                  className="pl-7 h-8 text-xs"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -1361,24 +1352,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             </div>
 
             {/* Actions */}
+            {/* Actions - compact */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button className="top-action-btn" onClick={() => {
+                <Button size="sm" className="h-8 text-xs" onClick={() => {
                   setNewOrderInitialType(undefined);
                   setShowNewOrderModal(true);
                 }}>
-                  <Plus className="w-4 h-4" />
-                  Novo pedido
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span className="hidden sm:inline">Novo</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 <div className="space-y-1">
-                  <p className="font-medium flex items-center gap-1">
-                    <Keyboard className="w-3 h-3" /> Atalhos de teclado
+                  <p className="font-medium flex items-center gap-1 text-xs">
+                    <Keyboard className="w-3 h-3" /> Atalhos
                   </p>
-                  <div className="text-xs space-y-0.5">
-                    {SHORTCUT_DESCRIPTIONS.slice(0, 5).map((s, i) => (
-                      <div key={i} className="flex justify-between gap-4">
+                  <div className="text-[10px] space-y-0.5">
+                    {SHORTCUT_DESCRIPTIONS.slice(0, 3).map((s, i) => (
+                      <div key={i} className="flex justify-between gap-2">
                         <span className="text-muted-foreground">{s.keys}</span>
                         <span>{s.description}</span>
                       </div>
@@ -1388,38 +1380,40 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </TooltipContent>
             </Tooltip>
             
-            {/* Sound toggle */}
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={toggleSound}
-              className={soundEnabled ? 'text-primary' : 'text-muted-foreground'}
-              title={soundEnabled ? 'Som ativado' : 'Som desativado'}
-            >
-              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
-            
-            {/* Notifications indicator */}
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
-                  {notifications.length}
-                </span>
-              )}
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => setShowPrintSettingsModal(true)}
-              title="Configurações de impressão"
-            >
-              <Printer className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <Settings className="w-5 h-5" />
-            </Button>
+            {/* Icon buttons - compact */}
+            <div className="flex items-center">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className={`h-8 w-8 ${soundEnabled ? 'text-primary' : 'text-muted-foreground'}`}
+                onClick={toggleSound}
+                title={soundEnabled ? 'Som ativado' : 'Som desativado'}
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </Button>
+              
+              <Button variant="ghost" size="icon" className="h-8 w-8 relative">
+                <Bell className="w-4 h-4" />
+                {notifications.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center">
+                    {notifications.length}
+                  </span>
+                )}
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setShowPrintSettingsModal(true)}
+                title="Impressão"
+              >
+                <Printer className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1430,51 +1424,49 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 overflow-hidden p-4">
-            <div className="h-full flex gap-4 kanban-scroll">
+          <div className="flex-1 overflow-hidden p-3">
+            <div className="h-full flex gap-3 kanban-scroll">
               {/* Column: Em análise */}
               <DroppableColumn 
                 id="column-pending" 
-                className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
               >
-                <div className="kanban-header analysis">
-                  <span>Em análise</span>
-                  <Badge variant="secondary" className="bg-white/20 text-white">
+                <div className="kanban-header analysis py-2 px-3">
+                  <span className="text-sm">Em análise</span>
+                  <Badge variant="secondary" className="bg-white/20 text-white h-5 text-[10px]">
                     {pendingOrders.length}
                   </Badge>
                 </div>
                 
-                {/* Auto accept toggle */}
-                <div className="p-4 bg-white border-b">
-                  <div className="text-sm space-y-1">
+                {/* Auto accept toggle - compact */}
+                <div className="p-2.5 bg-card border-b">
+                  <div className="text-[11px] space-y-0.5 text-muted-foreground">
                     <p>
-                      <strong>Balcão:</strong> {prepTimes.counter_min} a {prepTimes.counter_max} min{' '}
+                      <span className="font-medium text-foreground">Balcão:</span> {prepTimes.counter_min}-{prepTimes.counter_max}min{' '}
                       <span 
                         className="text-primary cursor-pointer hover:underline"
                         onClick={() => setShowPrepTimeModal(true)}
                       >
-                        Editar
+                        ✏️
                       </span>
                     </p>
-                    <p><strong>Delivery:</strong> {prepTimes.delivery_min} a {prepTimes.delivery_max} min</p>
+                    <p><span className="font-medium text-foreground">Delivery:</span> {prepTimes.delivery_min}-{prepTimes.delivery_max}min</p>
                   </div>
-                  <div className="flex items-center gap-2 mt-3">
-                    <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
-                    <span className="text-sm">Aceitar os pedidos automaticamente</span>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <Switch checked={autoAccept} onCheckedChange={setAutoAccept} className="scale-75" />
+                    <span className="text-[10px]">Auto-aceitar</span>
                   </div>
                 </div>
 
                 {pendingOrders.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                    <div className="w-12 h-12 mb-3 opacity-50">↩</div>
-                    <p className="text-sm">
-                      {autoAccept 
-                        ? 'Todos os pedidos são aceitos automaticamente' 
-                        : 'Nenhum pedido em análise'}
+                  <div className="flex-1 flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                    <div className="w-8 h-8 mb-2 opacity-50 text-2xl">↩</div>
+                    <p className="text-xs">
+                      {autoAccept ? 'Auto-aceite ativado' : 'Sem pedidos'}
                     </p>
                   </div>
                 ) : (
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
                     {pendingOrders.map(order => (
                       <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
                     ))}
@@ -1485,23 +1477,23 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Em produção */}
               <DroppableColumn 
                 id="column-preparing" 
-                className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
               >
-                <div className="kanban-header production">
-                  <div className="flex items-center gap-2">
-                    <span>Em produção</span>
-                    <AlertTriangle className="w-4 h-4" />
+                <div className="kanban-header production py-2 px-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">Em produção</span>
+                    <AlertTriangle className="w-3.5 h-3.5" />
                   </div>
-                  <Badge variant="secondary" className="bg-white/20 text-white">
+                  <Badge variant="secondary" className="bg-white/20 text-white h-5 text-[10px]">
                     {preparingOrders.length}
                   </Badge>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {preparingOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                      <ChefHat className="w-12 h-12 mb-3 opacity-30" />
-                      <p className="text-sm">Nenhum pedido em produção</p>
+                    <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                      <ChefHat className="w-8 h-8 mb-2 opacity-30" />
+                      <p className="text-xs">Nenhum em produção</p>
                     </div>
                   ) : (
                     preparingOrders.map(order => (
@@ -1514,32 +1506,32 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Prontos para entrega */}
               <DroppableColumn 
                 id="column-ready" 
-                className="w-80 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
               >
-                <div className="kanban-header ready">
-                  <span>Prontos para entrega</span>
-                  <div className="flex items-center gap-2">
+                <div className="kanban-header ready py-2 px-3">
+                  <span className="text-sm">Prontos</span>
+                  <div className="flex items-center gap-1.5">
                     {readyOrders.length > 0 && (
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        className="h-7 text-xs"
+                        className="h-5 text-[10px] px-1.5"
                         onClick={handleFinalizeAllReady}
                       >
-                        Finalizar Todos
+                        Todos
                       </Button>
                     )}
-                    <Badge variant="secondary">
+                    <Badge variant="secondary" className="h-5 text-[10px]">
                       {readyOrders.length}
                     </Badge>
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {readyOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                      <UtensilsCrossed className="w-12 h-12 mb-3 opacity-30" />
-                      <p className="text-sm">Nenhum pedido pronto</p>
+                    <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
+                      <UtensilsCrossed className="w-8 h-8 mb-2 opacity-30" />
+                      <p className="text-xs">Nenhum pronto</p>
                     </div>
                   ) : (
                     readyOrders.map(order => (
@@ -1553,24 +1545,23 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {servedOrders.length > 0 && (
                 <DroppableColumn 
                   id="served" 
-                  className="flex-1 min-w-[300px] rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800"
+                  className="w-64 lg:w-72 flex-shrink-0 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800"
                 >
-                  <div className="p-3 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
-                    <span className="flex items-center gap-2 font-medium text-purple-700 dark:text-purple-300">
-                      🍽️
-                      <span>Servidos</span>
+                  <div className="py-2 px-3 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-sm font-medium text-purple-700 dark:text-purple-300">
+                      🍽️ Servidos
                     </span>
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 h-5 text-[10px]">
                       {servedOrders.length}
                     </Badge>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
                     {servedOrders.map(order => (
                       <DraggableOrderCard key={order.id} order={order} />
                     ))}
-                    <p className="text-xs text-center text-muted-foreground mt-2">
-                      Aguardando fechamento da mesa/comanda
+                    <p className="text-[10px] text-center text-muted-foreground mt-1">
+                      Aguardando fechamento
                     </p>
                   </div>
                 </DroppableColumn>
