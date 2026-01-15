@@ -107,6 +107,7 @@ interface Order {
   table_id: string | null;
   tab_id: string | null;
   created_at: string;
+  updated_at: string;
   notes: string | null;
   delivery_address: string | null;
   delivery_phone: string | null;
@@ -117,6 +118,7 @@ interface Order {
   printed_at: string | null;
   payment_method: string | null;
   driver_id: string | null;
+  waiter_id: string | null;
   order_items?: {
     id: string;
     product_name: string;
@@ -124,6 +126,11 @@ interface Order {
     product_price: number;
     notes: string | null;
   }[];
+}
+
+interface Waiter {
+  id: string;
+  name: string;
 }
 
 interface Table {
@@ -150,6 +157,7 @@ export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
+  const [waiters, setWaiters] = useState<Waiter[]>([]);
   const [drivers, setDrivers] = useState<DeliveryDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -235,8 +243,18 @@ export default function Dashboard() {
     fetchOrders();
     fetchTables();
     fetchTabs();
+    fetchWaiters();
     fetchDrivers();
   }, [restaurant?.id]);
+
+  // Timer update every minute
+  const [, setTimerTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerTick(t => t + 1);
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Subscribe to realtime order updates
   useEffect(() => {
@@ -325,6 +343,15 @@ export default function Dashboard() {
     if (data) setTabs(data);
   };
 
+  const fetchWaiters = async () => {
+    if (!restaurant?.id) return;
+    const { data } = await supabase
+      .from('waiters')
+      .select('id, name')
+      .eq('restaurant_id', restaurant.id);
+    if (data) setWaiters(data);
+  };
+
   const fetchDrivers = async () => {
     if (!restaurant?.id) return;
     const { data } = await supabase
@@ -378,6 +405,51 @@ export default function Dashboard() {
       }
     }
     return null;
+  };
+
+  const getWaiterName = (waiterId: string | null) => {
+    if (!waiterId) return null;
+    const waiter = waiters.find(w => w.id === waiterId);
+    return waiter?.name || null;
+  };
+
+  const getOrderPrepTime = (orderType: string | null): { min: number; max: number } => {
+    if (orderType === 'delivery') {
+      return { min: prepTimes.delivery_min, max: prepTimes.delivery_max };
+    }
+    // counter, table, takeaway all use counter prep time
+    return { min: prepTimes.counter_min, max: prepTimes.counter_max };
+  };
+
+  const getOrderTimer = (order: Order): { elapsed: number; limit: number; isOverdue: boolean; percentage: number } | null => {
+    // Only show timer for orders that are being prepared
+    if (order.status !== 'preparing' && order.status !== 'ready' && order.status !== 'out_for_delivery') {
+      return null;
+    }
+    
+    // Use updated_at as the time when status changed to preparing
+    const startTime = new Date(order.updated_at);
+    const now = new Date();
+    const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / 1000 / 60);
+    
+    const { max } = getOrderPrepTime(order.order_type);
+    const percentage = Math.min((elapsedMinutes / max) * 100, 100);
+    
+    return {
+      elapsed: elapsedMinutes,
+      limit: max,
+      isOverdue: elapsedMinutes > max,
+      percentage,
+    };
+  };
+
+  const formatElapsedTime = (minutes: number) => {
+    if (minutes < 60) {
+      return `${minutes}min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h${mins > 0 ? `${mins}min` : ''}`;
   };
 
   const formatCurrency = (value: number | null) => {
@@ -647,6 +719,8 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
     const locationInfo = getOrderLocationInfo(order);
     const delayed = isDelayed(order);
+    const waiterName = getWaiterName(order.waiter_id);
+    const timer = getOrderTimer(order);
 
     return (
       <div 
@@ -677,6 +751,34 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         </div>
 
+        {/* Timer Progress Bar */}
+        {timer && order.status === 'preparing' && (
+          <div className="space-y-1">
+            <div className="flex justify-between items-center text-xs">
+              <span className={`font-medium ${timer.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                ⏱ {formatElapsedTime(timer.elapsed)} / {timer.limit}min
+              </span>
+              {timer.isOverdue && (
+                <span className="text-destructive font-semibold animate-pulse">
+                  +{formatElapsedTime(timer.elapsed - timer.limit)}
+                </span>
+              )}
+            </div>
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-300 rounded-full ${
+                  timer.isOverdue 
+                    ? 'bg-destructive' 
+                    : timer.percentage > 75 
+                      ? 'bg-amber-500' 
+                      : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(timer.percentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Status bar for delayed */}
         {delayed && order.status !== 'delivered' && (
           <div className="order-status-bar delayed flex items-center justify-center gap-2 animate-pulse">
@@ -685,7 +787,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Customer info */}
+        {/* Customer and Waiter info */}
         <div className="space-y-1 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground flex items-center gap-1">
@@ -694,6 +796,12 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             </span>
             <span className="font-semibold">{formatCurrency(order.total)}</span>
           </div>
+          {waiterName && (
+            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+              <ChefHat className="w-3 h-3" />
+              <span>Garçom: {waiterName}</span>
+            </div>
+          )}
         </div>
 
         {/* Table or Tab info */}
@@ -1353,6 +1461,53 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </DropdownMenu>
                   </div>
                 )}
+
+                {/* Order Info */}
+                <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                  <h4 className="font-semibold text-sm text-muted-foreground">Informações do Pedido</h4>
+                  
+                  {/* Order Time */}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span>Criado em: {formatDateTime(selectedOrder.created_at)}</span>
+                  </div>
+
+                  {/* Timer */}
+                  {getOrderTimer(selectedOrder) && selectedOrder.status === 'preparing' && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className={`font-medium ${getOrderTimer(selectedOrder)?.isOverdue ? 'text-destructive' : ''}`}>
+                          ⏱ Tempo: {formatElapsedTime(getOrderTimer(selectedOrder)!.elapsed)} / {getOrderTimer(selectedOrder)!.limit}min
+                        </span>
+                        {getOrderTimer(selectedOrder)?.isOverdue && (
+                          <span className="text-destructive font-semibold">
+                            Atrasado!
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            getOrderTimer(selectedOrder)?.isOverdue 
+                              ? 'bg-destructive' 
+                              : (getOrderTimer(selectedOrder)?.percentage || 0) > 75 
+                                ? 'bg-amber-500' 
+                                : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(getOrderTimer(selectedOrder)?.percentage || 0, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Waiter */}
+                  {getWaiterName(selectedOrder.waiter_id) && (
+                    <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                      <ChefHat className="w-4 h-4" />
+                      <span>Garçom: {getWaiterName(selectedOrder.waiter_id)}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Customer Info */}
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
