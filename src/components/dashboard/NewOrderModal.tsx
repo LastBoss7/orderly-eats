@@ -45,6 +45,7 @@ import {
   Bike,
   MessageSquare,
 } from 'lucide-react';
+import { ProductSizeModal } from '@/components/tables/ProductSizeModal';
 
 interface Category {
   id: string;
@@ -56,6 +57,12 @@ interface Product {
   name: string;
   price: number;
   category_id: string | null;
+  has_sizes?: boolean;
+  price_small?: number | null;
+  price_medium?: number | null;
+  price_large?: number | null;
+  image_url: string | null;
+  is_available: boolean;
 }
 
 interface Table {
@@ -87,6 +94,8 @@ interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
+  size?: string | null;
+  unitPrice: number;
 }
 
 interface DeliveryFee {
@@ -137,6 +146,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [selectedDriver, setSelectedDriver] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
   
   // Customer data
   const [customerName, setCustomerName] = useState('');
@@ -184,7 +194,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     try {
       const [categoriesRes, productsRes, tablesRes, tabsRes, feesRes, driversRes] = await Promise.all([
         supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
-        supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
+        supabase.from('products').select('id, name, price, category_id, has_sizes, price_small, price_medium, price_large, image_url, is_available').eq('restaurant_id', restaurant.id).eq('is_available', true),
         supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
         supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).in('status', ['available', 'occupied']).order('number'),
         supabase.from('delivery_fees').select('*').eq('restaurant_id', restaurant.id).eq('is_active', true),
@@ -476,25 +486,68 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     return matchesCategory && matchesSearch;
   });
 
-  const addToCart = (product: Product) => {
+  // Check if product needs size selection
+  const needsSizeSelection = (product: Product): boolean => {
+    if (product.has_sizes && (product.price_small || product.price_medium || product.price_large)) {
+      return true;
+    }
+    // Also open size modal if price is 0 (might have sizes configured)
+    if (product.price === 0) {
+      return true;
+    }
+    return false;
+  };
+
+  // Get default price for product (smallest available or base price)
+  const getProductDisplayPrice = (product: Product): number => {
+    if (product.has_sizes) {
+      const prices = [product.price_small, product.price_medium, product.price_large].filter(p => p != null && p > 0) as number[];
+      if (prices.length > 0) return Math.min(...prices);
+    }
+    return product.price;
+  };
+
+  const handleProductClick = (product: Product) => {
+    if (needsSizeSelection(product)) {
+      setSizeModalProduct(product);
+    } else {
+      addToCartDirect(product, null, product.price);
+    }
+  };
+
+  const addToCartDirect = (product: Product, size: string | null, price: number, notes?: string) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      // Create unique key for product + size combination
+      const cartKey = size ? `${product.id}-${size}` : product.id;
+      const existing = prev.find(item => {
+        const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+        return itemKey === cartKey;
+      });
+      
       if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
+        return prev.map(item => {
+          const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+          return itemKey === cartKey
             ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+            : item;
+        });
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, size, unitPrice: price, notes }];
     });
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const handleSizeModalConfirm = (product: Product, size: string | null, price: number, notes: string) => {
+    addToCartDirect(product, size, price, notes || undefined);
+    setSizeModalProduct(null);
+  };
+
+  const updateQuantity = (productId: string, size: string | null | undefined, delta: number) => {
     setCart(prev => {
       return prev
         .map(item => {
-          if (item.product.id === productId) {
+          const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+          const targetKey = size ? `${productId}-${size}` : productId;
+          if (itemKey === targetKey) {
             const newQuantity = item.quantity + delta;
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
@@ -504,18 +557,24 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, size: string | null | undefined) => {
+    setCart(prev => prev.filter(item => {
+      const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+      const targetKey = size ? `${productId}-${size}` : productId;
+      return itemKey !== targetKey;
+    }));
   };
 
-  const updateItemNotes = (productId: string, notes: string) => {
-    setCart(prev => prev.map(item =>
-      item.product.id === productId ? { ...item, notes } : item
-    ));
+  const updateItemNotes = (productId: string, size: string | null | undefined, notes: string) => {
+    setCart(prev => prev.map(item => {
+      const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+      const targetKey = size ? `${productId}-${size}` : productId;
+      return itemKey === targetKey ? { ...item, notes } : item;
+    }));
   };
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
 
@@ -706,8 +765,9 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         restaurant_id: restaurant?.id,
         order_id: order.id,
         product_id: item.product.id,
-        product_name: item.product.name,
-        product_price: item.product.price,
+        product_name: item.size ? `${item.product.name} (${item.size})` : item.product.name,
+        product_price: item.unitPrice,
+        product_size: item.size || null,
         quantity: item.quantity,
         notes: item.notes || null,
       }));
@@ -838,18 +898,25 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                 </div>
               ) : (
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="p-3 bg-background border rounded-lg cursor-pointer hover:border-primary hover:shadow-sm transition-all group"
-                      onClick={() => addToCart(product)}
-                    >
-                      <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{product.name}</p>
-                      <p className="text-sm text-primary font-bold">
-                        {formatCurrency(product.price)}
-                      </p>
-                    </div>
-                  ))}
+                  {filteredProducts.map((product) => {
+                    const displayPrice = getProductDisplayPrice(product);
+                    const hasSizes = product.has_sizes && (product.price_small || product.price_medium || product.price_large);
+                    return (
+                      <div
+                        key={product.id}
+                        className="p-3 bg-background border rounded-lg cursor-pointer hover:border-primary hover:shadow-sm transition-all group"
+                        onClick={() => handleProductClick(product)}
+                      >
+                        <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{product.name}</p>
+                        <div className="flex items-center gap-1">
+                          {hasSizes && <span className="text-xs text-muted-foreground">a partir de</span>}
+                          <p className="text-sm text-primary font-bold">
+                            {formatCurrency(displayPrice)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
@@ -1250,9 +1317,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                       >
                         <div className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{item.product.name}</p>
+                            <p className="font-medium text-sm truncate">
+                              {item.product.name}
+                              {item.size && <span className="text-muted-foreground ml-1">({item.size})</span>}
+                            </p>
                             <p className="text-xs text-muted-foreground">
-                              {formatCurrency(item.product.price)}
+                              {formatCurrency(item.unitPrice)}
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -1260,7 +1330,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                               variant="outline"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => updateQuantity(item.product.id, -1)}
+                              onClick={() => updateQuantity(item.product.id, item.size, -1)}
                             >
                               <Minus className="w-3 h-3" />
                             </Button>
@@ -1269,7 +1339,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                               variant="outline"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => updateQuantity(item.product.id, 1)}
+                              onClick={() => updateQuantity(item.product.id, item.size, 1)}
                             >
                               <Plus className="w-3 h-3" />
                             </Button>
@@ -1277,7 +1347,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6 text-destructive"
-                              onClick={() => removeFromCart(item.product.id)}
+                              onClick={() => removeFromCart(item.product.id, item.size)}
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -1289,7 +1359,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                           <Input
                             placeholder="Obs: sem cebola, bem passado..."
                             value={item.notes || ''}
-                            onChange={(e) => updateItemNotes(item.product.id, e.target.value)}
+                            onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
                             className="h-7 text-xs pl-7 bg-background"
                           />
                         </div>
@@ -1337,6 +1407,14 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           </div>
         </div>
       </DialogContent>
+
+      {/* Size Selection Modal */}
+      <ProductSizeModal
+        product={sizeModalProduct}
+        open={!!sizeModalProduct}
+        onClose={() => setSizeModalProduct(null)}
+        onConfirm={handleSizeModalConfirm}
+      />
     </Dialog>
   );
 }
