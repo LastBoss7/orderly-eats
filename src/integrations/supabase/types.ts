@@ -557,6 +557,66 @@ export type Database = {
           },
         ]
       }
+      printer_heartbeats: {
+        Row: {
+          client_id: string
+          client_name: string | null
+          client_version: string | null
+          created_at: string
+          id: string
+          is_printing: boolean | null
+          last_heartbeat_at: string
+          pending_orders: number | null
+          platform: string | null
+          printers_count: number | null
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          client_name?: string | null
+          client_version?: string | null
+          created_at?: string
+          id?: string
+          is_printing?: boolean | null
+          last_heartbeat_at?: string
+          pending_orders?: number | null
+          platform?: string | null
+          printers_count?: number | null
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          client_name?: string | null
+          client_version?: string | null
+          created_at?: string
+          id?: string
+          is_printing?: boolean | null
+          last_heartbeat_at?: string
+          pending_orders?: number | null
+          platform?: string | null
+          printers_count?: number | null
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "printer_heartbeats_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "printer_heartbeats_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       printers: {
         Row: {
           created_at: string
