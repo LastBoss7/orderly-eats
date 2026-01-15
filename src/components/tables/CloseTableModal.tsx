@@ -375,7 +375,7 @@ export function CloseTableModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 z-[60]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
           <DialogTitle className="flex items-center gap-3 text-xl">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">

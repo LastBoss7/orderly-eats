@@ -75,6 +75,7 @@ export default function Tables() {
   const [newTableCapacity, setNewTableCapacity] = useState('4');
   const [adding, setAdding] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [tableToClose, setTableToClose] = useState<Table | null>(null);
   const [allTableOrders, setAllTableOrders] = useState<Order[]>([]);
   const [showOrderPOS, setShowOrderPOS] = useState(false);
   const [orderPOSTable, setOrderPOSTable] = useState<Table | null>(null);
@@ -166,14 +167,19 @@ export default function Tables() {
 
   const handleOpenCloseModal = async () => {
     if (!selectedTable) return;
+    // Store the table for the close modal
+    setTableToClose(selectedTable);
     // Fetch active orders for closing
     const orders = await fetchTableOrders(selectedTable.id);
     setAllTableOrders(orders);
+    // Close the sheet first to avoid z-index conflicts
+    setSelectedTable(null);
     setShowCloseModal(true);
   };
 
   const handleTableClosed = () => {
-    setSelectedTable(null);
+    setTableToClose(null);
+    setShowCloseModal(false);
     fetchTables();
   };
 
@@ -621,8 +627,11 @@ export default function Tables() {
         {/* Close Table Modal */}
         <CloseTableModal
           open={showCloseModal}
-          onClose={() => setShowCloseModal(false)}
-          table={selectedTable}
+          onClose={() => {
+            setShowCloseModal(false);
+            setTableToClose(null);
+          }}
+          table={tableToClose}
           orders={allTableOrders}
           onTableClosed={handleTableClosed}
         />
