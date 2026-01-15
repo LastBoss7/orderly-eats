@@ -198,7 +198,7 @@ class PrinterService {
     buffers.push(ESCPOS.TXT_BOLD_OFF);
     
     // Divider
-    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
     
     // Order number - LARGE and BOLD
     if (layout.showOrderNumber) {
@@ -251,14 +251,14 @@ class PrinterService {
     }
     
     // Divider
-    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
     buffers.push(lineFeed(1));
     
     // Items header
     buffers.push(ESCPOS.TXT_BOLD_ON);
     buffers.push(Buffer.from('ITENS:\n', encoding));
     buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(Buffer.from('-'.repeat(width) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
     
     // Items
     if (order.order_items && order.order_items.length > 0) {
@@ -305,7 +305,7 @@ class PrinterService {
       }
     }
     
-    buffers.push(Buffer.from('-'.repeat(width) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
     
     // Notes
     if (order.notes) {
@@ -350,7 +350,7 @@ class PrinterService {
     }
     
     buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(width) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
     
     // Footer
     buffers.push(ESCPOS.TXT_ALIGN_CENTER);
@@ -397,6 +397,16 @@ class PrinterService {
   }
 
   /**
+   * Create a line using a single character repeated
+   * This ensures consistent character output for thermal printers
+   */
+  createLine(char, width) {
+    // Use simple ASCII characters for maximum compatibility
+    const safeChar = char === '=' ? '=' : '-';
+    return safeChar.repeat(width);
+  }
+
+  /**
    * Print test page
    */
   async printTest(options = {}) {
@@ -438,14 +448,14 @@ class PrinterService {
     buffers.push(ESCPOS.TXT_SIZE_NORMAL);
     
     buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 32)) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
     buffers.push(lineFeed(1));
     
     buffers.push(Buffer.from('Impressora ESC/POS\n', encoding));
     buffers.push(Buffer.from('configurada com sucesso!\n', encoding));
     
     buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 32)) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
     buffers.push(lineFeed(1));
     
     // Test font sizes
@@ -479,7 +489,7 @@ class PrinterService {
     buffers.push(ESCPOS.TXT_UNDERL_OFF);
     
     buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(Math.min(width, 32)) + '\n', encoding));
+    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
     
     // Date/time
     buffers.push(ESCPOS.TXT_ALIGN_CENTER);
@@ -530,8 +540,8 @@ class PrinterService {
     // Common widths: 32 (58mm), 42 (80mm standard), 48 (80mm compact)
     // IMPORTANT: Use layout.paperWidth exactly as configured by user
     const width = parseInt(layout.paperWidth, 10) || 42;
-    const divider = '='.repeat(width);
-    const thinDivider = '-'.repeat(width);
+    const divider = this.createLine('=', width);
+    const thinDivider = this.createLine('-', width);
     
     const lines = [];
     
@@ -695,7 +705,7 @@ class PrinterService {
     lines.push('');
     lines.push('');
 
-    return lines.join('\r\n');
+    return lines.join('\n');
   }
 
   /**
@@ -723,7 +733,7 @@ class PrinterService {
 
   formatTestReceipt(layout) {
     const width = parseInt(layout.paperWidth, 10) || 48;
-    const divider = '='.repeat(width);
+    const divider = this.createLine('=', width);
     const lines = [];
     
     lines.push(this.center('*** TESTE DE IMPRESSAO ***', width));
