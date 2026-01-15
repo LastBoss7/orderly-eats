@@ -232,8 +232,16 @@ export default function WaiterApp({
   // Size selection modal
   const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
   
-  // Menu view mode
-  const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>('list');
+  // Menu view mode - persist in localStorage
+  const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>(() => {
+    const saved = localStorage.getItem('waiter_menu_view_mode');
+    return (saved === 'grid' || saved === 'list') ? saved : 'list';
+  });
+  
+  // Save menu view mode preference
+  useEffect(() => {
+    localStorage.setItem('waiter_menu_view_mode', menuViewMode);
+  }, [menuViewMode]);
   
   // Delivery states
   const [orderMode, setOrderMode] = useState<OrderMode>('table');
