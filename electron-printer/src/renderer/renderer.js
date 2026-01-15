@@ -111,6 +111,7 @@ async function loadConfig() {
     const config = await window.electronAPI.getConfig();
     
     // Load form values
+    document.getElementById('restaurantId').value = config.restaurantId || '';
     document.getElementById('printerSelect').value = config.printerName || '';
     document.getElementById('paperWidth').value = config.paperWidth || 48;
     document.getElementById('fontSize').value = config.fontSize || 1;
@@ -149,7 +150,15 @@ function getRadioValue(name) {
 
 async function saveConfig() {
   try {
+    const restaurantId = document.getElementById('restaurantId').value.trim();
+    
+    if (!restaurantId) {
+      addLog('⚠ ID do Restaurante é obrigatório', 'error');
+      return;
+    }
+    
     const config = {
+      restaurantId: restaurantId,
       printerName: document.getElementById('printerSelect').value,
       paperWidth: parseInt(document.getElementById('paperWidth').value) || 48,
       fontSize: parseInt(document.getElementById('fontSize').value) || 1,
