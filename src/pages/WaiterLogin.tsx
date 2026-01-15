@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader2, ChefHat, KeyRound, ArrowLeft } from 'lucide-react';
+import { Loader2, ChefHat, ArrowLeft, Delete } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Restaurant {
@@ -28,6 +27,7 @@ export default function WaiterLogin() {
   const [pin, setPin] = useState('');
   const [authenticating, setAuthenticating] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
@@ -45,11 +45,13 @@ export default function WaiterLogin() {
           .single();
 
         if (error || !data) {
+          console.error('Restaurant fetch error:', error);
           setNotFound(true);
         } else {
           setRestaurant(data);
         }
       } catch (error) {
+        console.error('Restaurant fetch exception:', error);
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -59,30 +61,75 @@ export default function WaiterLogin() {
     fetchRestaurant();
   }, [slug]);
 
-  const handlePinInput = (value: string) => {
-    // Only allow numbers, max 6 digits
-    const numericValue = value.replace(/\D/g, '').slice(0, 6);
-    setPin(numericValue);
+  const handlePinInput = (digit: string) => {
+    if (pin.length < 6) {
+      const newPin = pin + digit;
+      setPin(newPin);
+      setError(null);
+      
+      // Auto-submit when 4+ digits
+      if (newPin.length >= 4) {
+        // Small delay to show the digit
+        setTimeout(() => {
+          handleLogin(newPin);
+        }, 200);
+      }
+    }
   };
 
-  const handleLogin = async () => {
-    if (!restaurant || pin.length < 4) {
-      toast.error('Digite um PIN válido (mínimo 4 dígitos)');
+  const handleDelete = () => {
+    if (pin.length > 0) {
+      setPin(pin.slice(0, -1));
+      setError(null);
+    }
+  };
+
+  const handleClear = () => {
+    setPin('');
+    setError(null);
+  };
+
+  const handleLogin = async (pinValue?: string) => {
+    const currentPin = pinValue || pin;
+    
+    if (!restaurant || currentPin.length < 4) {
       return;
     }
 
+    // Prevent multiple submissions
+    if (authenticating) return;
+
     setAuthenticating(true);
+    setError(null);
+    
     try {
-      const { data: waiter, error } = await supabase
+      console.log('Attempting login with PIN:', currentPin, 'for restaurant:', restaurant.id);
+      
+      // First, check if there are any waiters with this PIN
+      const { data: waiter, error: queryError } = await supabase
         .from('waiters')
         .select('id, name, status, restaurant_id')
         .eq('restaurant_id', restaurant.id)
-        .eq('pin', pin)
-        .eq('status', 'active')
-        .single();
+        .eq('pin', currentPin)
+        .maybeSingle();
 
-      if (error || !waiter) {
-        toast.error('PIN inválido ou garçom inativo');
+      console.log('Query result:', { waiter, queryError });
+
+      if (queryError) {
+        console.error('Query error:', queryError);
+        setError('Erro ao verificar PIN. Tente novamente.');
+        setPin('');
+        return;
+      }
+
+      if (!waiter) {
+        setError('PIN não encontrado');
+        setPin('');
+        return;
+      }
+
+      if (waiter.status !== 'active') {
+        setError('Garçom inativo. Fale com o gerente.');
         setPin('');
         return;
       }
@@ -97,7 +144,9 @@ export default function WaiterLogin() {
       toast.success(`Bem-vindo, ${waiter.name}!`);
       navigate(`/garcom/${slug}/app`);
     } catch (error) {
-      toast.error('Erro ao autenticar');
+      console.error('Login exception:', error);
+      setError('Erro ao autenticar. Tente novamente.');
+      setPin('');
     } finally {
       setAuthenticating(false);
     }
@@ -105,21 +154,28 @@ export default function WaiterLogin() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0d1b2a] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-yellow-400" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
+          <p className="text-white/60 text-sm">Carregando...</p>
+        </div>
       </div>
     );
   }
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#0d1b2a] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mb-6">
-          <ChefHat className="w-10 h-10 text-red-400" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-24 h-24 rounded-full bg-red-500/20 flex items-center justify-center mb-6 animate-pulse">
+          <ChefHat className="w-12 h-12 text-red-400" />
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Restaurante não encontrado</h1>
-        <p className="text-white/60 mb-6">O link que você acessou não existe ou está incorreto.</p>
-        <Button variant="outline" onClick={() => navigate('/login')} className="text-white border-white/30">
+        <p className="text-white/60 mb-8 max-w-xs">O link que você acessou não existe ou está incorreto.</p>
+        <Button 
+          variant="outline" 
+          onClick={() => navigate('/login')} 
+          className="text-white border-white/30 hover:bg-white/10"
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar ao login
         </Button>
@@ -128,88 +184,118 @@ export default function WaiterLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
-      <header className="p-6 text-center">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+      {/* Header */}
+      <header className="pt-10 pb-6 text-center">
         {restaurant?.logo_url ? (
           <img 
             src={restaurant.logo_url} 
             alt={restaurant.name} 
-            className="w-20 h-20 rounded-full mx-auto mb-4 object-cover border-4 border-yellow-400"
+            className="w-20 h-20 rounded-2xl mx-auto mb-4 object-cover border-2 border-amber-400/50 shadow-lg shadow-amber-400/20"
           />
         ) : (
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-400 text-[#0d1b2a] mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-900 mb-4 shadow-lg shadow-amber-400/30">
             <ChefHat className="w-10 h-10" />
           </div>
         )}
-        <h1 className="text-2xl font-bold text-white">{restaurant?.name}</h1>
-        <p className="text-white/70 mt-2">Acesso do Garçom</p>
+        <h1 className="text-xl font-bold text-white">{restaurant?.name}</h1>
+        <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-sm space-y-6">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
-              <KeyRound className="w-8 h-8 text-yellow-400" />
-            </div>
-            <h2 className="text-xl font-semibold text-white">Digite seu PIN</h2>
-            <p className="text-white/60 text-sm mt-1">PIN de 4 a 6 dígitos</p>
+      {/* PIN Display */}
+      <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4">
+        <div className="w-full max-w-xs">
+          {/* PIN Dots */}
+          <div className="flex justify-center gap-3 mb-6">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className={`w-4 h-4 rounded-full transition-all duration-200 ${
+                  i < pin.length 
+                    ? 'bg-amber-400 scale-110 shadow-lg shadow-amber-400/50' 
+                    : 'bg-white/20 border border-white/30'
+                }`}
+              />
+            ))}
           </div>
 
-          <div className="space-y-4">
-            <Input
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => handlePinInput(e.target.value)}
-              placeholder="• • • • • •"
-              className="h-16 text-3xl text-center tracking-[0.5em] bg-white/10 border-white/20 text-white placeholder:text-white/30 font-mono"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && pin.length >= 4) {
-                  handleLogin();
-                }
-              }}
-            />
-
-            <Button
-              className="w-full h-14 text-lg bg-yellow-400 hover:bg-yellow-500 text-[#0d1b2a] font-semibold"
-              onClick={handleLogin}
-              disabled={authenticating || pin.length < 4}
-            >
-              {authenticating ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                'Entrar'
-              )}
-            </Button>
+          {/* Error/Status message */}
+          <div className="h-8 flex items-center justify-center mb-4">
+            {authenticating ? (
+              <div className="flex items-center gap-2 text-amber-400">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Verificando...</span>
+              </div>
+            ) : error ? (
+              <p className="text-red-400 text-sm font-medium animate-shake">{error}</p>
+            ) : (
+              <p className="text-white/40 text-sm">Digite seu PIN de 4-6 dígitos</p>
+            )}
           </div>
 
-          <div className="flex justify-center gap-3 mt-8">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((num, idx) => (
+          {/* Numeric Keypad */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
-                onClick={() => handlePinInput(pin + num.toString())}
-                disabled={pin.length >= 6}
-                className={`w-12 h-12 rounded-full bg-white/10 text-white font-bold text-xl hover:bg-white/20 transition-colors disabled:opacity-50 ${idx === 9 ? 'col-start-2' : ''}`}
+                onClick={() => handlePinInput(num.toString())}
+                disabled={authenticating || pin.length >= 6}
+                className="aspect-square text-2xl font-semibold rounded-2xl bg-white/10 text-white 
+                         hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
+                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                         border border-white/10 hover:border-white/30 active:border-amber-400
+                         shadow-lg backdrop-blur-sm"
               >
                 {num}
               </button>
             ))}
-          </div>
-
-          {pin.length > 0 && (
-            <Button
-              variant="ghost"
-              className="w-full text-white/60 hover:text-white"
-              onClick={() => setPin('')}
+            
+            {/* Clear button */}
+            <button
+              onClick={handleClear}
+              disabled={authenticating || pin.length === 0}
+              className="aspect-square text-sm font-medium rounded-2xl bg-white/5 text-white/60
+                       hover:bg-white/10 hover:text-white active:bg-red-500/20 active:text-red-400
+                       transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                       border border-white/10 flex items-center justify-center"
             >
               Limpar
-            </Button>
-          )}
+            </button>
+            
+            {/* Zero */}
+            <button
+              onClick={() => handlePinInput('0')}
+              disabled={authenticating || pin.length >= 6}
+              className="aspect-square text-2xl font-semibold rounded-2xl bg-white/10 text-white 
+                       hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
+                       transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                       border border-white/10 hover:border-white/30 active:border-amber-400
+                       shadow-lg backdrop-blur-sm"
+            >
+              0
+            </button>
+            
+            {/* Delete button */}
+            <button
+              onClick={handleDelete}
+              disabled={authenticating || pin.length === 0}
+              className="aspect-square rounded-2xl bg-white/5 text-white/60
+                       hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400
+                       transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+                       border border-white/10 flex items-center justify-center"
+            >
+              <Delete className="w-6 h-6" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="p-6 text-center">
+        <p className="text-white/30 text-xs">
+          Fale com seu gerente caso não tenha seu PIN
+        </p>
+      </footer>
     </div>
   );
 }
