@@ -591,22 +591,90 @@ export function CheckoutScreen({
 
             {/* Cash received input */}
             {selectedPayment === 'cash' && (
-              <div className="space-y-2 pt-4">
-                <label className="text-sm text-muted-foreground">Valor recebido</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={cashReceived || ''}
-                  onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                  placeholder="0,00"
-                />
-                {change > 0 && (
-                  <div className="flex justify-between text-sm text-emerald-600 font-medium">
-                    <span>Troco</span>
-                    <span>{formatCurrency(change)}</span>
+              <div className="space-y-3 pt-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">Valor recebido</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={cashReceived || ''}
+                    onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                    placeholder="0,00"
+                    className="text-lg h-12"
+                  />
+                </div>
+                
+                {/* Quick cash buttons */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[10, 20, 50, 100].map((value) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setCashReceived(value)}
+                    >
+                      R$ {value}
+                    </Button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[150, 200].map((value) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setCashReceived(value)}
+                    >
+                      R$ {value}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setCashReceived(totalWithModifiers)}
+                  >
+                    Exato
+                  </Button>
+                </div>
+
+                {/* Change display - prominent */}
+                <div className={`rounded-xl p-4 transition-all ${
+                  change > 0 
+                    ? 'bg-emerald-100 dark:bg-emerald-900/30 border-2 border-emerald-400' 
+                    : cashReceived > 0 && cashReceived < remaining
+                      ? 'bg-red-100 dark:bg-red-900/30 border-2 border-red-400'
+                      : 'bg-muted border-2 border-transparent'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`font-medium ${
+                      change > 0 
+                        ? 'text-emerald-700 dark:text-emerald-400' 
+                        : cashReceived > 0 && cashReceived < remaining
+                          ? 'text-red-700 dark:text-red-400'
+                          : 'text-muted-foreground'
+                    }`}>
+                      {change > 0 ? '💵 Troco a devolver' : cashReceived > 0 && cashReceived < remaining ? 'Valor insuficiente' : 'Troco'}
+                    </span>
+                    <span className={`text-2xl font-bold ${
+                      change > 0 
+                        ? 'text-emerald-700 dark:text-emerald-400' 
+                        : cashReceived > 0 && cashReceived < remaining
+                          ? 'text-red-700 dark:text-red-400'
+                          : 'text-muted-foreground'
+                    }`}>
+                      {formatCurrency(change > 0 ? change : 0)}
+                    </span>
                   </div>
-                )}
+                  {change > 0 && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
+                      Recebido: {formatCurrency(cashReceived)} → Devolver: {formatCurrency(change)}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
