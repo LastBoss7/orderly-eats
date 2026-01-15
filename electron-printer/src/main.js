@@ -285,7 +285,7 @@ async function syncAvailablePrinters() {
             name: printer.displayName || printer.name,
             printer_name: printer.name,
             model: printer.description || 'Impressora do Windows',
-            paper_width: 42, // Default 80mm standard
+            paper_width: 48, // POS 80mm = 48 chars
             linked_order_types: ['counter', 'table', 'delivery'],
             linked_categories: null,
             is_active: true,
