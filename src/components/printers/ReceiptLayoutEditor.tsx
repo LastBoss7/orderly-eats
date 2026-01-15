@@ -37,6 +37,10 @@ export interface PrintLayout {
   showDeliveryFee: boolean;
   showPaymentMethod: boolean;
   footerMessage: string;
+  customFooterLine1: string;
+  customFooterLine2: string;
+  customFooterLine3: string;
+  showDefaultFooter: boolean;
   fontSize: 'small' | 'normal' | 'large';
   boldItems: boolean;
   boldTotal: boolean;
@@ -66,6 +70,10 @@ const defaultLayout: PrintLayout = {
   showDeliveryFee: true,
   showPaymentMethod: true,
   footerMessage: 'Obrigado pela preferência!',
+  customFooterLine1: '',
+  customFooterLine2: '',
+  customFooterLine3: '',
+  showDefaultFooter: true,
   fontSize: 'normal',
   boldItems: true,
   boldTotal: true,
@@ -404,11 +412,28 @@ export function ReceiptLayoutEditor() {
     lines.push(thinDivider);
 
     // ============================================
-    // FOOTER
+    // FOOTER - Custom lines
     // ============================================
     if (layout.footerMessage) {
       lines.push(center(layout.footerMessage));
-    } else {
+    }
+
+    // Custom footer lines
+    if (layout.customFooterLine1) {
+      lines.push(center(layout.customFooterLine1));
+    }
+    if (layout.customFooterLine2) {
+      lines.push(center(layout.customFooterLine2));
+    }
+    if (layout.customFooterLine3) {
+      lines.push(center(layout.customFooterLine3));
+    }
+
+    // Default footer (Powered By: BareRest)
+    if (layout.showDefaultFooter) {
+      if (layout.footerMessage || layout.customFooterLine1 || layout.customFooterLine2 || layout.customFooterLine3) {
+        lines.push('');
+      }
       lines.push(center('Powered By: BareRest'));
       lines.push(center('https://barerest.lovable.app'));
     }
@@ -677,14 +702,44 @@ export function ReceiptLayoutEditor() {
               />
             </div>
             <Separator />
-            <div className="space-y-2">
-              <Label htmlFor="footerMessage">Mensagem do rodapé</Label>
-              <Textarea
-                id="footerMessage"
-                value={layout.footerMessage}
-                onChange={(e) => updateLayout('footerMessage', e.target.value)}
-                placeholder="Obrigado pela preferência!"
-                rows={2}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Rodapé personalizado</Label>
+              <div className="space-y-2">
+                <Input
+                  value={layout.footerMessage}
+                  onChange={(e) => updateLayout('footerMessage', e.target.value)}
+                  placeholder="Mensagem principal (ex: Obrigado pela preferência!)"
+                />
+                <Input
+                  value={layout.customFooterLine1}
+                  onChange={(e) => updateLayout('customFooterLine1', e.target.value)}
+                  placeholder="Linha adicional 1 (opcional)"
+                />
+                <Input
+                  value={layout.customFooterLine2}
+                  onChange={(e) => updateLayout('customFooterLine2', e.target.value)}
+                  placeholder="Linha adicional 2 (opcional)"
+                />
+                <Input
+                  value={layout.customFooterLine3}
+                  onChange={(e) => updateLayout('customFooterLine3', e.target.value)}
+                  placeholder="Linha adicional 3 (opcional)"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Adicione até 4 linhas de texto personalizado no rodapé do cupom
+              </p>
+            </div>
+            <Separator />
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="showDefaultFooter" className="cursor-pointer">Mostrar "Powered By: BareRest"</Label>
+                <p className="text-xs text-muted-foreground">Exibir créditos no final do cupom</p>
+              </div>
+              <Switch
+                id="showDefaultFooter"
+                checked={layout.showDefaultFooter}
+                onCheckedChange={(checked) => updateLayout('showDefaultFooter', checked)}
               />
             </div>
           </CardContent>
