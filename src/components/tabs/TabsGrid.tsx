@@ -149,7 +149,7 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
         .from('orders')
         .select(`*, order_items (*)`)
         .eq('tab_id', tabId)
-        .in('status', ['pending', 'preparing', 'ready'])
+        .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -291,6 +291,7 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
       pending: 'Pendente',
       preparing: 'Em Preparo',
       ready: 'Pronto',
+      served: 'Servido',
       delivered: 'Entregue',
     };
     return labels[status] || status;

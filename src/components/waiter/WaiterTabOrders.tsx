@@ -76,7 +76,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
         .from('orders')
         .select(`*, order_items (*)`)
         .eq('tab_id', tab.id)
-        .in('status', ['pending', 'preparing', 'ready'])
+        .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -163,12 +163,14 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
       pending: 'Pendente',
       preparing: 'Preparando',
       ready: 'Pronto',
+      served: 'Servido',
     };
     return labels[status] || status;
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'served': return 'bg-purple-500';
       case 'ready': return 'bg-green-500';
       case 'preparing': return 'bg-orange-500';
       default: return 'bg-yellow-500';

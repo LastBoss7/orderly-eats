@@ -139,10 +139,10 @@ export default function Tables() {
 
       if (includeDelivered) {
         // For close modal, include all orders except cancelled
-        query = query.in('status', ['pending', 'preparing', 'ready', 'delivered']);
+        query = query.in('status', ['pending', 'preparing', 'ready', 'served', 'delivered']);
       } else {
-        // For sheet display, only active orders
-        query = query.in('status', ['pending', 'preparing', 'ready']);
+        // For sheet display, only active orders (including served)
+        query = query.in('status', ['pending', 'preparing', 'ready', 'served']);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -271,6 +271,7 @@ export default function Tables() {
       pending: 'Pendente',
       preparing: 'Em Preparo',
       ready: 'Pronto',
+      served: 'Servido',
       delivered: 'Entregue',
     };
     return labels[status] || status;
