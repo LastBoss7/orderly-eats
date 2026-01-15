@@ -808,6 +808,3 @@ class PrinterService {
 }
 
 module.exports = PrinterService;
-}
-
-module.exports = PrinterService;
