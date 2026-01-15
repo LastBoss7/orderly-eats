@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useRestaurantBell } from './useRestaurantBell';
+import { playDoubleBell, playAlertBell } from '@/lib/restaurantBell';
 
 interface OrderNotification {
   id: string;
@@ -12,7 +12,6 @@ interface OrderNotification {
 
 export function useOrderNotifications(restaurantId: string | undefined) {
   const { toast } = useToast();
-  const { playBell, playDoubleBell, playAlertBell } = useRestaurantBell();
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const processedOrdersRef = useRef<Set<string>>(new Set());
@@ -21,13 +20,13 @@ export function useOrderNotifications(restaurantId: string | undefined) {
     if (soundEnabled) {
       playDoubleBell(0.6);
     }
-  }, [soundEnabled, playDoubleBell]);
+  }, [soundEnabled]);
 
   const playAlertSound = useCallback(() => {
     if (soundEnabled) {
       playAlertBell(0.7);
     }
-  }, [soundEnabled, playAlertBell]);
+  }, [soundEnabled]);
 
   const addNotification = useCallback((notification: Omit<OrderNotification, 'timestamp'>) => {
     setNotifications(prev => [
