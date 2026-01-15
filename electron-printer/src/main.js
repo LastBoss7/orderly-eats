@@ -37,6 +37,7 @@ const defaultLayout = {
 // Cached restaurant info and layout
 let cachedRestaurantInfo = null;
 let cachedPrintLayout = null;
+let cachedDbPrinters = [];
 
 // Configuração persistente
 const store = new Store({
@@ -272,7 +273,7 @@ function startOrderMonitoring() {
 }
 
 async function checkPendingOrders() {
-  if (!supabase || !isConnected) return;
+  if (!isConnected) return;
 
   const restaurantId = store.get('restaurantId');
   if (!restaurantId) return;
@@ -283,42 +284,32 @@ async function checkPendingOrders() {
       await refreshRestaurantConfig(restaurantId);
     }
 
-    // Fetch orders with items and products (for category)
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          *,
-          products (category_id)
-        ),
-        tables (number),
-        waiters (name)
-      `)
-      .eq('restaurant_id', restaurantId)
-      .eq('print_status', 'pending')
-      .order('created_at', { ascending: true });
+    const supabaseUrl = store.get('supabaseUrl');
+    
+    // Use edge function to fetch orders (bypasses RLS)
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=get`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': store.get('supabaseKey'),
+        },
+      }
+    );
 
-    if (error) throw error;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
-    // Fetch printers from database
-    const { data: dbPrinters } = await supabase
-      .from('printers')
-      .select('*')
-      .eq('restaurant_id', restaurantId)
-      .eq('is_active', true);
+    const data = await response.json();
+    const orders = data.orders || [];
 
-    if (orders && orders.length > 0) {
+    if (orders.length > 0) {
       sendToRenderer('log', `Encontrados ${orders.length} pedidos para imprimir`);
       
       for (const order of orders) {
-        // Enrich order with table number and waiter name
-        const enrichedOrder = {
-          ...order,
-          table_number: order.tables?.number || null,
-          waiter_name: order.waiters?.name || null,
-        };
-        await printOrderToAllPrinters(enrichedOrder, dbPrinters || []);
+        await printOrderToAllPrinters(order, cachedDbPrinters || []);
       }
     }
   } catch (error) {
@@ -327,35 +318,46 @@ async function checkPendingOrders() {
 }
 
 /**
- * Fetch and cache restaurant info and print layout
+ * Fetch and cache restaurant info and print layout via Edge Function
  */
 async function refreshRestaurantConfig(restaurantId) {
   try {
-    // Fetch restaurant info
-    const { data: restData } = await supabase
-      .from('restaurants')
-      .select('name, phone, address, cnpj')
-      .eq('id', restaurantId)
-      .single();
+    const supabaseUrl = store.get('supabaseUrl');
+    
+    // Use edge function to bypass RLS
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/printer-config?restaurant_id=${restaurantId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': store.get('supabaseKey'),
+        },
+      }
+    );
 
-    if (restData) {
-      cachedRestaurantInfo = restData;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    // Fetch print layout from salon_settings
-    const { data: salonData } = await supabase
-      .from('salon_settings')
-      .select('print_layout')
-      .eq('restaurant_id', restaurantId)
-      .maybeSingle();
+    const data = await response.json();
 
-    if (salonData?.print_layout) {
-      cachedPrintLayout = { ...defaultLayout, ...salonData.print_layout };
+    if (data.restaurant) {
+      cachedRestaurantInfo = data.restaurant;
+    }
+
+    if (data.settings?.printLayout) {
+      cachedPrintLayout = { ...defaultLayout, ...data.settings.printLayout };
     } else {
       cachedPrintLayout = defaultLayout;
     }
 
-    sendToRenderer('log', `Configurações carregadas: ${cachedRestaurantInfo?.name || 'N/A'}`);
+    // Cache printers from config
+    if (data.printers) {
+      cachedDbPrinters = data.printers;
+    }
+
+    sendToRenderer('log', `✓ Configurações carregadas: ${cachedRestaurantInfo?.name || 'N/A'}`);
   } catch (error) {
     sendToRenderer('log', `Erro ao carregar config: ${error.message}`);
     cachedPrintLayout = defaultLayout;
@@ -459,18 +461,24 @@ async function printOrderToAllPrinters(order, dbPrinters) {
 }
 
 /**
- * Mark order as printed in database
+ * Mark order as printed in database via Edge Function
  */
 async function markOrderPrinted(order) {
   try {
-    await supabase
-      .from('orders')
-      .update({ 
-        print_status: 'printed',
-        printed_at: new Date().toISOString(),
-        print_count: (order.print_count || 0) + 1
-      })
-      .eq('id', order.id);
+    const supabaseUrl = store.get('supabaseUrl');
+    const restaurantId = store.get('restaurantId');
+    
+    await fetch(
+      `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=mark-printed`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': store.get('supabaseKey'),
+        },
+        body: JSON.stringify({ order_ids: [order.id] }),
+      }
+    );
   } catch (error) {
     sendToRenderer('log', `Erro ao marcar pedido como impresso: ${error.message}`);
   }
