@@ -784,8 +784,10 @@ class PrinterService {
       fs.writeFileSync(tmpFile, text, 'utf8');
       
       if (this.platform === 'win32') {
-        const printerParam = printerName ? `-PrinterName "${printerName}"` : '';
-        const psCommand = `Get-Content -Path "${tmpFile}" -Raw | Out-Printer ${printerParam}`;
+        // Escape single quotes in printer name and use single quotes for PowerShell string
+        const escapedPrinterName = printerName ? printerName.replace(/'/g, "''") : '';
+        const printerParam = escapedPrinterName ? `-PrinterName '${escapedPrinterName}'` : '';
+        const psCommand = `Get-Content -Path '${tmpFile}' -Raw | Out-Printer ${printerParam}`;
         
         exec(`powershell -Command "${psCommand}"`, (error) => {
           try { fs.unlinkSync(tmpFile); } catch (e) {}
