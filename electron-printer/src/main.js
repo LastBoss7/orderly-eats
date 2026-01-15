@@ -497,44 +497,46 @@ async function printOrderToAllPrinters(order, dbPrinters) {
 }
 
 /**
- * Mark order as printed in database directly via Supabase SDK
+ * Mark order as printed in database via Edge Function (bypasses RLS)
  */
 async function markOrderPrinted(order) {
-  if (!supabase) {
-    sendToRenderer('log', `✗ Supabase não conectado, não foi possível marcar como impresso`);
+  const restaurantId = store.get('restaurantId');
+  const supabaseUrl = store.get('supabaseUrl');
+  const supabaseKey = store.get('supabaseKey');
+  
+  if (!supabaseUrl || !restaurantId) {
+    sendToRenderer('log', `✗ Configuração incompleta, não foi possível marcar como impresso`);
     return false;
   }
 
   try {
-    // Get current print count
-    const { data: currentOrder, error: fetchError } = await supabase
-      .from('orders')
-      .select('print_count')
-      .eq('id', order.id)
-      .single();
+    // Use edge function which has service role key and bypasses RLS
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=mark-printed`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+        },
+        body: JSON.stringify({ order_ids: [order.id] }),
+      }
+    );
 
-    if (fetchError) {
-      throw new Error(`Erro ao buscar pedido: ${fetchError.message}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    const currentCount = currentOrder?.print_count || 0;
-
-    // Update order status directly
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        print_status: 'printed',
-        printed_at: new Date().toISOString(),
-        print_count: currentCount + 1,
-      })
-      .eq('id', order.id);
-
-    if (updateError) {
-      throw new Error(`Erro ao atualizar: ${updateError.message}`);
-    }
+    const result = await response.json();
     
-    sendToRenderer('log', `✓ Pedido #${order.id.slice(0, 8)} marcado como impresso`);
-    return true;
+    if (result.success) {
+      sendToRenderer('log', `✓ Pedido #${order.order_number || order.id.slice(0, 8)} marcado como impresso`);
+      return true;
+    } else {
+      throw new Error(result.error || 'Falha desconhecida');
+    }
   } catch (error) {
     sendToRenderer('log', `✗ Erro ao marcar pedido como impresso: ${error.message}`);
     return false;
