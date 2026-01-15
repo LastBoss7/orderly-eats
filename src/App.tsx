@@ -33,6 +33,7 @@ import Analytics from "./pages/Analytics";
 import TabHistory from "./pages/TabHistory";
 import ClosingHistory from "./pages/ClosingHistory";
 import RestaurantSettings from "./pages/RestaurantSettings";
+import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -102,7 +103,7 @@ const AnimatedRoutes = () => {
           <Route path="/tab-history" element={<TabHistory />} />
           <Route path="/closing-history" element={<ClosingHistory />} />
           <Route path="/restaurant-settings" element={<RestaurantSettings />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>

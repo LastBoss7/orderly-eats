@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { useAdminRole } from '@/hooks/useAdminRole';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import {
   Sidebar,
@@ -56,6 +57,7 @@ import {
   Settings2,
   PanelLeftClose,
   PanelLeft,
+  ShieldCheck,
 } from 'lucide-react';
 
 const mainMenuItems = [
@@ -88,6 +90,7 @@ const bottomMenuItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { profile, restaurant, signOut } = useAuth();
+  const { isAdmin } = useAdminRole();
   const { newDeliveriesCount, markDeliveriesAsViewed } = useSidebarBadges();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === 'collapsed';
@@ -333,6 +336,53 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Panel - Only visible for super admins */}
+        {isAdmin && (
+          <SidebarGroup className="mt-6">
+            {!isCollapsed && (
+              <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
+                Administração
+              </SidebarGroupLabel>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  {isCollapsed ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton
+                          asChild
+                          className={`sidebar-menu-item ${isActive('/admin') ? 'active' : ''}`}
+                        >
+                          <Link to="/admin">
+                            <ShieldCheck className="w-5 h-5 flex-shrink-0" />
+                          </Link>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="bg-popover">
+                        Painel Admin
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <SidebarMenuButton
+                      asChild
+                      className={`sidebar-menu-item ${isActive('/admin') ? 'active' : ''}`}
+                    >
+                      <Link to="/admin">
+                        <ShieldCheck className="w-5 h-5" />
+                        <span className="flex-1">Painel Admin</span>
+                        <Badge variant="outline" className="text-[10px] border-primary text-primary">
+                          Super
+                        </Badge>
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className={`border-t border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
