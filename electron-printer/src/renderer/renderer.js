@@ -112,7 +112,7 @@ async function loadConfig() {
     
     // Load form values
     document.getElementById('printerSelect').value = config.printerName || '';
-    document.getElementById('paperWidth').value = config.paperWidth || 46;
+    document.getElementById('paperWidth').value = config.paperWidth || 48;
     document.getElementById('fontSize').value = config.fontSize || 1;
     document.getElementById('cnpj').value = config.cnpj || '';
     document.getElementById('phone').value = config.phone || '';
@@ -151,7 +151,7 @@ async function saveConfig() {
   try {
     const config = {
       printerName: document.getElementById('printerSelect').value,
-      paperWidth: parseInt(document.getElementById('paperWidth').value) || 46,
+      paperWidth: parseInt(document.getElementById('paperWidth').value) || 48,
       fontSize: parseInt(document.getElementById('fontSize').value) || 1,
       fontType: getRadioValue('fontType'),
       cnpj: document.getElementById('cnpj').value.trim(),
