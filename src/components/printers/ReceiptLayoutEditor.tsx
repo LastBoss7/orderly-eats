@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Loader2, Save, RotateCcw, Eye } from 'lucide-react';
+import { Loader2, Save, RotateCcw, Eye, Printer } from 'lucide-react';
 
 export interface PrintLayout {
   paperSize: '58mm' | '80mm';
@@ -680,13 +680,68 @@ export function ReceiptLayoutEditor() {
       <div className="lg:sticky lg:top-6 h-fit">
         <Card className="overflow-hidden">
           <CardHeader className="pb-3 bg-muted/50">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              Preview do Cupom
-            </CardTitle>
-            <CardDescription>
-              {layout.paperSize} • {layout.paperWidth} caracteres
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Preview do Cupom
+                </CardTitle>
+                <CardDescription>
+                  {layout.paperSize} • {layout.paperWidth} caracteres
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const printWindow = window.open('', '_blank', 'width=400,height=600');
+                  if (printWindow) {
+                    const content = generatePreview();
+                    printWindow.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <title>Cupom de Teste</title>
+                          <style>
+                            @page { 
+                              size: ${layout.paperSize === '58mm' ? '58mm' : '80mm'} auto;
+                              margin: 0;
+                            }
+                            body {
+                              margin: 0;
+                              padding: 8px;
+                              font-family: 'Courier New', Courier, monospace;
+                              font-size: ${layout.fontSize === 'small' ? '10px' : layout.fontSize === 'large' ? '14px' : '12px'};
+                              line-height: 1.3;
+                              background: white;
+                              color: black;
+                            }
+                            pre {
+                              margin: 0;
+                              white-space: pre-wrap;
+                              word-wrap: break-word;
+                            }
+                          </style>
+                        </head>
+                        <body>
+                          <pre>${content}</pre>
+                          <script>
+                            window.onload = function() {
+                              window.print();
+                              setTimeout(function() { window.close(); }, 500);
+                            };
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }
+                }}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir Teste
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="flex justify-center bg-gradient-to-b from-muted/30 to-muted/50 p-6">
