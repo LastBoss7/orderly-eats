@@ -377,6 +377,10 @@ const printingOrders = new Set();
 // Lock to prevent concurrent checkPendingOrders calls
 let isCheckingOrders = false;
 
+// Track last config refresh time
+let lastConfigRefresh = 0;
+const CONFIG_REFRESH_INTERVAL = 60000; // Refresh config every 60 seconds
+
 function startOrderMonitoring() {
   if (checkInterval) {
     clearInterval(checkInterval);
@@ -402,9 +406,13 @@ async function checkPendingOrders() {
   isCheckingOrders = true;
 
   try {
-    // Fetch restaurant info and layout if not cached
-    if (!cachedRestaurantInfo || !cachedPrintLayout) {
+    const now = Date.now();
+    
+    // Refresh restaurant config periodically or if not cached
+    if (!cachedRestaurantInfo || !cachedPrintLayout || (now - lastConfigRefresh > CONFIG_REFRESH_INTERVAL)) {
       await refreshRestaurantConfig(restaurantId);
+      lastConfigRefresh = now;
+      sendToRenderer('log', '↻ Configurações de impressão atualizadas do servidor');
     }
 
     const supabaseUrl = store.get('supabaseUrl');
@@ -498,18 +506,21 @@ async function refreshRestaurantConfig(restaurantId) {
       cachedRestaurantInfo = data.restaurant;
     }
 
-    if (data.settings?.printLayout) {
+    if (data.settings?.printLayout && Object.keys(data.settings.printLayout).length > 0) {
       cachedPrintLayout = { ...defaultLayout, ...data.settings.printLayout };
+      sendToRenderer('log', `✓ Layout de impressão carregado do servidor (${cachedPrintLayout.paperSize}, ${cachedPrintLayout.paperWidth} colunas)`);
     } else {
       cachedPrintLayout = defaultLayout;
+      sendToRenderer('log', `ℹ Usando layout padrão (nenhum salvo no servidor)`);
     }
 
     // Cache printers from config
     if (data.printers) {
       cachedDbPrinters = data.printers;
+      sendToRenderer('log', `✓ ${data.printers.length} impressora(s) configurada(s) no servidor`);
     }
 
-    sendToRenderer('log', `✓ Configurações carregadas: ${cachedRestaurantInfo?.name || 'N/A'}`);
+    sendToRenderer('log', `✓ Restaurante: ${cachedRestaurantInfo?.name || 'N/A'}`);
   } catch (error) {
     sendToRenderer('log', `Erro ao carregar config: ${error.message}`);
     cachedPrintLayout = defaultLayout;
@@ -854,6 +865,32 @@ ipcMain.handle('get-stats', () => {
 
 ipcMain.handle('reconnect', async () => {
   return await initializeSupabase();
+});
+
+ipcMain.handle('refresh-config', async () => {
+  const restaurantId = store.get('restaurantId');
+  if (!restaurantId) {
+    return { success: false, error: 'Restaurant ID não configurado' };
+  }
+  
+  try {
+    // Force cache refresh
+    cachedRestaurantInfo = null;
+    cachedPrintLayout = null;
+    cachedDbPrinters = [];
+    lastConfigRefresh = 0;
+    
+    await refreshRestaurantConfig(restaurantId);
+    
+    return { 
+      success: true, 
+      layout: cachedPrintLayout,
+      restaurant: cachedRestaurantInfo,
+      printers: cachedDbPrinters.length,
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('clear-pending-orders', async () => {

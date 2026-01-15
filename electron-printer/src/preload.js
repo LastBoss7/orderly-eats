@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Stats & Status
   getStats: () => ipcRenderer.invoke('get-stats'),
   reconnect: () => ipcRenderer.invoke('reconnect'),
+  refreshConfig: () => ipcRenderer.invoke('refresh-config'),
   
   // App control
   quit: () => ipcRenderer.invoke('app-quit'),
