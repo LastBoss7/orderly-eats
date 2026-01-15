@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Print
   testPrint: () => ipcRenderer.invoke('test-print'),
+  clearPendingOrders: () => ipcRenderer.invoke('clear-pending-orders'),
   
   // Stats & Status
   getStats: () => ipcRenderer.invoke('get-stats'),

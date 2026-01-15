@@ -21,6 +21,7 @@ document.getElementById('btnConfigurar').addEventListener('click', () => openMod
 document.getElementById('btnPrinters').addEventListener('click', () => openPrintersModal());
 document.getElementById('btnTestPrint').addEventListener('click', testPrint);
 document.getElementById('btnReconnect').addEventListener('click', reconnect);
+document.getElementById('btnClearPending').addEventListener('click', clearPendingOrders);
 document.getElementById('btnQuit').addEventListener('click', () => window.electronAPI.quit());
 document.getElementById('btnLogs').addEventListener('click', openLog);
 document.getElementById('btnAbout').addEventListener('click', () => openModal('aboutModal'));
@@ -269,6 +270,29 @@ async function testPrint() {
   } catch (error) {
     addLog('✗ Erro: ' + error.message, 'error');
     showToast('Erro ao imprimir', 'error');
+  }
+}
+
+async function clearPendingOrders() {
+  if (!confirm('Tem certeza que deseja limpar todos os pedidos pendentes?\n\nEsses pedidos NÃO serão impressos.')) {
+    return;
+  }
+  
+  try {
+    addLog('Limpando fila de pedidos pendentes...', 'info');
+    
+    const result = await window.electronAPI.clearPendingOrders();
+    
+    if (result.success) {
+      addLog(`✓ ${result.cleared} pedido(s) removido(s) da fila`, 'success');
+      showToast(`${result.cleared} pedido(s) removido(s) da fila`, 'success');
+    } else {
+      addLog('✗ Erro: ' + result.error, 'error');
+      showToast('Erro ao limpar fila', 'error');
+    }
+  } catch (error) {
+    addLog('✗ Erro: ' + error.message, 'error');
+    showToast('Erro ao limpar fila', 'error');
   }
 }
 

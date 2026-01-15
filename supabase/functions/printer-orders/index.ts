@@ -223,6 +223,51 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST clear all pending orders (mark as printed without printing)
+    if (req.method === "POST" && action === "clear-pending") {
+      const { data: pendingOrders, error: fetchError } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("restaurant_id", restaurantId)
+        .eq("print_status", "pending");
+
+      if (fetchError) {
+        console.error("Error fetching pending orders:", fetchError);
+        return new Response(
+          JSON.stringify({ error: fetchError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const count = pendingOrders?.length || 0;
+
+      if (count > 0) {
+        const { error: updateError } = await supabase
+          .from("orders")
+          .update({
+            print_status: "skipped",
+            printed_at: new Date().toISOString(),
+          })
+          .eq("restaurant_id", restaurantId)
+          .eq("print_status", "pending");
+
+        if (updateError) {
+          console.error("Error clearing pending orders:", updateError);
+          return new Response(
+            JSON.stringify({ error: updateError.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      console.log(`[printer-orders] Cleared ${count} pending orders for restaurant ${restaurantId}`);
+
+      return new Response(
+        JSON.stringify({ success: true, cleared: count }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

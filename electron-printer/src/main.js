@@ -690,6 +690,41 @@ ipcMain.handle('reconnect', async () => {
   return await initializeSupabase();
 });
 
+ipcMain.handle('clear-pending-orders', async () => {
+  const restaurantId = store.get('restaurantId');
+  if (!restaurantId) {
+    return { success: false, error: 'Restaurant ID não configurado' };
+  }
+  
+  try {
+    const supabaseUrl = store.get('supabaseUrl');
+    
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/printer-orders?restaurant_id=${restaurantId}&action=clear-pending`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': store.get('supabaseKey'),
+        },
+        body: JSON.stringify({}),
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+    
+    const result = await response.json();
+    sendToRenderer('log', `✓ Fila limpa: ${result.cleared} pedido(s)`);
+    return { success: true, cleared: result.cleared };
+  } catch (error) {
+    sendToRenderer('log', `✗ Erro ao limpar fila: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('app-quit', () => {
   app.isQuitting = true;
   app.quit();
