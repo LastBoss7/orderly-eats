@@ -101,6 +101,7 @@ interface Product {
   price_small?: number | null;
   price_medium?: number | null;
   price_large?: number | null;
+  image_url?: string | null;
 }
 
 type ProductSize = 'small' | 'medium' | 'large';
@@ -1778,11 +1779,26 @@ export default function WaiterApp({
               return (
                 <button
                   key={product.id}
-                  className={`flex items-center justify-between p-3 bg-card rounded-xl border text-left transition-all ${
+                  className={`flex items-center gap-3 p-3 bg-card rounded-xl border text-left transition-all ${
                     totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
                   }`}
                   onClick={() => handleProductClick(product)}
                 >
+                  {/* Product Image */}
+                  <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0">
+                    {product.image_url ? (
+                      <img 
+                        src={product.image_url} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Package className="w-6 h-6" />
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="font-medium truncate">{product.name}</p>
@@ -1800,7 +1816,7 @@ export default function WaiterApp({
                         : formatCurrency(product.price ?? 0)}
                     </p>
                   </div>
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ml-2 ${
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                     totalQty > 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
                     {totalQty > 0 ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
