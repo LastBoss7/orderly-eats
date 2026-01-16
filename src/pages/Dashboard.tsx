@@ -19,7 +19,7 @@ import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
@@ -860,22 +860,46 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     };
 
     return (
-      <div 
+      <motion.div 
         ref={setNodeRef} 
         style={style}
-        className={`bg-card rounded-lg border shadow-sm overflow-hidden transition-shadow hover:shadow-md relative ${getCardBorderClass()} ${
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ 
+          opacity: isDragging ? 0.6 : 1, 
+          y: 0, 
+          scale: isDragging ? 1.02 : 1,
+          boxShadow: isDragging 
+            ? '0 20px 40px -12px rgba(0, 0, 0, 0.25)' 
+            : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+        }}
+        whileHover={{ 
+          y: -2, 
+          scale: 1.01,
+          boxShadow: '0 8px 25px -8px rgba(0, 0, 0, 0.15)',
+          transition: { duration: 0.2 }
+        }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 400, 
+          damping: 25,
+          opacity: { duration: 0.2 }
+        }}
+        className={`bg-card rounded-lg border overflow-hidden relative cursor-pointer ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
-        } ${isDragging ? 'shadow-xl z-50' : ''}`}
+        } ${isDragging ? 'z-50 rotate-2' : ''}`}
       >
-        {/* Drag Handle */}
-        <div 
+        {/* Drag Handle with enhanced feedback */}
+        <motion.div 
           {...listeners} 
           {...attributes}
-          className="absolute top-1.5 right-1.5 p-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors z-10"
+          className="absolute top-1.5 right-1.5 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 rounded transition-colors z-10"
           onClick={(e) => e.stopPropagation()}
+          whileHover={{ scale: 1.15, rotate: 15 }}
+          whileTap={{ scale: 0.9 }}
         >
           <GripVertical className="w-3.5 h-3.5" />
-        </div>
+        </motion.div>
 
         {/* Card Content - Clickable area */}
         <div 
@@ -1114,26 +1138,45 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Close Table/Tab Button - Main action for ready/served orders - compact */}
         {showCloseButton && locationInfo && (
-          <div 
+          <motion.div 
             className="px-3 pb-3" 
             onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
           >
-            <Button 
-              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs"
+            <motion.button 
+              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1"
               onClick={() => handleCloseTableFromOrder(order)}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
-              Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
-            </Button>
-          </div>
+              Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'}
+              <motion.span
+                animate={{ x: [0, 3, 0] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              >
+                →
+              </motion.span>
+            </motion.button>
+          </motion.div>
         )}
 
         {/* Action buttons for non-delivery, non-table/tab orders - compact */}
         {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
-          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full h-7 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+          <motion.div 
+            className="px-3 pb-2" 
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.button 
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               onClick={() => {
                 const nextStatus = order.status === 'pending' 
                   ? 'preparing' 
@@ -1144,56 +1187,77 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               }}
             >
               {order.status === 'ready' ? 'Marcar servido' : 'Avançar'}
-              <ArrowRight className="w-3 h-3 ml-1" />
-            </Button>
-          </div>
+              <ArrowRight className="w-3 h-3" />
+            </motion.button>
+          </motion.div>
         )}
 
         {/* Advance button for delivery in pending status - compact */}
         {order.order_type === 'delivery' && order.status === 'pending' && (
-          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full h-7 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+          <motion.div 
+            className="px-3 pb-2" 
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.button 
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               onClick={() => updateOrderStatus(order.id, 'preparing')}
             >
               Aceitar
-              <ArrowRight className="w-3 h-3 ml-1" />
-            </Button>
-          </div>
+              <ArrowRight className="w-3 h-3" />
+            </motion.button>
+          </motion.div>
         )}
 
         {/* Finalize button - only for counter/takeaway orders (not table/tab) - compact */}
         {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
-          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full h-7 text-xs border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+          <motion.div 
+            className="px-3 pb-2" 
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.button 
+              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               onClick={() => updateOrderStatus(order.id, 'delivered')}
             >
-              <CheckCircle className="w-3 h-3 mr-1" />
+              <CheckCircle className="w-3 h-3" />
               Entregue
-            </Button>
-          </div>
+            </motion.button>
+          </motion.div>
         )}
 
         {/* Mark as served button - for table/tab orders in ready status - compact */}
         {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
-          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="w-full h-7 text-xs border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
+          <motion.div 
+            className="px-3 pb-2" 
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.button 
+              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
               onClick={() => updateOrderStatus(order.id, 'served')}
             >
-              <CheckCircle className="w-3 h-3 mr-1" />
+              <CheckCircle className="w-3 h-3" />
               Servido
-            </Button>
-          </div>
+            </motion.button>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     );
   };
 
