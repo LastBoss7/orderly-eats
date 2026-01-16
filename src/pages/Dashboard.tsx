@@ -1158,45 +1158,27 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Close Table/Tab Button - Main action for ready/served orders - compact */}
         {showCloseButton && locationInfo && (
-          <motion.div 
+          <div 
             className="px-3 pb-3" 
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
           >
-            <motion.button 
-              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1"
+            <button 
+              className="w-full bg-sky-500 hover:bg-sky-600 active:scale-[0.98] text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1 transition-all"
               onClick={() => handleCloseTableFromOrder(order)}
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
             >
-              Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'}
-              <motion.span
-                animate={{ x: [0, 3, 0] }}
-                transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-              >
-                →
-              </motion.span>
-            </motion.button>
-          </motion.div>
+              Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
+            </button>
+          </div>
         )}
 
         {/* Action buttons for non-delivery, non-table/tab orders - compact */}
         {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
-          <motion.div 
+          <div 
             className="px-3 pb-2" 
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
           >
-            <motion.button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            <button 
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
               onClick={() => {
                 const nextStatus = order.status === 'pending' 
                   ? 'preparing' 
@@ -1208,74 +1190,56 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             >
               {order.status === 'ready' ? 'Marcar servido' : 'Avançar'}
               <ArrowRight className="w-3 h-3" />
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
 
         {/* Advance button for delivery in pending status - compact */}
         {order.order_type === 'delivery' && order.status === 'pending' && (
-          <motion.div 
+          <div 
             className="px-3 pb-2" 
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
           >
-            <motion.button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            <button 
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
               onClick={() => updateOrderStatus(order.id, 'preparing')}
             >
               Aceitar
               <ArrowRight className="w-3 h-3" />
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
 
         {/* Finalize button - only for counter/takeaway orders (not table/tab) - compact */}
         {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
-          <motion.div 
+          <div 
             className="px-3 pb-2" 
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
           >
-            <motion.button 
-              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            <button 
+              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
               onClick={() => updateOrderStatus(order.id, 'delivered')}
             >
               <CheckCircle className="w-3 h-3" />
               Entregue
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
 
         {/* Mark as served button - for table/tab orders in ready status - compact */}
         {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
-          <motion.div 
+          <div 
             className="px-3 pb-2" 
             onClick={(e) => e.stopPropagation()}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
           >
-            <motion.button 
-              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            <button 
+              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
               onClick={() => updateOrderStatus(order.id, 'served')}
             >
               <CheckCircle className="w-3 h-3" />
               Servido
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         )}
       </motion.div>
     );
