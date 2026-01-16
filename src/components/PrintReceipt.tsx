@@ -43,13 +43,15 @@ export function PrintReceipt({ order, onPrint }: PrintReceiptProps) {
     });
   };
 
+  const printCount = order.print_count ?? 0;
+  
   return (
     <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
       <Printer className="w-4 h-4" />
-      Imprimir
-      {order.print_count && order.print_count > 0 && (
-        <span className="ml-1 text-xs bg-muted px-1.5 py-0.5 rounded-full">
-          {order.print_count}x
+      <span>Imprimir</span>
+      {printCount > 0 && (
+        <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
+          {printCount}x
         </span>
       )}
     </Button>
