@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -306,11 +306,21 @@ export default function Dashboard() {
   }, [restaurant?.id]);
 
   // Auto-accept orders: automatically move pending orders to preparing
+  // Using ref to track processed orders to avoid infinite loops
+  const processedOrdersRef = React.useRef<Set<string>>(new Set());
+
   useEffect(() => {
     if (!autoAccept || !restaurant?.id) return;
 
     const autoAcceptOrders = async () => {
-      const pendingOrders = orders.filter(o => o.status === 'pending');
+      const pendingOrders = orders.filter(o => 
+        o.status === 'pending' && !processedOrdersRef.current.has(o.id)
+      );
+      
+      if (pendingOrders.length === 0) return;
+      
+      // Mark orders as being processed to avoid re-processing
+      pendingOrders.forEach(o => processedOrdersRef.current.add(o.id));
       
       for (const order of pendingOrders) {
         await supabase
@@ -319,14 +329,11 @@ export default function Dashboard() {
           .eq('id', order.id);
       }
       
-      if (pendingOrders.length > 0) {
-        fetchOrders();
-      }
+      fetchOrders();
     };
 
-    // Run immediately when orders change
     autoAcceptOrders();
-  }, [autoAccept, orders.filter(o => o.status === 'pending').length, restaurant?.id]);
+  }, [autoAccept, orders, restaurant?.id]);
 
   const fetchOrders = async () => {
     if (!restaurant?.id) return;
@@ -854,9 +861,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`bg-card rounded-lg border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${getCardBorderClass()} ${
+        className={`bg-card rounded-lg border shadow-sm overflow-hidden transition-shadow hover:shadow-md relative ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
-        } ${isDragging ? 'shadow-xl z-50' : ''} animate-scale-in`}
+        } ${isDragging ? 'shadow-xl z-50' : ''}`}
       >
         {/* Drag Handle */}
         <div 
