@@ -16,6 +16,7 @@ import { Loader2, Save, RotateCcw, Eye, Printer } from 'lucide-react';
 export interface PrintLayout {
   paperSize: '58mm' | '80mm';
   paperWidth: number;
+  paperCut: 'none' | 'partial' | 'full';
   showLogo: boolean;
   showRestaurantName: boolean;
   showAddress: boolean;
@@ -49,6 +50,7 @@ export interface PrintLayout {
 const defaultLayout: PrintLayout = {
   paperSize: '80mm',
   paperWidth: 48,
+  paperCut: 'partial',
   showLogo: false,
   showRestaurantName: true,
   showAddress: false,
@@ -458,7 +460,7 @@ export function ReceiptLayoutEditor() {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Tamanho do Papel</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <RadioGroup
               value={layout.paperSize}
               onValueChange={(val) => handlePaperSizeChange(val as '58mm' | '80mm')}
@@ -482,6 +484,52 @@ export function ReceiptLayoutEditor() {
                 >
                   <span className="text-lg font-semibold">80mm</span>
                   <span className="text-xs text-muted-foreground">48 caracteres</span>
+                </Label>
+              </div>
+            </RadioGroup>
+          </CardContent>
+        </Card>
+
+        {/* Paper Cut */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Corte do Papel</CardTitle>
+            <CardDescription>Como o papel será cortado após a impressão</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={layout.paperCut}
+              onValueChange={(val) => updateLayout('paperCut', val as 'none' | 'partial' | 'full')}
+              className="grid grid-cols-3 gap-3"
+            >
+              <div>
+                <RadioGroupItem value="none" id="cut-none" className="peer sr-only" />
+                <Label
+                  htmlFor="cut-none"
+                  className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer transition-colors"
+                >
+                  <span className="text-sm font-semibold">Sem corte</span>
+                  <span className="text-[10px] text-muted-foreground text-center">Manual</span>
+                </Label>
+              </div>
+              <div>
+                <RadioGroupItem value="partial" id="cut-partial" className="peer sr-only" />
+                <Label
+                  htmlFor="cut-partial"
+                  className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer transition-colors"
+                >
+                  <span className="text-sm font-semibold">Parcial</span>
+                  <span className="text-[10px] text-muted-foreground text-center">Picote</span>
+                </Label>
+              </div>
+              <div>
+                <RadioGroupItem value="full" id="cut-full" className="peer sr-only" />
+                <Label
+                  htmlFor="cut-full"
+                  className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary cursor-pointer transition-colors"
+                >
+                  <span className="text-sm font-semibold">Total</span>
+                  <span className="text-[10px] text-muted-foreground text-center">Completo</span>
                 </Label>
               </div>
             </RadioGroup>

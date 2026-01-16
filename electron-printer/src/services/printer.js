@@ -128,7 +128,7 @@ class PrinterService {
     
     // Fallback to text printing
     const receipt = this.formatReceipt(order, layout, restaurantInfo);
-    return this.printText(receipt, printerName);
+    return this.printText(receipt, printerName, layout);
   }
 
   /**
@@ -367,9 +367,17 @@ class PrinterService {
       buffers.push(Buffer.from(this.removeAccents(layout.footerMessage) + '\n', encoding));
     }
     
-    // Feed and cut
+    // Feed and cut based on layout setting
     buffers.push(lineFeed(4));
-    buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
+    
+    // Paper cut command based on setting
+    const cutType = layout.paperCut || 'partial';
+    if (cutType === 'full') {
+      buffers.push(ESCPOS.PAPER_FULL_CUT);
+    } else if (cutType === 'partial') {
+      buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
+    }
+    // If 'none', don't send any cut command
     
     return Buffer.concat(buffers);
   }
@@ -888,7 +896,7 @@ class PrinterService {
     return lines.join('\n');
   }
 
-  async printText(text, printerName = '') {
+  async printText(text, printerName = '', layout = {}) {
     return new Promise((resolve, reject) => {
       const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
       
@@ -926,9 +934,15 @@ class PrinterService {
         rawData += cleanLine + LF;
       }
       
-      // Add paper cut command
+      // Add paper cut command based on layout setting
       rawData += LF + LF + LF;
-      rawData += GS + 'V\x01'; // Partial cut
+      const cutType = layout.paperCut || 'partial';
+      if (cutType === 'full') {
+        rawData += GS + 'V\x00'; // Full cut
+      } else if (cutType === 'partial') {
+        rawData += GS + 'V\x01'; // Partial cut
+      }
+      // If 'none', don't add any cut command
       
       // Write as binary
       fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
