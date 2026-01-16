@@ -559,32 +559,32 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
         </ScrollArea>
 
         {/* Actions */}
-        <div className="p-4 bg-white border-t space-y-2">
+        <div className="p-4 bg-white border-t space-y-3">
           <Button
-            className="w-full h-12 gap-2"
+            className="w-full h-14 gap-3 bg-white text-gray-900 border-2 border-gray-300 hover:bg-gray-100 active:scale-[0.98] transition-all font-semibold text-base shadow-sm"
             variant="outline"
             onClick={handlePrintReceipt}
             disabled={printing}
           >
             {printing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                <Printer className="w-5 h-5" />
+                <Printer className="w-6 h-6" />
                 Imprimir Conferência
               </>
             )}
           </Button>
           <Button
-            className="w-full h-14 bg-green-600 hover:bg-green-700 text-lg gap-2"
+            className="w-full h-16 bg-green-600 hover:bg-green-700 text-lg gap-3 active:scale-[0.98] transition-all font-bold shadow-md"
             onClick={handleCloseTable}
             disabled={closing}
           >
             {closing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                <Check className="w-5 h-5" />
+                <Check className="w-6 h-6" />
                 Confirmar Pagamento
               </>
             )}
@@ -719,27 +719,27 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
 
       {/* Actions */}
       {orders.length > 0 && (
-        <div className="p-4 bg-white border-t space-y-2">
+        <div className="p-4 bg-white border-t space-y-3">
           <Button
-            className="w-full h-12 gap-2"
+            className="w-full h-14 gap-3 bg-white text-gray-900 border-2 border-gray-300 hover:bg-gray-100 active:scale-[0.98] transition-all font-semibold text-base shadow-sm"
             variant="outline"
             onClick={handlePrintReceipt}
             disabled={printing}
           >
             {printing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                <Printer className="w-5 h-5" />
+                <Printer className="w-6 h-6" />
                 Imprimir Conferência
               </>
             )}
           </Button>
           <Button
-            className="w-full h-14 bg-green-600 hover:bg-green-700 text-lg gap-2"
+            className="w-full h-16 bg-green-600 hover:bg-green-700 text-lg gap-3 active:scale-[0.98] transition-all font-bold shadow-md"
             onClick={() => setShowCloseMode(true)}
           >
-            <Receipt className="w-5 h-5" />
+            <Receipt className="w-6 h-6" />
             Fechar Mesa
           </Button>
         </div>
