@@ -127,7 +127,9 @@ export function OrderCard({
 
   const getOrderDisplayNumber = () => {
     if (order.order_number) {
-      return `#${order.order_number}`;
+      // Ensure we don't double the # if it's already there
+      const numStr = String(order.order_number);
+      return numStr.startsWith('#') ? numStr : `#${numStr}`;
     }
     return `#${order.id.slice(0, 4).toUpperCase()}`;
   };
