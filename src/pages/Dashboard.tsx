@@ -978,7 +978,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 {getOrderTypeIcon(order.order_type)}
               </span>
               <span className="font-semibold text-sm text-foreground">
-                #{getOrderDisplayNumber(order)}
+                {getOrderDisplayNumber(order)}
               </span>
             </div>
             
