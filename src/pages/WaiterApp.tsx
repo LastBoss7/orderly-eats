@@ -751,7 +751,8 @@ export default function WaiterApp({
       }
 
       let customerId = selectedCustomer?.id || null;
-      if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer) {
+      // For delivery/takeaway on public access, skip customer creation (RLS will block it)
+      if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer && !isPublicAccess) {
         const { data: newCustomer, error: customerError } = await supabase
           .from('customers')
           .insert({
@@ -773,32 +774,7 @@ export default function WaiterApp({
         }
       }
 
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          restaurant_id: restaurant?.id,
-          table_id: orderMode === 'table' ? selectedTable?.id : null,
-          tab_id: orderMode === 'tab' ? selectedTab?.id : null,
-          order_type: orderMode === 'tab' ? 'table' : orderMode,
-          status: 'pending',
-          print_status: 'pending', // Always print via Electron
-          total: orderTotal,
-          notes: orderNotes || null,
-          customer_id: customerId,
-          customer_name: orderMode === 'tab' ? selectedTab?.customer_name : (orderMode !== 'table' ? deliveryForm.customerName : null),
-          delivery_address: orderMode === 'delivery' ? fullAddress : null,
-          delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
-          delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
-          waiter_id: selectedWaiter?.id || null,
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
       const orderItems = cart.map(item => ({
-        restaurant_id: restaurant?.id,
-        order_id: order.id,
         product_id: item.product.id,
         product_name: item.size 
           ? `${item.product.name} (${getSizeLabel(item.size)})`
@@ -809,11 +785,28 @@ export default function WaiterApp({
         product_size: item.size || null,
       }));
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
+      // Use waiterData.createOrder which uses edge function for public access
+      const orderData = {
+        table_id: orderMode === 'table' ? selectedTable?.id : null,
+        tab_id: orderMode === 'tab' ? selectedTab?.id : null,
+        order_type: orderMode === 'tab' ? 'table' : orderMode,
+        print_status: 'pending',
+        total: orderTotal,
+        notes: orderNotes || null,
+        customer_id: customerId,
+        customer_name: orderMode === 'tab' ? selectedTab?.customer_name : (orderMode !== 'table' ? deliveryForm.customerName : null),
+        delivery_address: orderMode === 'delivery' ? fullAddress : null,
+        delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
+        delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
+        waiter_id: selectedWaiter?.id || null,
+        items: orderItems,
+      };
 
-      if (itemsError) throw itemsError;
+      const result = await waiterData.createOrder(orderData);
+      
+      if (!result.success) {
+        throw new Error('Falha ao criar pedido');
+      }
 
       const successMessage = orderMode === 'table'
         ? `Pedido da Mesa ${selectedTable?.number} enviado!`
@@ -825,13 +818,13 @@ export default function WaiterApp({
 
       toast.success(successMessage);
 
-      // Refresh tables
-      const [tablesRes, tabsRes] = await Promise.all([
-        supabase.from('tables').select('*').order('number'),
-        supabase.from('tabs').select('*').order('number'),
+      // Refresh tables using the hook
+      const [tablesData, tabsData] = await Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchTabs(),
       ]);
-      setTables((tablesRes.data || []) as Table[]);
-      setTabs((tabsRes.data || []) as Tab[]);
+      setTables(tablesData as Table[]);
+      setTabs(tabsData as Tab[]);
 
       setView('tables');
       setSelectedTable(null);
@@ -874,24 +867,14 @@ export default function WaiterApp({
     
     setClosingTable(true);
     try {
-      // Update all orders to delivered
-      for (const order of tableOrders) {
-        await supabase
-          .from('orders')
-          .update({ 
-            status: 'delivered',
-            payment_method: paymentMethod,
-            cash_received: paymentMethod === 'cash' ? cashReceived : null,
-            change_given: paymentMethod === 'cash' && cashReceived > tableTotal ? cashReceived - tableTotal : null,
-          })
-          .eq('id', order.id);
-      }
-      
-      // Set table to available
-      await supabase
-        .from('tables')
-        .update({ status: 'available' })
-        .eq('id', selectedTable.id);
+      // Use waiterData.closeOrders which uses edge function for public access
+      await waiterData.closeOrders({
+        order_ids: tableOrders.map(o => o.id),
+        table_id: selectedTable.id,
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
+        change_given: paymentMethod === 'cash' && cashReceived > tableTotal ? cashReceived - tableTotal : undefined,
+      });
       
       toast.success(`Mesa ${selectedTable.number} fechada com sucesso!`);
       setShowCloseModal(false);
@@ -899,9 +882,9 @@ export default function WaiterApp({
       setSelectedTable(null);
       setTableOrders([]);
       
-      // Refresh tables
-      const { data } = await supabase.from('tables').select('*').order('number');
-      setTables((data || []) as Table[]);
+      // Refresh tables using the hook
+      const tablesData = await waiterData.fetchTables();
+      setTables(tablesData as Table[]);
     } catch (error: any) {
       toast.error('Erro ao fechar mesa');
     } finally {
