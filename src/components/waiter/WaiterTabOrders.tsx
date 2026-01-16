@@ -56,6 +56,7 @@ type SplitMode = 'none' | 'equal';
 
 export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersProps) {
   const { restaurant } = useAuth();
+  const { printConference } = usePrintToElectron();
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,17 +299,19 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
     setPrinting(true);
     
     try {
-      const receiptContent = generateReceiptHTML();
-      const printWindow = window.open('', '_blank', 'width=400,height=700');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      }
-      toast.success('Conferência enviada para impressão!');
+      // Send to Electron app for thermal printing
+      await printConference({
+        entityType: 'tab',
+        entityNumber: tab.number,
+        customerName: tab.customer_name,
+        items: allItems.map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          product_price: item.product_price,
+        })),
+        total: grandTotal,
+        splitCount: splitMode === 'equal' ? numPeople : 1,
+      });
     } catch (error) {
       console.error('Error printing receipt:', error);
       toast.error('Erro ao imprimir conferência');

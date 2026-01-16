@@ -317,7 +317,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           tab_id: isTab ? targetId : null,
           order_type: orderType,
           status: 'pending',
-          print_status: shouldPrint ? 'pending' : 'disabled',
+          print_status: 'pending', // Always print via Electron
           total: cartTotal,
         })
         .select()
