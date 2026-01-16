@@ -907,151 +907,196 @@ class PrinterService {
     return lines.join('\n');
   }
 
+  /**
+   * Print text to thermal printer using RAW mode
+   * This is the core printing method - must work reliably!
+   */
   async printText(text, printerName = '', layout = {}) {
-    return new Promise((resolve, reject) => {
-      const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
-      
-      // Build raw ESC/POS text with proper line feeds
-      // ESC @ = Initialize printer
-      // Each line ends with LF (0x0A)
-      const ESC = '\x1B';
-      const LF = '\x0A';
-      const GS = '\x1D';
-      
-      // Initialize printer + set character table to PC850
-      let rawData = ESC + '@'; // Initialize
-      rawData += ESC + 't\x02'; // Select character table (CP850)
-      
-      // Convert text - replace \n with LF
-      const lines = text.split('\n');
-      for (const line of lines) {
-        // Remove accents for thermal printer compatibility
-        const cleanLine = line
-          .replace(/[áàâãä]/g, 'a')
-          .replace(/[ÁÀÂÃÄ]/g, 'A')
-          .replace(/[éèêë]/g, 'e')
-          .replace(/[ÉÈÊË]/g, 'E')
-          .replace(/[íìîï]/g, 'i')
-          .replace(/[ÍÌÎÏ]/g, 'I')
-          .replace(/[óòôõö]/g, 'o')
-          .replace(/[ÓÒÔÕÖ]/g, 'O')
-          .replace(/[úùûü]/g, 'u')
-          .replace(/[ÚÙÛÜ]/g, 'U')
-          .replace(/ç/g, 'c')
-          .replace(/Ç/g, 'C')
-          .replace(/ñ/g, 'n')
-          .replace(/Ñ/g, 'N');
+    console.log('[PrintText] Starting print...');
+    console.log('[PrintText] Printer:', printerName || 'default');
+    console.log('[PrintText] Platform:', this.platform);
+    
+    // Build raw ESC/POS data
+    const rawData = this.buildRawPrintData(text, layout);
+    
+    if (this.platform === 'win32') {
+      return this.printRawWindows(rawData, printerName);
+    } else {
+      return this.printRawUnix(rawData, printerName);
+    }
+  }
+
+  /**
+   * Build raw ESC/POS data from text
+   */
+  buildRawPrintData(text, layout = {}) {
+    const ESC = '\x1B';
+    const LF = '\x0A';
+    const GS = '\x1D';
+    
+    // Initialize printer + set character table to PC850
+    let rawData = ESC + '@'; // Initialize
+    rawData += ESC + 't\x02'; // Select character table (CP850)
+    
+    // Convert text - replace \n with LF and remove accents
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const cleanLine = this.removeAccents(line);
+      rawData += cleanLine + LF;
+    }
+    
+    // Add paper cut command
+    rawData += LF + LF + LF;
+    const cutType = layout.paperCut || 'partial';
+    if (cutType === 'full') {
+      rawData += GS + 'V\x00'; // Full cut
+    } else if (cutType === 'partial') {
+      rawData += GS + 'V\x01'; // Partial cut
+    }
+    
+    return rawData;
+  }
+
+  /**
+   * Print raw data on Windows using multiple fallback methods
+   */
+  async printRawWindows(rawData, printerName) {
+    const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
+    
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Write raw data to temp file
+        fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
+        console.log('[PrintText] Temp file created:', tmpFile);
         
-        rawData += cleanLine + LF;
-      }
-      
-      // Add paper cut command based on layout setting
-      rawData += LF + LF + LF;
-      const cutType = layout.paperCut || 'partial';
-      if (cutType === 'full') {
-        rawData += GS + 'V\x00'; // Full cut
-      } else if (cutType === 'partial') {
-        rawData += GS + 'V\x01'; // Partial cut
-      }
-      // If 'none', don't add any cut command
-      
-      // Write as binary
-      fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
-      
-      console.log('[PrintText] File saved:', tmpFile);
-      console.log('[PrintText] Printer:', printerName || 'default');
-      console.log('[PrintText] Lines count:', lines.length);
-      
-      if (this.platform === 'win32') {
-        // Use RAW mode printing for thermal printers on Windows
-        // Method 1: Use copy command to send raw data to printer
-        const escapedPrinter = printerName ? printerName.replace(/"/g, '') : '';
+        const escapedPrinter = printerName ? printerName.replace(/"/g, '').replace(/'/g, '') : '';
         
-        if (escapedPrinter) {
-          // Try direct copy to printer port (works with USB printers)
-          const copyCmd = `copy /b "${tmpFile}" "\\\\%COMPUTERNAME%\\${escapedPrinter}"`;
-          
-          exec(copyCmd, { shell: 'cmd.exe' }, (error) => {
-            if (error) {
-              console.log('[PrintText] Copy failed, trying print command...');
-              // Fallback to print command
-              const printCmd = `print /D:"${escapedPrinter}" "${tmpFile}"`;
-              
-              exec(printCmd, { encoding: 'buffer' }, (printError) => {
-                setTimeout(() => {
-                  try { fs.unlinkSync(tmpFile); } catch (e) {}
-                }, 2000);
-                
-                if (printError) {
-                  console.error('[PrintText] Print command also failed:', printError.message);
-                  // Final fallback: PowerShell Out-Printer
-                  const escapedName = printerName.replace(/'/g, "''");
-                  const psCommand = `Get-Content -Path '${tmpFile}' -Encoding Byte -ReadCount 0 | Set-Content -Path '\\\\localhost\\${escapedName}' -Encoding Byte`;
-                  
-                  exec(`powershell -Command "${psCommand}"`, (psError) => {
-                    setTimeout(() => {
-                      try { fs.unlinkSync(tmpFile); } catch (e) {}
-                    }, 2000);
-                    
-                    if (psError) {
-                      // Very last fallback - use Out-Printer
-                      const simplePsCmd = `Get-Content -Path '${tmpFile}' -Raw | Out-Printer -Name '${escapedName}'`;
-                      exec(`powershell -Command "${simplePsCmd}"`, (finalError) => {
-                        setTimeout(() => {
-                          try { fs.unlinkSync(tmpFile); } catch (e) {}
-                        }, 2000);
-                        
-                        if (finalError) {
-                          reject(new Error(`Erro ao imprimir: ${finalError.message}`));
-                        } else {
-                          resolve(true);
-                        }
-                      });
-                    } else {
-                      resolve(true);
-                    }
-                  });
-                } else {
-                  resolve(true);
-                }
-              });
-            } else {
-              setTimeout(() => {
-                try { fs.unlinkSync(tmpFile); } catch (e) {}
-              }, 2000);
-              resolve(true);
-            }
-          });
-        } else {
-          // No printer specified, use default
-          exec(`print "${tmpFile}"`, (error) => {
-            setTimeout(() => {
-              try { fs.unlinkSync(tmpFile); } catch (e) {}
-            }, 2000);
-            
-            if (error) {
-              reject(new Error(`Erro ao imprimir: ${error.message}`));
-            } else {
-              resolve(true);
-            }
-          });
+        if (!escapedPrinter) {
+          // No specific printer - use default
+          console.log('[PrintText] Using default printer...');
+          await this.execWithTimeout(`print "${tmpFile}"`, 10000);
+          this.cleanupFile(tmpFile);
+          resolve(true);
+          return;
         }
-      } else {
-        // Linux/Mac - use lp with raw option
-        const printerParam = printerName ? `-d "${printerName}"` : '';
-        exec(`lp -o raw ${printerParam} "${tmpFile}"`, (error) => {
-          setTimeout(() => {
-            try { fs.unlinkSync(tmpFile); } catch (e) {}
-          }, 2000);
-          
-          if (error) {
-            reject(new Error(`Erro ao imprimir: ${error.message}`));
-          } else {
+        
+        console.log('[PrintText] Trying to print to:', escapedPrinter);
+        
+        // Try multiple methods in order of reliability
+        const methods = [
+          // Method 1: Direct file redirection (most reliable for shared printers)
+          () => this.execWithTimeout(`type "${tmpFile}" > "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 8000),
+          // Method 2: Copy /b (works for local USB printers)
+          () => this.execWithTimeout(`copy /b "${tmpFile}" "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 8000),
+          // Method 3: Print command
+          () => this.execWithTimeout(`print /D:"${escapedPrinter}" "${tmpFile}"`, 10000),
+          // Method 4: PowerShell Out-Printer
+          () => this.execWithTimeout(
+            `powershell -Command "Get-Content -Path '${tmpFile}' -Raw | Out-Printer -Name '${escapedPrinter}'"`, 
+            15000
+          ),
+          // Method 5: PowerShell with raw bytes
+          () => this.execWithTimeout(
+            `powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('${tmpFile}'); ` +
+            `$printer = New-Object System.Drawing.Printing.PrintDocument; ` +
+            `$printer.PrinterSettings.PrinterName = '${escapedPrinter}'; ` +
+            `if ($printer.PrinterSettings.IsValid) { ` +
+            `  $stream = $printer.PrinterSettings.CreateMeasurementGraphics(); ` +
+            `  Write-Output 'Printer valid'; ` +
+            `  Get-Content -Path '${tmpFile}' -Raw | Out-Printer -Name '${escapedPrinter}' ` +
+            `} else { Write-Error 'Invalid printer' }"`,
+            15000
+          ),
+        ];
+        
+        let lastError = null;
+        for (let i = 0; i < methods.length; i++) {
+          try {
+            console.log(`[PrintText] Trying method ${i + 1}...`);
+            await methods[i]();
+            console.log(`[PrintText] Method ${i + 1} succeeded!`);
+            this.cleanupFile(tmpFile);
             resolve(true);
+            return;
+          } catch (error) {
+            console.log(`[PrintText] Method ${i + 1} failed:`, error.message);
+            lastError = error;
           }
-        });
+        }
+        
+        // All methods failed
+        this.cleanupFile(tmpFile);
+        reject(new Error(`Todas as tentativas de impressão falharam. Último erro: ${lastError?.message || 'desconhecido'}`));
+        
+      } catch (error) {
+        this.cleanupFile(tmpFile);
+        reject(error);
       }
     });
+  }
+
+  /**
+   * Print raw data on Unix (Linux/Mac)
+   */
+  async printRawUnix(rawData, printerName) {
+    const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
+    
+    return new Promise(async (resolve, reject) => {
+      try {
+        fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
+        
+        const printerParam = printerName ? `-d "${printerName}"` : '';
+        await this.execWithTimeout(`lp -o raw ${printerParam} "${tmpFile}"`, 10000);
+        
+        this.cleanupFile(tmpFile);
+        resolve(true);
+      } catch (error) {
+        this.cleanupFile(tmpFile);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Execute command with timeout
+   */
+  execWithTimeout(command, timeout) {
+    return new Promise((resolve, reject) => {
+      console.log('[PrintText] Executing:', command.substring(0, 100) + '...');
+      
+      const proc = exec(command, { 
+        shell: 'cmd.exe', 
+        encoding: 'buffer',
+        timeout: timeout,
+      }, (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(true);
+        }
+      });
+      
+      // Force timeout
+      setTimeout(() => {
+        try { proc.kill(); } catch (e) {}
+        reject(new Error('Timeout: comando de impressão demorou muito'));
+      }, timeout);
+    });
+  }
+
+  /**
+   * Cleanup temp file
+   */
+  cleanupFile(filePath) {
+    setTimeout(() => {
+      try { 
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath); 
+        }
+      } catch (e) {
+        console.log('[PrintText] Cleanup failed:', e.message);
+      }
+    }, 3000);
   }
 
   // ============================================
