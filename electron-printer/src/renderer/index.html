@@ -328,6 +328,28 @@
 
   <hr class="divider">
 
+  <!-- Network Printer Section -->
+  <div style="background: #e8f4e8; border: 1px solid #4caf50; padding: 8px; margin-bottom: 10px;">
+    <div style="font-weight: bold; margin-bottom: 6px; color: #2e7d32;">
+      🌐 Impressora de Rede (TCP/IP)
+    </div>
+    <div class="form-row">
+      <label class="form-label">IP:</label>
+      <input type="text" id="networkIp" class="form-input" placeholder="192.168.1.100" style="flex: 1;">
+      <span style="padding: 0 4px;">:</span>
+      <input type="number" id="networkPort" class="form-number" value="9100" min="1" max="65535" style="width: 60px;">
+    </div>
+    <div class="form-row">
+      <label class="form-label"></label>
+      <button class="btn" onclick="testNetworkConnection()" title="Testar conexão">🔌 Testar</button>
+      <button class="btn" onclick="testNetworkPrint()" title="Imprimir página de teste">🖨️ Imprimir</button>
+      <button class="btn" onclick="scanNetworkPrinters()" title="Buscar impressoras na rede">🔍 Buscar</button>
+    </div>
+    <div id="networkStatus" style="font-size: 10px; color: #666; margin-top: 4px; display: none;"></div>
+  </div>
+
+  <hr class="divider">
+
   <!-- Main Form -->
   <div class="form-row">
     <label class="form-label">Impressora:</label>
