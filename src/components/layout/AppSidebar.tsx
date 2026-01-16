@@ -59,7 +59,7 @@ import {
   PanelLeft,
   ShieldCheck,
 } from 'lucide-react';
-import logoGamako from '@/assets/logo-gamako.png';
+import logoGamako from '@/assets/logo-gamako-white-full.png';
 import logoGamakoIcon from '@/assets/logo-gamako-icon.png';
 
 const mainMenuItems = [
@@ -156,14 +156,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 bg-sidebar-background">
-      <SidebarHeader className={`border-b border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
+      <SidebarHeader className={`border-b border-sidebar-border ${isCollapsed ? 'p-2' : 'p-5'}`}>
         {/* Logo */}
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} mb-3`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} ${isCollapsed ? 'mb-0' : 'mb-4'}`}>
           <Link to="/dashboard" className="flex items-center">
             {isCollapsed ? (
               <img src={logoGamakoIcon} alt="Gamako" className="h-8 w-8 object-contain" />
             ) : (
-              <img src={logoGamako} alt="Gamako" className="h-10 object-contain" />
+              <img src={logoGamako} alt="Gamako" className="h-16 object-contain animate-fade-in-up" />
             )}
           </Link>
           {!isCollapsed && (
