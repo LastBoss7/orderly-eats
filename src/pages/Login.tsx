@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
-import logoGamako from '@/assets/logo-gamako.png';
+import logoGamako from '@/assets/logo-gamako-full.png';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
