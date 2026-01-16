@@ -300,17 +300,31 @@ export function CheckoutScreen({
   };
 
   const handleCloseAccount = async () => {
-    if (payments.length === 0 && !currentPaymentMethod) {
+    // Calculate what will be the final payments array
+    let finalPayments = [...payments];
+    
+    // If there's a pending payment being added, include it in calculations
+    if (currentPaymentMethod && currentPaymentAmount > 0) {
+      const newPayment: PaymentEntry = {
+        id: crypto.randomUUID(),
+        method: currentPaymentMethod,
+        amount: Math.min(currentPaymentAmount, remaining),
+        cashReceived: currentPaymentMethod === 'cash' ? cashReceived : undefined,
+      };
+      finalPayments = [...payments, newPayment];
+      setPayments(finalPayments);
+      setCurrentPaymentMethod(null);
+      setCurrentPaymentAmount(0);
+      setCashReceived(0);
+    }
+
+    if (finalPayments.length === 0) {
       toast.error('Adicione pelo menos uma forma de pagamento');
       return;
     }
 
-    // If there's a pending payment being added, add it first
-    if (currentPaymentMethod && currentPaymentAmount > 0) {
-      addPayment();
-    }
-
-    if (remaining > 0.01 && payments.length === 0) {
+    const totalPaid = finalPayments.reduce((sum, p) => sum + p.amount, 0);
+    if (totalPaid < totalWithModifiers - 0.01) {
       toast.error('O valor pago não cobre o total');
       return;
     }
@@ -319,9 +333,9 @@ export function CheckoutScreen({
     
     try {
       // Combine all payment methods into a string
-      const paymentMethods = payments.map(p => p.method).join(',');
-      const totalCashReceived = payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + (p.cashReceived || 0), 0);
-      const totalChange = payments.filter(p => p.method === 'cash').reduce((sum, p) => {
+      const paymentMethods = finalPayments.map(p => p.method).join(',');
+      const totalCashReceived = finalPayments.filter(p => p.method === 'cash').reduce((sum, p) => sum + (p.cashReceived || 0), 0);
+      const totalChange = finalPayments.filter(p => p.method === 'cash').reduce((sum, p) => {
         const received = p.cashReceived || 0;
         return sum + Math.max(0, received - p.amount);
       }, 0);
@@ -332,7 +346,7 @@ export function CheckoutScreen({
           .from('orders')
           .update({ 
             status: 'delivered',
-            payment_method: paymentMethods || payments[0]?.method,
+            payment_method: paymentMethods || finalPayments[0]?.method,
             closed_at: new Date().toISOString(),
             cash_received: totalCashReceived > 0 ? totalCashReceived : null,
             change_given: totalChange > 0 ? totalChange : null,
