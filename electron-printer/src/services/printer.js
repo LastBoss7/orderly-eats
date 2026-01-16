@@ -908,125 +908,189 @@ class PrinterService {
   }
 
   /**
-   * Print text to thermal printer using RAW mode
-   * This is the core printing method - must work reliably!
+   * Print text to thermal printer using RAW ESC/POS mode
+   * This method sends bytes DIRECTLY to the printer port - like Anota AI, Saipos, iFood
+   * The printer uses its internal fonts (super sharp!)
    */
   async printText(text, printerName = '', layout = {}) {
-    console.log('[PrintText] Starting print...');
+    console.log('[PrintText] ========================================');
+    console.log('[PrintText] RAW ESC/POS PRINTING (Professional Mode)');
     console.log('[PrintText] Printer:', printerName || 'default');
     console.log('[PrintText] Platform:', this.platform);
     
-    // Build raw ESC/POS data
-    const rawData = this.buildRawPrintData(text, layout);
+    // Build raw ESC/POS data (pure bytes)
+    const rawData = this.buildRawEscPosData(text, layout);
+    
+    console.log('[PrintText] Data size:', rawData.length, 'bytes');
     
     if (this.platform === 'win32') {
-      return this.printRawWindows(rawData, printerName);
+      return this.printRawWindows(rawData, printerName, layout);
     } else {
       return this.printRawUnix(rawData, printerName);
     }
   }
 
   /**
-   * Build raw ESC/POS data from text
+   * Build RAW ESC/POS data buffer - Pure bytes for thermal printer
+   * This is what makes the print SHARP - uses printer's internal font
    */
-  buildRawPrintData(text, layout = {}) {
-    const ESC = '\x1B';
-    const LF = '\x0A';
-    const GS = '\x1D';
+  buildRawEscPosData(text, layout = {}) {
+    const buffers = [];
+    const width = layout.paperWidth || 48;
     
-    // Initialize printer + set character table to PC850
-    let rawData = ESC + '@'; // Initialize
-    rawData += ESC + 't\x02'; // Select character table (CP850)
+    // ESC/POS Commands (pure bytes)
+    const ESC = 0x1B;
+    const GS = 0x1D;
+    const LF = 0x0A;
     
-    // Convert text - replace \n with LF and remove accents
+    // Initialize printer (ESC @)
+    buffers.push(Buffer.from([ESC, 0x40]));
+    
+    // Select character code table: PC850 Multilingual (ESC t n)
+    buffers.push(Buffer.from([ESC, 0x74, 0x02]));
+    
+    // Set line spacing to default (ESC 2)
+    buffers.push(Buffer.from([ESC, 0x32]));
+    
+    // Convert text lines to ESC/POS
     const lines = text.split('\n');
     for (const line of lines) {
-      const cleanLine = this.removeAccents(line);
-      rawData += cleanLine + LF;
+      // Remove accents for thermal printer compatibility
+      const cleanLine = this.removeAccentsForPrinter(line);
+      
+      // Convert to buffer with proper encoding
+      const lineBuffer = Buffer.from(cleanLine, 'latin1');
+      buffers.push(lineBuffer);
+      buffers.push(Buffer.from([LF])); // Line feed
     }
     
-    // Add paper cut command
-    rawData += LF + LF + LF;
+    // Feed paper before cut
+    buffers.push(Buffer.from([LF, LF, LF, LF]));
+    
+    // Paper cut command
     const cutType = layout.paperCut || 'partial';
     if (cutType === 'full') {
-      rawData += GS + 'V\x00'; // Full cut
+      // GS V 0 - Full cut
+      buffers.push(Buffer.from([GS, 0x56, 0x00]));
     } else if (cutType === 'partial') {
-      rawData += GS + 'V\x01'; // Partial cut
+      // GS V 1 - Partial cut
+      buffers.push(Buffer.from([GS, 0x56, 0x01]));
     }
+    // If 'none', no cut command
     
-    return rawData;
+    return Buffer.concat(buffers);
   }
 
   /**
-   * Print raw data on Windows using multiple fallback methods
+   * Remove accents - optimized for thermal printer code pages
    */
-  async printRawWindows(rawData, printerName) {
-    const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
+  removeAccentsForPrinter(str) {
+    if (!str) return '';
+    return str
+      .replace(/[áàâãä]/g, 'a')
+      .replace(/[ÁÀÂÃÄ]/g, 'A')
+      .replace(/[éèêë]/g, 'e')
+      .replace(/[ÉÈÊË]/g, 'E')
+      .replace(/[íìîï]/g, 'i')
+      .replace(/[ÍÌÎÏ]/g, 'I')
+      .replace(/[óòôõö]/g, 'o')
+      .replace(/[ÓÒÔÕÖ]/g, 'O')
+      .replace(/[úùûü]/g, 'u')
+      .replace(/[ÚÙÛÜ]/g, 'U')
+      .replace(/ç/g, 'c')
+      .replace(/Ç/g, 'C')
+      .replace(/ñ/g, 'n')
+      .replace(/Ñ/g, 'N')
+      .replace(/[^\x00-\x7F]/g, ''); // Remove any other non-ASCII
+  }
+
+  /**
+   * Print RAW data on Windows - Direct port communication
+   * This is how professional POS systems work!
+   */
+  async printRawWindows(rawData, printerName, layout = {}) {
+    const tmpFile = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
     
     return new Promise(async (resolve, reject) => {
       try {
-        // Write raw data to temp file
-        fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
-        console.log('[PrintText] Temp file created:', tmpFile);
+        // Write raw binary data
+        fs.writeFileSync(tmpFile, rawData);
+        console.log('[PrintText] Binary file created:', tmpFile, '- Size:', rawData.length, 'bytes');
         
         const escapedPrinter = printerName ? printerName.replace(/"/g, '').replace(/'/g, '') : '';
         
         if (!escapedPrinter) {
-          // No specific printer - use default
-          console.log('[PrintText] Using default printer...');
-          await this.execWithTimeout(`print "${tmpFile}"`, 10000);
+          console.log('[PrintText] ERROR: No printer specified!');
           this.cleanupFile(tmpFile);
-          resolve(true);
+          reject(new Error('Nenhuma impressora especificada'));
           return;
         }
         
-        console.log('[PrintText] Trying to print to:', escapedPrinter);
+        console.log('[PrintText] Target printer:', escapedPrinter);
         
-        // Try multiple methods in order of reliability
+        // Try RAW printing methods in order of reliability
+        // These methods send bytes DIRECTLY to the printer port
         const methods = [
-          // Method 1: Direct file redirection (most reliable for shared printers)
-          () => this.execWithTimeout(`type "${tmpFile}" > "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 8000),
-          // Method 2: Copy /b (works for local USB printers)
-          () => this.execWithTimeout(`copy /b "${tmpFile}" "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 8000),
-          // Method 3: Print command
-          () => this.execWithTimeout(`print /D:"${escapedPrinter}" "${tmpFile}"`, 10000),
-          // Method 4: PowerShell Out-Printer
-          () => this.execWithTimeout(
-            `powershell -Command "Get-Content -Path '${tmpFile}' -Raw | Out-Printer -Name '${escapedPrinter}'"`, 
-            15000
-          ),
-          // Method 5: PowerShell with raw bytes
-          () => this.execWithTimeout(
-            `powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('${tmpFile}'); ` +
-            `$printer = New-Object System.Drawing.Printing.PrintDocument; ` +
-            `$printer.PrinterSettings.PrinterName = '${escapedPrinter}'; ` +
-            `if ($printer.PrinterSettings.IsValid) { ` +
-            `  $stream = $printer.PrinterSettings.CreateMeasurementGraphics(); ` +
-            `  Write-Output 'Printer valid'; ` +
-            `  Get-Content -Path '${tmpFile}' -Raw | Out-Printer -Name '${escapedPrinter}' ` +
-            `} else { Write-Error 'Invalid printer' }"`,
-            15000
-          ),
+          // Method 1: PowerShell RawPrinterHelper (most reliable for RAW)
+          {
+            name: 'PowerShell RAW Direct',
+            fn: () => this.printRawPowerShell(tmpFile, escapedPrinter),
+          },
+          // Method 2: Direct file write to printer share
+          {
+            name: 'UNC Share Copy',
+            fn: () => this.execWithTimeout(
+              `copy /b "${tmpFile}" "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 
+              10000
+            ),
+          },
+          // Method 3: Type redirect
+          {
+            name: 'Type Redirect',
+            fn: () => this.execWithTimeout(
+              `type "${tmpFile}" > "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 
+              10000
+            ),
+          },
+          // Method 4: Net use + copy (for network printers)
+          {
+            name: 'NET USE + LPT1',
+            fn: () => this.printViaNetUse(tmpFile, escapedPrinter),
+          },
+          // Method 5: PowerShell Out-Printer (last resort - may not be truly RAW)
+          {
+            name: 'PowerShell Out-Printer',
+            fn: () => this.execWithTimeout(
+              `powershell -Command "Get-Content -Path '${tmpFile}' -Encoding Byte -ReadCount 0 | ` +
+              `Set-Content -Path '\\\\localhost\\${escapedPrinter}' -Encoding Byte"`,
+              15000
+            ),
+          },
         ];
         
+        let success = false;
         let lastError = null;
-        for (let i = 0; i < methods.length; i++) {
+        
+        for (const method of methods) {
           try {
-            console.log(`[PrintText] Trying method ${i + 1}...`);
-            await methods[i]();
-            console.log(`[PrintText] Method ${i + 1} succeeded!`);
-            this.cleanupFile(tmpFile);
-            resolve(true);
-            return;
+            console.log(`[PrintText] Trying: ${method.name}...`);
+            await method.fn();
+            console.log(`[PrintText] SUCCESS with: ${method.name}`);
+            success = true;
+            break;
           } catch (error) {
-            console.log(`[PrintText] Method ${i + 1} failed:`, error.message);
+            console.log(`[PrintText] FAILED: ${method.name} -`, error.message);
             lastError = error;
           }
         }
         
-        // All methods failed
         this.cleanupFile(tmpFile);
-        reject(new Error(`Todas as tentativas de impressão falharam. Último erro: ${lastError?.message || 'desconhecido'}`));
+        
+        if (success) {
+          resolve(true);
+        } else {
+          reject(new Error(`Falha em todos os métodos. Último: ${lastError?.message || 'desconhecido'}`));
+        }
         
       } catch (error) {
         this.cleanupFile(tmpFile);
@@ -1036,15 +1100,159 @@ class PrinterService {
   }
 
   /**
-   * Print raw data on Unix (Linux/Mac)
+   * Print using PowerShell RawPrinterHelper (TRUE RAW printing)
+   * This sends bytes directly to the printer spooler in RAW mode
+   */
+  async printRawPowerShell(filePath, printerName) {
+    // This PowerShell script sends RAW bytes to the printer
+    // It's equivalent to what professional POS systems do
+    const psScript = `
+$printerName = '${printerName}'
+$filePath = '${filePath}'
+
+# Read raw bytes
+$bytes = [System.IO.File]::ReadAllBytes($filePath)
+
+# Open printer in RAW mode
+$printerHandle = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($printerName)
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class RawPrinter {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DOCINFO {
+        [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
+        [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
+        [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
+    }
+
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool StartDocPrinter(IntPtr hPrinter, int Level, ref DOCINFO pDocInfo);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool StartPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool EndPagePrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool EndDocPrinter(IntPtr hPrinter);
+
+    [DllImport("winspool.drv", SetLastError = true)]
+    public static extern bool ClosePrinter(IntPtr hPrinter);
+
+    public static bool SendRawData(string printerName, byte[] data) {
+        IntPtr hPrinter;
+        if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {
+            throw new Exception("Falha ao abrir impressora: " + Marshal.GetLastWin32Error());
+        }
+
+        var docInfo = new DOCINFO { 
+            pDocName = "RAW Document", 
+            pOutputFile = null, 
+            pDataType = "RAW" 
+        };
+
+        if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {
+            ClosePrinter(hPrinter);
+            throw new Exception("Falha ao iniciar documento: " + Marshal.GetLastWin32Error());
+        }
+
+        if (!StartPagePrinter(hPrinter)) {
+            EndDocPrinter(hPrinter);
+            ClosePrinter(hPrinter);
+            throw new Exception("Falha ao iniciar pagina: " + Marshal.GetLastWin32Error());
+        }
+
+        int written;
+        if (!WritePrinter(hPrinter, data, data.Length, out written)) {
+            EndPagePrinter(hPrinter);
+            EndDocPrinter(hPrinter);
+            ClosePrinter(hPrinter);
+            throw new Exception("Falha ao escrever: " + Marshal.GetLastWin32Error());
+        }
+
+        EndPagePrinter(hPrinter);
+        EndDocPrinter(hPrinter);
+        ClosePrinter(hPrinter);
+        return true;
+    }
+}
+"@
+
+[RawPrinter]::SendRawData($printerName, $bytes)
+Write-Output "RAW print successful"
+`;
+
+    // Write PS script to temp file
+    const psFile = path.join(os.tmpdir(), `rawprint_${Date.now()}.ps1`);
+    fs.writeFileSync(psFile, psScript);
+    
+    try {
+      await this.execWithTimeout(
+        `powershell -ExecutionPolicy Bypass -File "${psFile}"`,
+        20000
+      );
+      this.cleanupFile(psFile);
+      return true;
+    } catch (error) {
+      this.cleanupFile(psFile);
+      throw error;
+    }
+  }
+
+  /**
+   * Print via NET USE (maps printer to LPT port)
+   */
+  async printViaNetUse(filePath, printerName) {
+    // First, disconnect any existing LPT1 mapping
+    try {
+      await this.execWithTimeout('net use LPT1: /delete /y', 3000);
+    } catch (e) {
+      // Ignore - might not be mapped
+    }
+    
+    // Map printer to LPT1
+    await this.execWithTimeout(
+      `net use LPT1: "\\\\%COMPUTERNAME%\\${printerName}"`,
+      5000
+    );
+    
+    // Copy to LPT1 (direct port)
+    await this.execWithTimeout(
+      `copy /b "${filePath}" LPT1:`,
+      10000
+    );
+    
+    // Cleanup mapping
+    try {
+      await this.execWithTimeout('net use LPT1: /delete /y', 3000);
+    } catch (e) {
+      // Ignore
+    }
+    
+    return true;
+  }
+
+  /**
+   * Print RAW data on Unix (Linux/Mac) - Direct to device
    */
   async printRawUnix(rawData, printerName) {
-    const tmpFile = path.join(os.tmpdir(), `print_${Date.now()}.prn`);
+    const tmpFile = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
     
     return new Promise(async (resolve, reject) => {
       try {
-        fs.writeFileSync(tmpFile, Buffer.from(rawData, 'binary'));
+        fs.writeFileSync(tmpFile, rawData);
         
+        // lp with -o raw sends data directly without processing
         const printerParam = printerName ? `-d "${printerName}"` : '';
         await this.execWithTimeout(`lp -o raw ${printerParam} "${tmpFile}"`, 10000);
         
@@ -1062,12 +1270,14 @@ class PrinterService {
    */
   execWithTimeout(command, timeout) {
     return new Promise((resolve, reject) => {
-      console.log('[PrintText] Executing:', command.substring(0, 100) + '...');
+      const shortCmd = command.length > 80 ? command.substring(0, 80) + '...' : command;
+      console.log('[PrintText] Exec:', shortCmd);
       
       const proc = exec(command, { 
-        shell: 'cmd.exe', 
+        shell: this.platform === 'win32' ? 'cmd.exe' : '/bin/sh', 
         encoding: 'buffer',
         timeout: timeout,
+        windowsHide: true,
       }, (error, stdout, stderr) => {
         if (error) {
           reject(error);
@@ -1079,13 +1289,13 @@ class PrinterService {
       // Force timeout
       setTimeout(() => {
         try { proc.kill(); } catch (e) {}
-        reject(new Error('Timeout: comando de impressão demorou muito'));
+        reject(new Error('Timeout'));
       }, timeout);
     });
   }
 
   /**
-   * Cleanup temp file
+   * Cleanup temp file after delay
    */
   cleanupFile(filePath) {
     setTimeout(() => {
@@ -1094,9 +1304,9 @@ class PrinterService {
           fs.unlinkSync(filePath); 
         }
       } catch (e) {
-        console.log('[PrintText] Cleanup failed:', e.message);
+        // Ignore cleanup errors
       }
-    }, 3000);
+    }, 5000);
   }
 
   // ============================================
