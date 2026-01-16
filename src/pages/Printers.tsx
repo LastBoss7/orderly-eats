@@ -141,6 +141,29 @@ export default function Printers() {
               </CardContent>
             </Card>
 
+            {/* Info Card - Separação Automática */}
+            {printers.length > 0 && (
+              <Card className="border-blue-500/30 bg-gradient-to-r from-blue-500/5 to-transparent">
+                <CardContent className="py-4">
+                  <div className="flex gap-3">
+                    <div className="p-2 rounded-full bg-blue-500/20 shrink-0 h-fit">
+                      <PrinterIcon className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm text-foreground mb-1">
+                        Separação automática por categoria
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Configure uma impressora para <strong>Cozinha</strong> e outra para <strong>Bar</strong>.
+                        O sistema vai separar automaticamente os itens de cada pedido e enviar 
+                        para a impressora correta baseado nas categorias selecionadas.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Loading State */}
             {loadingPrinters && (
               <Card>
