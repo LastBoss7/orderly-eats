@@ -368,7 +368,34 @@ export function CheckoutScreen({
           .eq('id', entityId);
       }
       
-      toast.success(`${type === 'table' ? 'Mesa' : 'Comanda'} ${entityNumber} fechada com sucesso!`);
+      // Print receipt automatically after closing
+      try {
+        await printConference({
+          entityType: type,
+          entityNumber,
+          customerName,
+          items: allItems.map(item => ({
+            product_name: item.product_name,
+            quantity: item.quantity,
+            product_price: item.product_price,
+          })),
+          total: totalWithModifiers,
+          discount,
+          addition,
+          splitCount,
+          payments: finalPayments.map(p => ({
+            method: getPaymentMethodLabel(p.method),
+            amount: p.amount,
+          })),
+          isFinalReceipt: true,
+        });
+        toast.success(`${type === 'table' ? 'Mesa' : 'Comanda'} ${entityNumber} fechada e comprovante impresso!`);
+      } catch (printError) {
+        console.error('Error printing receipt:', printError);
+        toast.success(`${type === 'table' ? 'Mesa' : 'Comanda'} ${entityNumber} fechada com sucesso!`);
+        toast.warning('Não foi possível imprimir o comprovante automaticamente');
+      }
+      
       onClosed();
     } catch (error: any) {
       console.error('Error closing:', error);
