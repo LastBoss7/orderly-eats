@@ -1010,48 +1010,68 @@ ipcMain.handle('test-usb-connection', async (event, vendorId, productId) => {
   }
 });
 
-ipcMain.handle('test-print', async () => {
+ipcMain.handle('test-print', async (event, mode = 'auto') => {
   try {
-    // Get paper width from config (priority) or layout
     const configPaperWidth = store.get('paperWidth') || 48;
     const layout = {
       ...(store.get('layout') || defaultLayout),
       paperWidth: configPaperWidth,
     };
     
+    sendToRenderer('log', `🖨️ TESTE DE IMPRESSÃO`);
+    
+    // MODE: USB Direct (fastest, no spooler)
+    if (mode === 'usb' || mode === 'auto') {
+      sendToRenderer('log', `   → Tentando USB Direto (sem spooler)...`);
+      
+      if (printerService.usbPrinter) {
+        try {
+          const usbPrinters = printerService.usbPrinter.listPrinters();
+          
+          if (usbPrinters.length > 0) {
+            sendToRenderer('log', `   → ${usbPrinters.length} impressora(s) USB encontrada(s)`);
+            
+            for (const p of usbPrinters) {
+              sendToRenderer('log', `      • ${p.name} (${p.vendorId}:${p.productId})`);
+            }
+            
+            // Try to print via USB direct
+            await printerService.usbPrinter.autoConnect();
+            await printerService.usbPrinter.testPrint();
+            
+            sendToRenderer('log', `   ✓ SUCESSO! Impressão USB direta funcionando!`);
+            sendToRenderer('log', `   → Velocidade máxima, sem spooler Windows`);
+            return { success: true, method: 'usb-direct' };
+            
+          } else {
+            sendToRenderer('log', `   ⚠ Nenhuma impressora USB térmica detectada`);
+          }
+        } catch (usbError) {
+          sendToRenderer('log', `   ⚠ USB Direto falhou: ${usbError.message}`);
+        }
+      } else {
+        sendToRenderer('log', `   ⚠ Módulo USB não disponível`);
+      }
+      
+      if (mode === 'usb') {
+        return { success: false, error: 'USB direto não disponível' };
+      }
+      
+      sendToRenderer('log', `   → Tentando via Spooler Windows...`);
+    }
+    
+    // MODE: Windows Spooler (fallback)
     const printerName = store.get('printerName') || '';
     const selectedPrinters = store.get('selectedPrinters') || [];
-    
-    // Use printerName OR first selected printer
     const targetPrinter = printerName || (selectedPrinters.length > 0 ? selectedPrinters[0] : '');
     
     if (!targetPrinter) {
-      sendToRenderer('log', '✗ ERRO: Nenhuma impressora configurada!');
-      sendToRenderer('log', '   → Configure uma impressora na lista acima');
+      sendToRenderer('log', '   ✗ Nenhuma impressora configurada!');
       return { success: false, error: 'Nenhuma impressora configurada' };
     }
     
-    sendToRenderer('log', `🖨️ INICIANDO TESTE DE IMPRESSÃO`);
     sendToRenderer('log', `   → Impressora: "${targetPrinter}"`);
     sendToRenderer('log', `   → Largura: ${configPaperWidth} caracteres`);
-    
-    // Verify printer exists in system
-    let printers = [];
-    try {
-      printers = mainWindow.webContents.getPrintersAsync 
-        ? await mainWindow.webContents.getPrintersAsync()
-        : mainWindow.webContents.getPrinters();
-    } catch (e) {
-      console.error('Error getting printers:', e);
-    }
-    
-    const printerExists = printers.some(p => p.name === targetPrinter);
-    if (!printerExists) {
-      sendToRenderer('log', `   ⚠ AVISO: Impressora "${targetPrinter}" não encontrada no sistema!`);
-      sendToRenderer('log', `   → Impressoras disponíveis: ${printers.map(p => p.name).join(', ')}`);
-    } else {
-      sendToRenderer('log', `   ✓ Impressora encontrada no sistema`);
-    }
     
     const success = await printerService.printTest({
       layout,
@@ -1061,16 +1081,55 @@ ipcMain.handle('test-print', async () => {
     });
     
     if (success) {
-      sendToRenderer('log', `   ✓ Comando de impressão enviado!`);
-      sendToRenderer('log', `   → Verifique se saiu na impressora física`);
-      return { success: true };
+      sendToRenderer('log', `   ✓ Impressão via Spooler enviada!`);
+      return { success: true, method: 'spooler' };
     } else {
-      sendToRenderer('log', `   ✗ Impressão retornou erro`);
+      sendToRenderer('log', `   ✗ Falha na impressão`);
       return { success: false, error: 'Impressão falhou' };
     }
   } catch (error) {
     sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
     console.error('Test print error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Test USB direct printing specifically
+ipcMain.handle('test-usb-direct', async () => {
+  sendToRenderer('log', `🔌 TESTE USB DIRETO`);
+  
+  if (!printerService.usbPrinter) {
+    sendToRenderer('log', `   ✗ Módulo USB não disponível`);
+    sendToRenderer('log', `   → Execute: npm run rebuild`);
+    return { success: false, error: 'USB module not available' };
+  }
+  
+  try {
+    const printers = printerService.usbPrinter.listPrinters();
+    
+    if (printers.length === 0) {
+      sendToRenderer('log', `   ✗ Nenhuma impressora USB térmica encontrada`);
+      sendToRenderer('log', `   → Conecte uma impressora térmica via USB`);
+      return { success: false, error: 'No USB printers found' };
+    }
+    
+    sendToRenderer('log', `   → ${printers.length} impressora(s) USB:`);
+    for (const p of printers) {
+      sendToRenderer('log', `      • ${p.name}`);
+      sendToRenderer('log', `        VID:PID = ${p.vendorId}:${p.productId}`);
+    }
+    
+    sendToRenderer('log', `   → Conectando...`);
+    const printer = await printerService.usbPrinter.autoConnect();
+    
+    sendToRenderer('log', `   → Enviando teste...`);
+    await printerService.usbPrinter.testPrint();
+    
+    sendToRenderer('log', `   ✓ SUCESSO! USB Direto funcionando!`);
+    return { success: true, printer: printer.name };
+    
+  } catch (error) {
+    sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
     return { success: false, error: error.message };
   }
 });

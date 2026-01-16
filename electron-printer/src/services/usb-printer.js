@@ -1,4 +1,17 @@
-const usb = require('usb');
+/**
+ * USB Direct Printer Service
+ * Sends ESC/POS bytes DIRECTLY to USB thermal printers
+ * NO Windows spooler = FASTEST possible printing
+ * 
+ * This is how professional POS systems (iFood, Anota AI, Saipos) work!
+ */
+
+let usb = null;
+try {
+  usb = require('usb');
+} catch (e) {
+  console.log('[USBPrinter] usb module not installed');
+}
 
 // Common thermal printer vendor IDs
 const KNOWN_PRINTER_VENDORS = {
@@ -12,19 +25,34 @@ const KNOWN_PRINTER_VENDORS = {
   0x6868: 'Generic POS',
   0x0416: 'Winbond (Generic)',
   0x0493: 'SNBC',
+  0x20D1: 'Daruma',
+  0x0B00: 'Sweda',
+  0x0525: 'Generic Thermal',
+  0x1A86: 'QinHeng (CH340)',
+  0x067B: 'Prolific (USB-Serial)',
 };
 
 class USBPrinterService {
   constructor() {
     this.device = null;
+    this.iface = null;
     this.endpoint = null;
     this.isConnected = false;
+    this.lastVendorId = null;
+    this.lastProductId = null;
+    this.connectionAttempts = 0;
+    this.maxRetries = 3;
   }
 
   /**
-   * List all available USB printers
+   * List all available USB thermal printers
    */
   listPrinters() {
+    if (!usb) {
+      console.log('[USBPrinter] USB module not available');
+      return [];
+    }
+
     const devices = usb.getDeviceList();
     const printers = [];
 
@@ -32,43 +60,49 @@ class USBPrinterService {
       const descriptor = device.deviceDescriptor;
       const vendorId = descriptor.idVendor;
       
-      // Check if it's a known printer vendor or has printer interface
-      if (KNOWN_PRINTER_VENDORS[vendorId] || this.isPrinterDevice(device)) {
+      // Check if it's a known printer vendor or has printer interface class
+      const isKnownVendor = KNOWN_PRINTER_VENDORS[vendorId];
+      const isPrinterClass = this.isPrinterDevice(device);
+      
+      if (isKnownVendor || isPrinterClass) {
+        let manufacturer = KNOWN_PRINTER_VENDORS[vendorId] || 'Unknown';
+        let product = 'Thermal Printer';
+        
         try {
           device.open();
-          
-          const manufacturer = device.getStringDescriptor(descriptor.iManufacturer) || 'Unknown';
-          const product = device.getStringDescriptor(descriptor.iProduct) || 'USB Printer';
-          
+          if (descriptor.iManufacturer) {
+            const mfr = device.getStringDescriptor(descriptor.iManufacturer);
+            if (mfr) manufacturer = mfr;
+          }
+          if (descriptor.iProduct) {
+            const prod = device.getStringDescriptor(descriptor.iProduct);
+            if (prod) product = prod;
+          }
           device.close();
-          
-          printers.push({
-            vendorId: vendorId.toString(16).padStart(4, '0'),
-            productId: descriptor.idProduct.toString(16).padStart(4, '0'),
-            manufacturer: KNOWN_PRINTER_VENDORS[vendorId] || manufacturer,
-            product,
-            name: `${KNOWN_PRINTER_VENDORS[vendorId] || manufacturer} - ${product}`,
-            path: `USB:${vendorId.toString(16)}:${descriptor.idProduct.toString(16)}`,
-          });
         } catch (e) {
-          // Device might be in use or inaccessible
-          printers.push({
-            vendorId: vendorId.toString(16).padStart(4, '0'),
-            productId: descriptor.idProduct.toString(16).padStart(4, '0'),
-            manufacturer: KNOWN_PRINTER_VENDORS[vendorId] || 'Unknown',
-            product: 'USB Device',
-            name: `${KNOWN_PRINTER_VENDORS[vendorId] || 'Unknown'} USB Printer`,
-            path: `USB:${vendorId.toString(16)}:${descriptor.idProduct.toString(16)}`,
-          });
+          // Device might be in use - that's OK
         }
+        
+        printers.push({
+          vendorId: vendorId.toString(16).padStart(4, '0'),
+          productId: descriptor.idProduct.toString(16).padStart(4, '0'),
+          vendorIdNum: vendorId,
+          productIdNum: descriptor.idProduct,
+          manufacturer,
+          product,
+          name: `${manufacturer} - ${product}`,
+          path: `USB:${vendorId.toString(16)}:${descriptor.idProduct.toString(16)}`,
+          isKnownVendor: !!isKnownVendor,
+        });
       }
     }
 
+    console.log(`[USBPrinter] Found ${printers.length} thermal printer(s)`);
     return printers;
   }
 
   /**
-   * Check if device is likely a printer by checking interfaces
+   * Check if device is a printer by interface class
    */
   isPrinterDevice(device) {
     try {
@@ -89,7 +123,7 @@ class USBPrinterService {
       
       device.close();
     } catch (e) {
-      // Ignore errors
+      // Ignore - device might be in use
     }
     
     return false;
@@ -98,84 +132,168 @@ class USBPrinterService {
   /**
    * Connect to a specific USB printer
    */
-  connect(vendorId, productId) {
+  async connect(vendorId, productId) {
+    if (!usb) {
+      throw new Error('USB module not available');
+    }
+
+    // Convert string IDs to numbers
+    const vid = typeof vendorId === 'string' ? parseInt(vendorId, 16) : vendorId;
+    const pid = typeof productId === 'string' ? parseInt(productId, 16) : productId;
+    
+    console.log(`[USBPrinter] Connecting to ${vid.toString(16)}:${pid.toString(16)}...`);
+    
+    // Disconnect existing connection
+    if (this.isConnected) {
+      this.disconnect();
+    }
+
     return new Promise((resolve, reject) => {
       try {
-        const vid = typeof vendorId === 'string' ? parseInt(vendorId, 16) : vendorId;
-        const pid = typeof productId === 'string' ? parseInt(productId, 16) : productId;
-        
         this.device = usb.findByIds(vid, pid);
         
         if (!this.device) {
-          reject(new Error('Impressora USB não encontrada'));
+          reject(new Error(`Impressora USB não encontrada (${vid.toString(16)}:${pid.toString(16)})`));
           return;
         }
 
         this.device.open();
+        console.log('[USBPrinter] Device opened');
         
-        // Find the printer interface
-        const iface = this.device.interface(0);
+        // Find the first interface with an OUT endpoint
+        const config = this.device.configDescriptor;
+        let foundEndpoint = false;
         
-        // Detach kernel driver if necessary (Linux)
-        if (iface.isKernelDriverActive()) {
-          iface.detachKernelDriver();
-        }
-        
-        iface.claim();
-        
-        // Find the OUT endpoint
-        for (const endpoint of iface.endpoints) {
-          if (endpoint.direction === 'out') {
-            this.endpoint = endpoint;
-            break;
+        for (let i = 0; i < config.interfaces.length && !foundEndpoint; i++) {
+          try {
+            this.iface = this.device.interface(i);
+            
+            // Detach kernel driver if necessary (Linux only)
+            if (process.platform !== 'win32' && this.iface.isKernelDriverActive()) {
+              this.iface.detachKernelDriver();
+            }
+            
+            this.iface.claim();
+            console.log(`[USBPrinter] Interface ${i} claimed`);
+            
+            // Find the OUT endpoint
+            for (const ep of this.iface.endpoints) {
+              if (ep.direction === 'out') {
+                this.endpoint = ep;
+                foundEndpoint = true;
+                console.log(`[USBPrinter] OUT endpoint found: 0x${ep.address.toString(16)}`);
+                break;
+              }
+            }
+            
+            if (!foundEndpoint) {
+              this.iface.release();
+            }
+          } catch (e) {
+            console.log(`[USBPrinter] Interface ${i} not available:`, e.message);
           }
         }
         
         if (!this.endpoint) {
-          reject(new Error('Endpoint de saída não encontrado'));
+          this.device.close();
+          reject(new Error('Endpoint de saída não encontrado na impressora'));
           return;
         }
         
+        this.lastVendorId = vid;
+        this.lastProductId = pid;
         this.isConnected = true;
+        this.connectionAttempts = 0;
+        
+        console.log('[USBPrinter] Connected successfully!');
         resolve(true);
+        
       } catch (error) {
-        reject(new Error(`Erro ao conectar: ${error.message}`));
+        console.log('[USBPrinter] Connection error:', error.message);
+        this.cleanup();
+        reject(new Error(`Erro ao conectar USB: ${error.message}`));
       }
     });
+  }
+
+  /**
+   * Reconnect to last known printer
+   */
+  async reconnect() {
+    if (!this.lastVendorId || !this.lastProductId) {
+      throw new Error('No previous connection to reconnect');
+    }
+    
+    if (this.connectionAttempts >= this.maxRetries) {
+      this.connectionAttempts = 0;
+      throw new Error('Max reconnection attempts reached');
+    }
+    
+    this.connectionAttempts++;
+    console.log(`[USBPrinter] Reconnection attempt ${this.connectionAttempts}/${this.maxRetries}`);
+    
+    return this.connect(this.lastVendorId, this.lastProductId);
   }
 
   /**
    * Disconnect from USB printer
    */
   disconnect() {
-    if (this.device) {
-      try {
-        this.device.close();
-      } catch (e) {
-        // Ignore
-      }
-      this.device = null;
-      this.endpoint = null;
-      this.isConnected = false;
-    }
+    console.log('[USBPrinter] Disconnecting...');
+    this.cleanup();
   }
 
   /**
-   * Write data to printer
+   * Cleanup resources
    */
-  write(data) {
-    return new Promise((resolve, reject) => {
-      if (!this.endpoint || !this.isConnected) {
-        reject(new Error('Impressora não conectada'));
-        return;
-      }
+  cleanup() {
+    if (this.iface) {
+      try {
+        this.iface.release();
+      } catch (e) {}
+      this.iface = null;
+    }
+    
+    if (this.device) {
+      try {
+        this.device.close();
+      } catch (e) {}
+      this.device = null;
+    }
+    
+    this.endpoint = null;
+    this.isConnected = false;
+  }
 
-      const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+  /**
+   * Write data directly to printer (NO SPOOLER!)
+   * This is the core function that makes printing FAST
+   */
+  async write(data) {
+    if (!this.endpoint || !this.isConnected) {
+      // Try to reconnect
+      if (this.lastVendorId && this.lastProductId) {
+        await this.reconnect();
+      } else {
+        throw new Error('Impressora USB não conectada');
+      }
+    }
+
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+    
+    return new Promise((resolve, reject) => {
+      console.log(`[USBPrinter] Writing ${buffer.length} bytes directly to USB...`);
       
       this.endpoint.transfer(buffer, (error) => {
         if (error) {
-          reject(new Error(`Erro ao enviar dados: ${error.message}`));
+          console.log('[USBPrinter] Write error:', error.message);
+          
+          // Mark as disconnected for retry next time
+          this.isConnected = false;
+          
+          reject(new Error(`Erro ao enviar dados USB: ${error.message}`));
         } else {
+          console.log('[USBPrinter] Write successful!');
           resolve(true);
         }
       });
@@ -183,19 +301,64 @@ class USBPrinterService {
   }
 
   /**
-   * Auto-detect and connect to the first available printer
+   * Auto-detect and connect to the first available thermal printer
    */
   async autoConnect() {
     const printers = this.listPrinters();
     
     if (printers.length === 0) {
-      throw new Error('Nenhuma impressora USB encontrada');
+      throw new Error('Nenhuma impressora USB térmica encontrada');
     }
 
-    const printer = printers[0];
+    // Prefer known vendors
+    const knownPrinter = printers.find(p => p.isKnownVendor);
+    const printer = knownPrinter || printers[0];
+    
+    console.log(`[USBPrinter] Auto-connecting to: ${printer.name}`);
     await this.connect(printer.vendorId, printer.productId);
     
     return printer;
+  }
+
+  /**
+   * Test print - sends a simple test receipt
+   */
+  async testPrint() {
+    const ESC = 0x1B;
+    const GS = 0x1D;
+    const LF = 0x0A;
+    
+    const buffers = [];
+    
+    // Initialize
+    buffers.push(Buffer.from([ESC, 0x40]));
+    
+    // Center align
+    buffers.push(Buffer.from([ESC, 0x61, 0x01]));
+    
+    // Double height
+    buffers.push(Buffer.from([GS, 0x21, 0x10]));
+    buffers.push(Buffer.from('TESTE USB DIRETO\n'));
+    
+    // Normal size
+    buffers.push(Buffer.from([GS, 0x21, 0x00]));
+    buffers.push(Buffer.from('================\n'));
+    buffers.push(Buffer.from('Impressao USB OK!\n'));
+    buffers.push(Buffer.from('Sem spooler Windows\n'));
+    buffers.push(Buffer.from('================\n'));
+    
+    // Date/time
+    const now = new Date();
+    buffers.push(Buffer.from(`${now.toLocaleString('pt-BR')}\n`));
+    
+    // Feed and partial cut
+    buffers.push(Buffer.from([LF, LF, LF, LF]));
+    buffers.push(Buffer.from([GS, 0x56, 0x01]));
+    
+    const data = Buffer.concat(buffers);
+    
+    console.log('[USBPrinter] Sending test print...');
+    return this.write(data);
   }
 }
 

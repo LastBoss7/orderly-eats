@@ -207,13 +207,29 @@ async function saveConfig() {
 // ============================================
 async function testPrint() {
   try {
-    addLog('Enviando impressão de teste...', 'info');
-    const result = await window.electronAPI.testPrint();
+    addLog('🖨️ Iniciando teste de impressão...', 'info');
+    const result = await window.electronAPI.testPrint('auto');
     
     if (result.success) {
-      addLog('✓ Impressão de teste enviada', 'success');
+      const methodLabel = result.method === 'usb-direct' ? 'USB Direto' : 'Spooler';
+      addLog(`✓ Teste enviado via ${methodLabel}`, 'success');
     } else {
       addLog('✗ Erro: ' + result.error, 'error');
+    }
+  } catch (error) {
+    addLog('✗ Erro: ' + error.message, 'error');
+  }
+}
+
+async function testUsbDirect() {
+  try {
+    addLog('🔌 Testando USB Direto...', 'info');
+    const result = await window.electronAPI.testUsbDirect();
+    
+    if (result.success) {
+      addLog(`✓ USB Direto OK: ${result.printer}`, 'success');
+    } else {
+      addLog('✗ USB Direto falhou: ' + result.error, 'error');
     }
   } catch (error) {
     addLog('✗ Erro: ' + error.message, 'error');

@@ -12,8 +12,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   savePrinters: (printers) => ipcRenderer.invoke('save-printers', printers),
   saveSelectedPrinters: (printers) => ipcRenderer.invoke('save-selected-printers', printers),
   
-  // Print
-  testPrint: () => ipcRenderer.invoke('test-print'),
+  // Print Tests
+  testPrint: (mode) => ipcRenderer.invoke('test-print', mode || 'auto'),
+  testUsbDirect: () => ipcRenderer.invoke('test-usb-direct'),
   clearPendingOrders: () => ipcRenderer.invoke('clear-pending-orders'),
   
   // Stats & Status
