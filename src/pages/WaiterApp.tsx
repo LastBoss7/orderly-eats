@@ -892,6 +892,36 @@ export default function WaiterApp({
     }
   };
 
+  const handleCloseTab = async () => {
+    if (!selectedTab) return;
+    
+    setClosingTable(true);
+    try {
+      // Use waiterData.closeOrders which uses edge function for public access
+      await waiterData.closeOrders({
+        order_ids: tableOrders.map(o => o.id),
+        tab_id: selectedTab.id,
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
+        change_given: paymentMethod === 'cash' && cashReceived > tableTotal ? cashReceived - tableTotal : undefined,
+      });
+      
+      toast.success(`Comanda #${selectedTab.number} fechada com sucesso!`);
+      setShowCloseModal(false);
+      setView('tables');
+      setSelectedTab(null);
+      setTableOrders([]);
+      
+      // Refresh tabs using the hook
+      const tabsData = await waiterData.fetchTabs();
+      setTabs(tabsData as Tab[]);
+    } catch (error: any) {
+      toast.error('Erro ao fechar comanda');
+    } finally {
+      setClosingTable(false);
+    }
+  };
+
   const handlePrintReceipt = async () => {
     if (!selectedTable) return;
     
@@ -1344,7 +1374,95 @@ export default function WaiterApp({
               Novo Pedido
             </Button>
           </div>
+          <Button 
+            className="w-full h-12 mt-2 bg-green-600 hover:bg-green-700"
+            onClick={() => {
+              setTableTotal(tableOrdersTotal);
+              setShowCloseModal(true);
+            }}
+          >
+            <DollarSign className="w-5 h-5 mr-2" />
+            Fechar Conta
+          </Button>
         </div>
+
+        {/* Close Tab Modal */}
+        {showCloseModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+            <div className="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 animate-in slide-in-from-bottom">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">Fechar Conta</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowCloseModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="text-center py-4">
+                <p className="text-3xl font-bold text-[#0d1b2a]">{formatCurrency(tableOrdersTotal)}</p>
+                <p className="text-gray-500">Comanda #{selectedTab.number}</p>
+              </div>
+              
+              {/* Payment Method */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'cash', label: 'Dinheiro', icon: Banknote },
+                  { id: 'credit', label: 'Crédito', icon: CreditCard },
+                  { id: 'debit', label: 'Débito', icon: CreditCard },
+                  { id: 'pix', label: 'PIX', icon: QrCode },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    className={`p-3 rounded-xl border-2 flex items-center gap-2 ${
+                      paymentMethod === id 
+                        ? 'border-[#0ea5e9] bg-[#0ea5e9]/10' 
+                        : 'border-gray-200'
+                    }`}
+                    onClick={() => setPaymentMethod(id as PaymentMethod)}
+                  >
+                    <Icon className="w-5 h-5 text-[#0d1b2a]" />
+                    <span className="text-sm font-medium">{label}</span>
+                  </button>
+                ))}
+              </div>
+              
+              {paymentMethod === 'cash' && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-600">Valor recebido:</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                    <Input
+                      type="number"
+                      value={cashReceived || ''}
+                      onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                      className="pl-10 h-12 text-lg"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  {change > 0 && (
+                    <p className="text-green-600 font-semibold">
+                      Troco: {formatCurrency(change)}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              <Button 
+                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                onClick={handleCloseTab}
+                disabled={closingTable}
+              >
+                {closingTable ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Confirmar Fechamento
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

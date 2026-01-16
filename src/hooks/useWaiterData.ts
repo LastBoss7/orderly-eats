@@ -228,6 +228,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
   const closeOrders = useCallback(async (data: {
     order_ids: string[];
     table_id?: string;
+    tab_id?: string;
     payment_method: string;
     cash_received?: number;
     change_given?: number;
@@ -244,6 +245,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
           payment_method: data.payment_method,
           cash_received: data.cash_received || null,
           change_given: data.change_given || null,
+          closed_at: new Date().toISOString(),
         })
         .eq('id', orderId);
     }
@@ -253,6 +255,13 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
         .from('tables')
         .update({ status: 'available' })
         .eq('id', data.table_id);
+    }
+
+    if (data.tab_id) {
+      await supabase
+        .from('tabs')
+        .update({ status: 'available' })
+        .eq('id', data.tab_id);
     }
 
     return { success: true };

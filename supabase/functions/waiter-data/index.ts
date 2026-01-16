@@ -264,7 +264,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // POST close orders (for table closing)
+    // POST close orders (for table/tab closing)
     if (req.method === "POST" && action === "close-orders") {
       const body = await req.json();
       
@@ -276,6 +276,7 @@ Deno.serve(async (req) => {
             payment_method: body.payment_method,
             cash_received: body.cash_received || null,
             change_given: body.change_given || null,
+            closed_at: new Date().toISOString(),
           })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
@@ -287,6 +288,15 @@ Deno.serve(async (req) => {
           .from("tables")
           .update({ status: "available" })
           .eq("id", body.table_id)
+          .eq("restaurant_id", restaurantId);
+      }
+
+      // Update tab status
+      if (body.tab_id) {
+        await supabase
+          .from("tabs")
+          .update({ status: "available" })
+          .eq("id", body.tab_id)
           .eq("restaurant_id", restaurantId);
       }
 
