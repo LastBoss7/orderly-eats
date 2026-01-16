@@ -111,6 +111,7 @@ interface Order {
   tab_id: string | null;
   created_at: string;
   updated_at: string;
+  ready_at: string | null;
   notes: string | null;
   delivery_address: string | null;
   delivery_phone: string | null;
@@ -453,16 +454,30 @@ export default function Dashboard() {
     return { min: prepTimes.counter_min, max: prepTimes.counter_max };
   };
 
-  const getOrderTimer = (order: Order): { elapsed: number; elapsedSeconds: number; limit: number; isOverdue: boolean; percentage: number } | null => {
-    // Show timer for all active orders (not just preparing)
+  const getOrderTimer = (order: Order): { elapsed: number; elapsedSeconds: number; limit: number; isOverdue: boolean; percentage: number; isStopped: boolean } | null => {
+    // Don't show timer for delivered or cancelled orders
     if (order.status === 'delivered' || order.status === 'cancelled') {
       return null;
     }
     
-    // Use created_at as the time when order was created
     const startTime = new Date(order.created_at);
-    const now = new Date();
-    const totalSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+    let endTime: Date;
+    let isStopped = false;
+    
+    // If order is ready or served, stop the timer at ready_at timestamp
+    if ((order.status === 'ready' || order.status === 'served') && order.ready_at) {
+      endTime = new Date(order.ready_at);
+      isStopped = true;
+    } else if (order.status === 'ready' || order.status === 'served') {
+      // Fallback: use updated_at if ready_at is not available
+      endTime = new Date(order.updated_at);
+      isStopped = true;
+    } else {
+      // Still preparing - use current time
+      endTime = new Date();
+    }
+    
+    const totalSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
     const elapsedMinutes = Math.floor(totalSeconds / 60);
     
     const { max } = getOrderPrepTime(order.order_type);
@@ -474,6 +489,7 @@ export default function Dashboard() {
       limit: max,
       isOverdue: elapsedMinutes > max,
       percentage,
+      isStopped,
     };
   };
 
@@ -917,16 +933,22 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </span>
             </div>
             
-            {/* Timer Badge - Real-time countdown */}
+            {/* Timer Badge - Stops when ready */}
             {timer && (
               <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                timer.isOverdue 
-                  ? 'bg-destructive/10 text-destructive animate-pulse' 
-                  : timer.percentage > 75
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                timer.isStopped
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : timer.isOverdue 
+                    ? 'bg-destructive/10 text-destructive animate-pulse' 
+                    : timer.percentage > 75
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                      : 'bg-muted text-muted-foreground'
               }`}>
-                <Clock className="w-3 h-3" />
+                {timer.isStopped ? (
+                  <CheckCircle className="w-3 h-3" />
+                ) : (
+                  <Clock className="w-3 h-3" />
+                )}
                 <span>{formatElapsedTimeWithSeconds(timer.elapsedSeconds)}</span>
               </div>
             )}
