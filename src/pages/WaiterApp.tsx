@@ -241,6 +241,13 @@ export default function WaiterApp({
   // Size selection modal
   const [sizeModalProduct, setSizeModalProduct] = useState<Product | null>(null);
   
+  // Tab customer modal
+  const [showTabCustomerModal, setShowTabCustomerModal] = useState(false);
+  const [pendingTab, setPendingTab] = useState<Tab | null>(null);
+  const [tabCustomerName, setTabCustomerName] = useState('');
+  const [tabCustomerPhone, setTabCustomerPhone] = useState('');
+  const [savingTabCustomer, setSavingTabCustomer] = useState(false);
+  
   // Menu view mode - persist in localStorage
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>(() => {
     const saved = localStorage.getItem('waiter_menu_view_mode');
@@ -566,6 +573,74 @@ export default function WaiterApp({
     setShowTableModal(false);
     await fetchTableOrders(table.id);
     setView('table-orders');
+  };
+
+  // Handle tab click - show customer modal if available, otherwise go to orders
+  const handleTabClick = (tab: Tab) => {
+    if (tab.status === 'available') {
+      // Show modal to collect customer info before creating first order
+      setPendingTab(tab);
+      setTabCustomerName('');
+      setTabCustomerPhone('');
+      setShowTabCustomerModal(true);
+    } else {
+      // Go directly to orders
+      setSelectedTab(tab);
+      fetchTabOrders(tab.id);
+      setView('tab-orders');
+    }
+  };
+
+  // Save tab customer info and proceed to order
+  const handleSaveTabCustomer = async () => {
+    if (!pendingTab || !tabCustomerName.trim()) {
+      toast.error('Nome do cliente é obrigatório');
+      return;
+    }
+
+    setSavingTabCustomer(true);
+    try {
+      // Update tab with customer info
+      const { error } = await supabase
+        .from('tabs')
+        .update({ 
+          customer_name: tabCustomerName.trim(),
+          status: 'occupied'
+        })
+        .eq('id', pendingTab.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setTabs(prev => prev.map(t => 
+        t.id === pendingTab.id 
+          ? { ...t, customer_name: tabCustomerName.trim(), status: 'occupied' as const }
+          : t
+      ));
+
+      // Set selected tab and go to order view
+      setSelectedTab({
+        ...pendingTab,
+        customer_name: tabCustomerName.trim(),
+        status: 'occupied'
+      });
+      setOrderMode('tab');
+      setView('order');
+      setCart([]);
+      setSearchTerm('');
+      setSelectedCategory(null);
+      setOrderNotes('');
+      
+      setShowTabCustomerModal(false);
+      setPendingTab(null);
+      
+      toast.success(`Comanda #${pendingTab.number} aberta para ${tabCustomerName.trim()}`);
+    } catch (error: any) {
+      console.error('Error saving tab customer:', error);
+      toast.error('Erro ao salvar cliente na comanda');
+    } finally {
+      setSavingTabCustomer(false);
+    }
   };
 
   const handleStartDelivery = (mode: 'delivery' | 'takeaway') => {
@@ -2309,11 +2384,7 @@ export default function WaiterApp({
             }).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => {
-                  setSelectedTab(tab);
-                  fetchTabOrders(tab.id);
-                  setView('tab-orders');
-                }}
+                onClick={() => handleTabClick(tab)}
                 className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left transition-all active:scale-95 shadow-sm ${
                   tab.status === 'available' 
                     ? 'bg-green-500/90 text-white' 
@@ -2459,6 +2530,84 @@ export default function WaiterApp({
             <Button variant="ghost" className="w-full" onClick={() => setSizeModalProduct(null)}>
               Cancelar
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Customer Modal */}
+      {showTabCustomerModal && pendingTab && (
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+          <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold">Comanda #{pendingTab.number}</h3>
+                <p className="text-sm text-muted-foreground">Dados do cliente</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  setShowTabCustomerModal(false);
+                  setPendingTab(null);
+                }}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Nome do Cliente *
+                </Label>
+                <Input
+                  placeholder="Nome para identificação"
+                  value={tabCustomerName}
+                  onChange={(e) => setTabCustomerName(e.target.value)}
+                  className="h-12"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  Telefone (opcional)
+                </Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={tabCustomerPhone}
+                  onChange={(e) => setTabCustomerPhone(e.target.value)}
+                  className="h-12"
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 border-t space-y-2">
+              <Button 
+                className="w-full h-12"
+                onClick={handleSaveTabCustomer}
+                disabled={savingTabCustomer || !tabCustomerName.trim()}
+              >
+                {savingTabCustomer ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                )}
+                Abrir Comanda
+              </Button>
+              <Button 
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setShowTabCustomerModal(false);
+                  setPendingTab(null);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
           </div>
         </div>
       )}
