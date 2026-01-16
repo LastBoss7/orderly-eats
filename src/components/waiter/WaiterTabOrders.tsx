@@ -531,7 +531,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
         {/* Actions */}
         <div className="p-4 bg-white border-t space-y-2">
           <Button
-            className="w-full h-12 gap-2"
+            className="w-full h-12 gap-2 bg-white text-gray-900 border-gray-300 hover:bg-gray-100"
             variant="outline"
             onClick={handlePrintReceipt}
             disabled={printing}
@@ -663,7 +663,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
       {orders.length > 0 && (
         <div className="p-4 bg-white border-t space-y-2">
           <Button
-            className="w-full h-12 gap-2"
+            className="w-full h-12 gap-2 bg-white text-gray-900 border-gray-300 hover:bg-gray-100"
             variant="outline"
             onClick={handlePrintReceipt}
             disabled={printing}
