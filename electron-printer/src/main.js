@@ -567,27 +567,56 @@ async function printOrderToAllPrinters(order, dbPrinters) {
   const orderType = order.order_type || 'counter';
   const orderLabel = `#${order.order_number || order.id.slice(0, 8)}`;
   
+  // Get local printer name as fallback
+  const localPrinterName = getLocalPrinterForOrder(order);
+  
+  sendToRenderer('log', `📄 Processando pedido ${orderLabel} (${getOrderTypeLabel(orderType)})`);
+  sendToRenderer('log', `   - Impressoras DB: ${dbPrinters?.length || 0}, Local: "${localPrinterName || 'não configurada'}"`);
+  
   // Conference orders always print to default/first printer
   if (orderType === 'conference') {
-    sendToRenderer('log', `Imprimindo conferência ${orderLabel}...`);
-    const printerName = dbPrinters?.[0]?.printer_name || getLocalPrinterForOrder(order);
+    const printerName = dbPrinters?.[0]?.printer_name || localPrinterName;
+    
+    if (!printerName) {
+      sendToRenderer('log', `✗ Conferência ${orderLabel}: NENHUMA IMPRESSORA CONFIGURADA!`);
+      return false;
+    }
+    
+    sendToRenderer('log', `🖨️ Imprimindo conferência ${orderLabel} em "${printerName}"...`);
     const success = await printOrderToPrinter(order, printerName, dbPrinters?.[0] || null);
+    
     if (success) {
       await markOrderPrinted(order);
       printedCount++;
       updateTrayMenu();
       sendToRenderer('print-success', { orderId: order.id, orderType });
       sendToRenderer('stats', { printedCount });
-      sendToRenderer('log', `✓ Conferência ${orderLabel} impressa com sucesso`);
+      sendToRenderer('log', `✓ Conferência ${orderLabel} impressa com sucesso!`);
+    } else {
+      sendToRenderer('log', `✗ Conferência ${orderLabel}: FALHA NA IMPRESSÃO!`);
     }
     return success;
   }
   
   // If no database printers, use local config
   if (!dbPrinters || dbPrinters.length === 0) {
-    const success = await printOrderToPrinter(order, getLocalPrinterForOrder(order), null);
+    if (!localPrinterName) {
+      sendToRenderer('log', `✗ Pedido ${orderLabel}: NENHUMA IMPRESSORA CONFIGURADA (DB vazio, local vazia)!`);
+      return false;
+    }
+    
+    sendToRenderer('log', `🖨️ Usando impressora local: "${localPrinterName}"`);
+    const success = await printOrderToPrinter(order, localPrinterName, null);
+    
     if (success) {
       await markOrderPrinted(order);
+      printedCount++;
+      updateTrayMenu();
+      sendToRenderer('print-success', { orderId: order.id, orderType });
+      sendToRenderer('stats', { printedCount });
+      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso!`);
+    } else {
+      sendToRenderer('log', `✗ Pedido ${orderLabel}: FALHA NA IMPRESSÃO!`);
     }
     return success;
   }
@@ -600,21 +629,41 @@ async function printOrderToAllPrinters(order, dbPrinters) {
 
   if (matchingPrinters.length === 0) {
     // Fallback to local config
-    const success = await printOrderToPrinter(order, getLocalPrinterForOrder(order), null);
+    if (!localPrinterName) {
+      sendToRenderer('log', `✗ Pedido ${orderLabel}: nenhuma impressora para tipo "${orderType}" e local vazia!`);
+      return false;
+    }
+    
+    sendToRenderer('log', `🖨️ Nenhuma impressora DB para "${orderType}", usando local: "${localPrinterName}"`);
+    const success = await printOrderToPrinter(order, localPrinterName, null);
+    
     if (success) {
       await markOrderPrinted(order);
+      printedCount++;
+      updateTrayMenu();
+      sendToRenderer('print-success', { orderId: order.id, orderType });
+      sendToRenderer('stats', { printedCount });
+      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso!`);
+    } else {
+      sendToRenderer('log', `✗ Pedido ${orderLabel}: FALHA NA IMPRESSÃO!`);
     }
     return success;
   }
 
-  sendToRenderer('log', `Imprimindo pedido ${orderLabel} (${getOrderTypeLabel(orderType)}) em ${matchingPrinters.length} impressora(s)...`);
+  sendToRenderer('log', `🖨️ Imprimindo pedido ${orderLabel} em ${matchingPrinters.length} impressora(s)...`);
 
   let anyPrinted = false;
-  let printersWithItems = 0;
+  let printAttempts = 0;
 
   // Print to each matching printer (but DON'T mark as printed yet)
   for (const printer of matchingPrinters) {
-    const printerName = printer.printer_name || getLocalPrinterForOrder(order);
+    const printerName = printer.printer_name || localPrinterName;
+    
+    if (!printerName) {
+      sendToRenderer('log', `  ⚠ "${printer.name}": sem nome de impressora configurado, pulando`);
+      continue;
+    }
+    
     const linkedCategories = printer.linked_categories;
     
     // If printer has category filter, filter items
@@ -632,8 +681,8 @@ async function printOrderToAllPrinters(order, dbPrinters) {
       }
     }
 
-    printersWithItems++;
-    sendToRenderer('log', `  → "${printer.name}": ${itemsToPrint.length} item(s)`);
+    printAttempts++;
+    sendToRenderer('log', `  🖨️ "${printer.name}" (${printerName}): ${itemsToPrint.length} item(s)`);
     
     // Create a copy of order with filtered items
     const orderForPrinter = { ...order, order_items: itemsToPrint };
@@ -641,24 +690,33 @@ async function printOrderToAllPrinters(order, dbPrinters) {
     // Print WITHOUT marking as printed (we'll do that once at the end)
     const success = await printOrderToPrinter(orderForPrinter, printerName, printer);
     
-    if (success) anyPrinted = true;
+    if (success) {
+      anyPrinted = true;
+      sendToRenderer('log', `  ✓ "${printer.name}": impresso!`);
+    } else {
+      sendToRenderer('log', `  ✗ "${printer.name}": FALHA!`);
+    }
   }
 
-  // MARK AS PRINTED ONLY ONCE after all printers have finished
-  if (anyPrinted || printersWithItems === 0) {
+  // MARK AS PRINTED ONLY IF AT LEAST ONE PRINT SUCCEEDED
+  if (anyPrinted) {
     const marked = await markOrderPrinted(order);
     if (marked) {
-      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso`);
+      sendToRenderer('log', `✓ Pedido ${orderLabel} impresso com sucesso em ${printAttempts} impressora(s)!`);
       printedCount++;
       updateTrayMenu();
       sendToRenderer('print-success', { orderId: order.id, orderType });
       sendToRenderer('stats', { printedCount });
     } else {
-      sendToRenderer('log', `⚠ Impresso mas falhou ao marcar status`);
+      sendToRenderer('log', `⚠ Pedido ${orderLabel}: impresso mas falhou ao marcar status`);
     }
+  } else if (printAttempts === 0) {
+    sendToRenderer('log', `✗ Pedido ${orderLabel}: nenhuma impressora válida encontrada!`);
+  } else {
+    sendToRenderer('log', `✗ Pedido ${orderLabel}: TODAS AS IMPRESSÕES FALHARAM! (${printAttempts} tentativas)`);
   }
 
-  return anyPrinted || printersWithItems === 0;
+  return anyPrinted;
 }
 
 /**
