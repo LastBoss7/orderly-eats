@@ -19,6 +19,7 @@ export function OrderCardSkeleton({ count = 3, variant = "pending" }: OrderCardS
           key={i}
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.95 }}
           transition={{ 
             delay: i * 0.08, 
             duration: 0.4,
@@ -74,6 +75,7 @@ export function KanbanColumnSkeleton({
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.4 }}
       className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
     >
@@ -96,11 +98,18 @@ export function KanbanColumnSkeleton({
 // Dashboard skeleton with all columns
 export function DashboardSkeleton() {
   return (
-    <div className="h-full flex flex-col">
+    <motion.div 
+      className="h-full flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Top Bar Skeleton */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.3 }}
         className="bg-card border-b px-3 py-2"
       >
@@ -164,6 +173,24 @@ export function DashboardSkeleton() {
           />
         </div>
       </div>
-    </div>
+    </motion.div>
+  );
+}
+
+// Dashboard content wrapper with enter animation
+export function DashboardContent({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div 
+      className="h-full flex flex-col"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ 
+        duration: 0.4, 
+        ease: [0.25, 0.46, 0.45, 0.94]
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
