@@ -224,6 +224,26 @@
     @apply bg-sidebar-primary text-sidebar-primary-foreground font-semibold shadow-lg shadow-primary/20;
   }
 
+  /* Collapsed sidebar - enhanced active indicator */
+  [data-state="collapsed"] .sidebar-menu-item.active {
+    @apply relative;
+    box-shadow: 0 0 20px 4px hsl(var(--sidebar-primary) / 0.5), 
+                0 0 40px 8px hsl(var(--sidebar-primary) / 0.2);
+  }
+
+  [data-state="collapsed"] .sidebar-menu-item.active::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background: hsl(var(--sidebar-primary));
+    border-radius: 0 4px 4px 0;
+    box-shadow: 0 0 10px hsl(var(--sidebar-primary) / 0.8);
+  }
+
   .sidebar-menu-badge {
     @apply ml-auto bg-primary text-primary-foreground text-xs font-bold px-2.5 py-1 rounded-full min-w-[24px] text-center;
   }
