@@ -4,20 +4,25 @@ const path = require('path');
 const os = require('os');
 const { ESCPOS, textCommand, lineFeed } = require('./escpos-commands');
 
-// Try to load USB module (optional)
+// Try to load USB module (optional but preferred for direct printing)
 let USBPrinterService = null;
+let usbAvailable = false;
 try {
   USBPrinterService = require('./usb-printer');
+  usbAvailable = true;
+  console.log('[PrinterService] USB module loaded - Direct USB printing available!');
 } catch (e) {
-  console.log('USB module not available, using system printing only');
+  console.log('[PrinterService] USB module not available, using spooler fallback');
 }
 
 class PrinterService {
   constructor() {
     this.platform = os.platform();
-    this.usbPrinter = USBPrinterService ? new USBPrinterService() : null;
+    this.usbPrinter = usbAvailable ? new USBPrinterService() : null;
     this.useEscPos = false;
     this.connectedPrinter = null;
+    this.cachedUsbPrinters = null;
+    this.lastUsbScan = 0;
   }
 
   /**
@@ -116,7 +121,7 @@ class PrinterService {
   }
 
   /**
-   * Print order
+   * Print order - tries USB direct first, then falls back to spooler
    */
   async printOrder(order, options = {}) {
     const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
@@ -124,7 +129,17 @@ class PrinterService {
     // Check if this is a conference/receipt print
     const isConference = order.order_type === 'conference';
     
-    // Check if we should use ESC/POS
+    // PRIORITY 1: Try USB direct if available (fastest, no spooler)
+    if (this.usbPrinter) {
+      const usbResult = await this.tryUsbDirectPrint(order, layout, restaurantInfo, isConference);
+      if (usbResult.success) {
+        console.log('[PrintOrder] USB direct print SUCCESS!');
+        return true;
+      }
+      console.log('[PrintOrder] USB direct not available, using spooler...');
+    }
+    
+    // PRIORITY 2: Use ESC/POS via USB if explicitly configured
     if (useEscPos && printerInfo && printerInfo.type === 'usb') {
       if (isConference) {
         return this.printConferenceEscPos(order, layout, restaurantInfo, printerInfo);
@@ -132,7 +147,7 @@ class PrinterService {
       return this.printOrderEscPos(order, layout, restaurantInfo, printerInfo);
     }
     
-    // Fallback to text printing
+    // PRIORITY 3: Fallback to RAW spooler printing (still ESC/POS, but via Windows)
     if (isConference) {
       const receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
       return this.printText(receipt, printerName, layout);
@@ -140,6 +155,63 @@ class PrinterService {
     
     const receipt = this.formatReceipt(order, layout, restaurantInfo);
     return this.printText(receipt, printerName, layout);
+  }
+
+  /**
+   * Try to print directly via USB (bypasses Windows spooler completely)
+   * This is the FASTEST method - like professional POS systems
+   */
+  async tryUsbDirectPrint(order, layout, restaurantInfo, isConference) {
+    if (!this.usbPrinter) {
+      return { success: false, reason: 'USB module not available' };
+    }
+
+    try {
+      // Scan for USB printers (cache for 30 seconds)
+      const now = Date.now();
+      if (!this.cachedUsbPrinters || (now - this.lastUsbScan > 30000)) {
+        this.cachedUsbPrinters = this.usbPrinter.listPrinters();
+        this.lastUsbScan = now;
+      }
+
+      if (this.cachedUsbPrinters.length === 0) {
+        return { success: false, reason: 'No USB printers found' };
+      }
+
+      // Use first available USB printer
+      const printer = this.cachedUsbPrinters[0];
+      console.log(`[USB Direct] Found printer: ${printer.name} (${printer.vendorId}:${printer.productId})`);
+
+      // Connect if not connected
+      if (!this.usbPrinter.isConnected) {
+        await this.usbPrinter.connect(printer.vendorId, printer.productId);
+        console.log('[USB Direct] Connected to printer');
+      }
+
+      // Build ESC/POS commands
+      let commands;
+      if (isConference) {
+        commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
+      } else {
+        commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
+      }
+
+      // Send directly to USB (NO SPOOLER!)
+      await this.usbPrinter.write(commands);
+      console.log(`[USB Direct] Sent ${commands.length} bytes directly to printer`);
+
+      return { success: true };
+
+    } catch (error) {
+      console.log('[USB Direct] Failed:', error.message);
+      
+      // Disconnect on error to allow reconnection
+      try {
+        this.usbPrinter.disconnect();
+      } catch (e) {}
+      
+      return { success: false, reason: error.message };
+    }
   }
 
   /**
