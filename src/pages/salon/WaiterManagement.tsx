@@ -47,6 +47,7 @@ interface Waiter {
   phone: string | null;
   status: string;
   pin: string | null;
+  pin_hash: string | null;
 }
 
 export default function WaiterManagement() {
@@ -106,38 +107,43 @@ export default function WaiterManagement() {
     setSaving(true);
 
     try {
-      // Check if PIN is unique
-      if (newWaiter.pin) {
-        const { data: existingPin } = await supabase
-          .from('waiters')
-          .select('id')
-          .eq('restaurant_id', restaurant.id)
-          .eq('pin', newWaiter.pin)
-          .single();
-
-        if (existingPin) {
-          toast({
-            variant: 'destructive',
-            title: 'Erro',
-            description: 'Este PIN já está em uso por outro garçom.',
-          });
-          setSaving(false);
-          return;
-        }
-      }
-
-      const { error } = await supabase
+      // First create the waiter without PIN
+      const { data: insertedWaiter, error: insertError } = await supabase
         .from('waiters')
         .insert({
           restaurant_id: restaurant.id,
           name: newWaiter.name.trim(),
           email: newWaiter.email.trim() || null,
           phone: newWaiter.phone.trim() || null,
-          pin: newWaiter.pin.trim() || null,
           status: 'active',
+        })
+        .select('id')
+        .single();
+
+      if (insertError) throw insertError;
+
+      // If PIN is provided, set it using the edge function (hashed)
+      if (newWaiter.pin && insertedWaiter) {
+        const { data, error: pinError } = await supabase.functions.invoke('waiter-auth', {
+          body: {
+            action: 'set_pin',
+            waiter_id: insertedWaiter.id,
+            new_pin: newWaiter.pin.trim(),
+          },
         });
 
-      if (error) throw error;
+        if (pinError || data?.error) {
+          // Rollback: delete the waiter if PIN setting failed
+          await supabase.from('waiters').delete().eq('id', insertedWaiter.id);
+          toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: data?.error || 'Erro ao definir PIN.',
+          });
+          setSaving(false);
+          return;
+        }
+      }
 
       setNewWaiter({ name: '', email: '', phone: '', pin: '' });
       setIsDialogOpen(false);
@@ -187,32 +193,33 @@ export default function WaiterManagement() {
     if (!editingWaiter) return;
 
     try {
-      // Check if PIN is unique
       if (editPin) {
-        const { data: existingPin } = await supabase
-          .from('waiters')
-          .select('id')
-          .eq('restaurant_id', restaurant?.id)
-          .eq('pin', editPin)
-          .neq('id', editingWaiter.id)
-          .single();
+        // Use Edge Function to set hashed PIN
+        const { data, error: pinError } = await supabase.functions.invoke('waiter-auth', {
+          body: {
+            action: 'set_pin',
+            waiter_id: editingWaiter.id,
+            new_pin: editPin,
+          },
+        });
 
-        if (existingPin) {
+        if (pinError || data?.error) {
           toast({
             variant: 'destructive',
             title: 'Erro',
-            description: 'Este PIN já está em uso por outro garçom.',
+            description: data?.error || 'Erro ao definir PIN.',
           });
           return;
         }
+      } else {
+        // Clear PIN (remove hash and salt)
+        const { error } = await supabase
+          .from('waiters')
+          .update({ pin: null, pin_hash: null, pin_salt: null })
+          .eq('id', editingWaiter.id);
+
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from('waiters')
-        .update({ pin: editPin || null })
-        .eq('id', editingWaiter.id);
-
-      if (error) throw error;
       
       fetchWaiters();
       setIsEditDialogOpen(false);
@@ -459,7 +466,7 @@ export default function WaiterManagement() {
                     <p className="text-sm text-muted-foreground">
                       {waiter.email || 'Sem e-mail'} • {waiter.phone || 'Sem telefone'}
                     </p>
-                    {waiter.pin && (
+                    {(waiter.pin || waiter.pin_hash) && (
                       <p className="text-xs text-primary flex items-center gap-1 mt-1">
                         <KeyRound className="w-3 h-3" />
                         PIN configurado

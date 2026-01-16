@@ -104,36 +104,33 @@ export default function WaiterLogin() {
     setError(null);
     
     try {
-      console.log('Attempting login with PIN:', currentPin, 'for restaurant:', restaurant.id);
+      console.log('Attempting login with PIN for restaurant:', restaurant.id);
       
-      // First, check if there are any waiters with this PIN
-      const { data: waiter, error: queryError } = await supabase
-        .from('waiters')
-        .select('id, name, status, restaurant_id')
-        .eq('restaurant_id', restaurant.id)
-        .eq('pin', currentPin)
-        .maybeSingle();
+      // Use Edge Function for secure PIN authentication
+      const { data, error: authError } = await supabase.functions.invoke('waiter-auth', {
+        body: {
+          action: 'authenticate',
+          restaurant_id: restaurant.id,
+          pin: currentPin,
+        },
+      });
 
-      console.log('Query result:', { waiter, queryError });
+      console.log('Auth result:', { data, authError });
 
-      if (queryError) {
-        console.error('Query error:', queryError);
+      if (authError) {
+        console.error('Auth error:', authError);
         setError('Erro ao verificar PIN. Tente novamente.');
         setPin('');
         return;
       }
 
-      if (!waiter) {
-        setError('PIN não encontrado');
+      if (!data?.authenticated) {
+        setError(data?.error || 'PIN não encontrado');
         setPin('');
         return;
       }
 
-      if (waiter.status !== 'active') {
-        setError('Garçom inativo. Fale com o gerente.');
-        setPin('');
-        return;
-      }
+      const waiter = data.waiter;
 
       // Store waiter data in sessionStorage for the WaiterApp
       sessionStorage.setItem('waiter_session', JSON.stringify({
