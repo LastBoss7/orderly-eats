@@ -18,7 +18,8 @@ import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
-import { DashboardSkeleton } from '@/components/dashboard/OrderCardSkeleton';
+import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
+import { AnimatePresence } from 'framer-motion';
 import {
   Dialog,
   DialogContent,
@@ -1244,19 +1245,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     }
   };
 
-  // Initial loading state with skeleton
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <DashboardSkeleton />
-      </DashboardLayout>
-    );
-  }
-
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col animate-fade-in-up">
-        {/* Top Bar - Compact */}
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <DashboardSkeleton key="skeleton" />
+        ) : (
+          <DashboardContent key="content">
         <div className="bg-card border-b px-3 py-2">
           <div className="flex items-center gap-2 flex-wrap">
             <SidebarTrigger />
@@ -2050,7 +2045,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             }}
           />
         )}
-      </div>
+          </DashboardContent>
+        )}
+      </AnimatePresence>
     </DashboardLayout>
   );
 }
