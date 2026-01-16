@@ -18,6 +18,7 @@ import { PrintSettingsModal } from '@/components/dashboard/PrintSettingsModal';
 import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
+import { DashboardSkeleton } from '@/components/dashboard/OrderCardSkeleton';
 import {
   Dialog,
   DialogContent,
@@ -1243,24 +1244,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     }
   };
 
-  // Initial loading state
+  // Initial loading state with skeleton
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center space-y-6 animate-fade-in-up">
-            <div className="relative inline-flex">
-              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <ChefHat className="w-6 h-6 text-primary animate-pulse" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-lg font-medium text-foreground">Carregando pedidos...</p>
-              <p className="text-sm text-muted-foreground">Preparando seu dashboard</p>
-            </div>
-          </div>
-        </div>
+        <DashboardSkeleton />
       </DashboardLayout>
     );
   }
