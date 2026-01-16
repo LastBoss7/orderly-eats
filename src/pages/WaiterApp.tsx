@@ -605,6 +605,7 @@ export default function WaiterApp({
         .from('tabs')
         .update({ 
           customer_name: tabCustomerName.trim(),
+          customer_phone: tabCustomerPhone.trim() || null,
           status: 'occupied'
         })
         .eq('id', pendingTab.id);
