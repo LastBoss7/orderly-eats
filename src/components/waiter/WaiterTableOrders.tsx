@@ -23,6 +23,7 @@ import {
   MoreVertical,
   RotateCcw,
 } from 'lucide-react';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
   id: string;
@@ -57,6 +58,7 @@ type SplitMode = 'none' | 'equal';
 
 export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableOrdersProps) {
   const { restaurant } = useAuth();
+  const { printConference, reprintOrder } = usePrintToElectron();
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,17 +316,19 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
     setPrinting(true);
     
     try {
-      const receiptContent = generateReceiptHTML();
-      const printWindow = window.open('', '_blank', 'width=400,height=700');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      }
-      toast.success('Conferência enviada para impressão!');
+      // Send to Electron app for thermal printing
+      await printConference({
+        entityType: 'table',
+        entityNumber: table.number,
+        customerName: null,
+        items: allItems.map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          product_price: item.product_price,
+        })),
+        total: grandTotal,
+        splitCount: splitMode === 'equal' ? numPeople : 1,
+      });
     } catch (error) {
       console.error('Error printing receipt:', error);
       toast.error('Erro ao imprimir conferência');
@@ -333,74 +337,17 @@ export function WaiterTableOrders({ table, onBack, onTableClosed }: WaiterTableO
     }
   };
 
-  // Reprint single order
+  // Reprint single order via Electron
   const handleReprintOrder = async (order: Order) => {
     setReprintingOrder(order.id);
     setOpenOrderMenu(null);
     
     try {
-      // Update print_status to trigger reprint via Electron app
-      await supabase
-        .from('orders')
-        .update({ print_status: 'pending' })
-        .eq('id', order.id);
-      
-      // Also generate visual print
-      const receiptContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Pedido #${order.id.slice(0, 8)}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Courier New', monospace; font-size: 14px; width: 300px; padding: 15px; background: #fff; }
-            .header { text-align: center; margin-bottom: 15px; border-bottom: 2px dashed #000; padding-bottom: 10px; }
-            .header h1 { font-size: 18px; margin-bottom: 5px; }
-            .header h2 { font-size: 24px; font-weight: bold; margin: 10px 0; }
-            .items-header { font-weight: bold; margin: 10px 0 5px; border-bottom: 1px solid #000; padding-bottom: 5px; }
-            .item { margin: 8px 0; }
-            .item-name { font-weight: bold; font-size: 16px; }
-            .item-note { font-size: 12px; color: #666; margin-left: 10px; }
-            .total { font-size: 18px; font-weight: bold; margin-top: 15px; padding-top: 15px; border-top: 2px solid #000; display: flex; justify-content: space-between; }
-            .footer { text-align: center; margin-top: 15px; font-size: 11px; color: #666; }
-            .reprint-badge { background: #fef3c7; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="reprint-badge">⚠️ REIMPRESSÃO</div>
-            <h1>${restaurant?.name || 'Restaurante'}</h1>
-            <h2>PEDIDO #${order.id.slice(0, 8).toUpperCase()}</h2>
-            <p><strong>Mesa ${table.number}</strong></p>
-            <p>${new Date(order.created_at).toLocaleString('pt-BR')}</p>
-          </div>
-          <div class="items-header">ITENS:</div>
-          ${(order.order_items || []).map(item => `
-            <div class="item">
-              <span class="item-name">${item.quantity}x ${item.product_name}</span>
-              ${item.notes ? `<div class="item-note">Obs: ${item.notes}</div>` : ''}
-            </div>
-          `).join('')}
-          <div class="total">
-            <span>TOTAL</span>
-            <span>${formatCurrency(order.total || 0)}</span>
-          </div>
-          <div class="footer">
-            <p>Reimpresso em ${new Date().toLocaleString('pt-BR')}</p>
-          </div>
-        </body>
-        </html>
-      `;
-      
-      const printWindow = window.open('', '_blank', 'width=400,height=700');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        setTimeout(() => printWindow.print(), 250);
-      }
-      
-      toast.success('Pedido enviado para reimpressão!');
+      // Send to Electron app for thermal printing
+      await reprintOrder({
+        orderId: order.id,
+        orderNumber: order.id.slice(0, 8).toUpperCase(),
+      });
     } catch (error) {
       console.error('Error reprinting order:', error);
       toast.error('Erro ao reimprimir pedido');

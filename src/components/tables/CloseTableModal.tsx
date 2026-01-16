@@ -31,6 +31,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
   id: string;
@@ -82,7 +83,7 @@ export function CloseTableModal({
   onTableClosed 
 }: CloseTableModalProps) {
   const { restaurant } = useAuth();
-  
+  const { printConference } = usePrintToElectron();
   // States
   const [splitMode, setSplitMode] = useState<SplitMode>('none');
   const [numPeople, setNumPeople] = useState(2);
@@ -182,17 +183,19 @@ export function CloseTableModal({
     setPrintingReceipt(true);
     
     try {
-      const receiptContent = generateReceiptHTML();
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-      }
-      
-      toast.success('Conferência enviada para impressão!');
+      // Send to Electron app for thermal printing
+      await printConference({
+        entityType: 'table',
+        entityNumber: table?.number || 0,
+        customerName: null,
+        items: allItems.map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          product_price: item.product_price,
+        })),
+        total: grandTotal,
+        splitCount: splitMode === 'equal' ? numPeople : 1,
+      });
     } catch (error) {
       console.error('Error printing receipt:', error);
       toast.error('Erro ao imprimir conferência');

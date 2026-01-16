@@ -37,6 +37,7 @@ import {
   UtensilsCrossed,
   MoreHorizontal,
 } from 'lucide-react';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
   id: string;
@@ -87,7 +88,7 @@ export function CheckoutScreen({
   onClosed,
 }: CheckoutScreenProps) {
   const { restaurant } = useAuth();
-  
+  const { printConference } = usePrintToElectron();
   // States
   const [payments, setPayments] = useState<PaymentEntry[]>([]);
   const [currentPaymentMethod, setCurrentPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -275,16 +276,21 @@ export function CheckoutScreen({
   const handlePrintReceipt = async () => {
     setPrintingReceipt(true);
     try {
-      const receiptContent = generateReceiptHTML();
-      const printWindow = window.open('', '_blank', 'width=400,height=600');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-      }
-      toast.success('Conferência enviada para impressão!');
+      // Send to Electron app for thermal printing
+      await printConference({
+        entityType: type,
+        entityNumber,
+        customerName,
+        items: allItems.map(item => ({
+          product_name: item.product_name,
+          quantity: item.quantity,
+          product_price: item.product_price,
+        })),
+        total: totalWithModifiers,
+        discount,
+        addition,
+        splitCount,
+      });
     } catch (error) {
       console.error('Error printing receipt:', error);
       toast.error('Erro ao imprimir conferência');

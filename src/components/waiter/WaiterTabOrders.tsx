@@ -20,6 +20,7 @@ import {
   Check,
   User,
 } from 'lucide-react';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
   id: string;
