@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Store, Power, PowerOff, Loader2, FileText } from 'lucide-react';
+import { Store, Power, PowerOff, Loader2, FileText, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchDailyReportData, printDailyReport } from './PrintDailyReport';
 import { useSaveClosing } from '@/hooks/useSaveClosing';
@@ -30,6 +30,7 @@ export function StoreControlModal({
 }: StoreControlModalProps) {
   const { restaurant } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [resettingCounter, setResettingCounter] = useState(false);
   const { saveClosing } = useSaveClosing();
 
   const handleToggleStore = async () => {
@@ -158,6 +159,29 @@ export function StoreControlModal({
     }
   };
 
+  const handleResetCounter = async () => {
+    if (!restaurant?.id) return;
+
+    setResettingCounter(true);
+    try {
+      const { error } = await supabase
+        .from('salon_settings')
+        .update({ daily_order_counter: 0 })
+        .eq('restaurant_id', restaurant.id);
+
+      if (error) throw error;
+
+      toast.success('Contador de pedidos resetado para #01!');
+    } catch (error: any) {
+      console.error('Erro ao resetar contador:', error);
+      toast.error('Erro ao resetar contador', {
+        description: error?.message || 'Erro desconhecido',
+      });
+    } finally {
+      setResettingCounter(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -195,17 +219,32 @@ export function StoreControlModal({
             )}
           </div>
 
-          {/* Print report button (only when store is open) */}
+          {/* Action buttons (only when store is open) */}
           {isOpen && (
-            <Button 
-              variant="outline" 
-              className="w-full mt-4 gap-2"
-              onClick={handlePrintReport}
-              disabled={loading}
-            >
-              <FileText className="w-4 h-4" />
-              Imprimir Relatório Parcial
-            </Button>
+            <div className="flex flex-col gap-2 mt-4">
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={handlePrintReport}
+                disabled={loading || resettingCounter}
+              >
+                <FileText className="w-4 h-4" />
+                Imprimir Relatório Parcial
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={handleResetCounter}
+                disabled={loading || resettingCounter}
+              >
+                {resettingCounter ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-4 h-4" />
+                )}
+                Resetar Contador de Pedidos
+              </Button>
+            </div>
           )}
         </div>
 
