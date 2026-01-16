@@ -147,8 +147,8 @@ export function OrderCard({
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-all hover:shadow-md ${
-        isDelayed && order.status !== 'delivered' ? 'ring-2 ring-destructive animate-pulse' : ''
+      className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md relative ${
+        isDelayed && order.status !== 'delivered' ? 'ring-2 ring-destructive' : ''
       } ${isDragging ? 'shadow-xl z-50' : ''}`}
     >
       {/* Drag Handle - on top border */}

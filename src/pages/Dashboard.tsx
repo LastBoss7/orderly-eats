@@ -1657,7 +1657,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Order Detail Modal */}
         <Dialog open={showOrderDetailModal} onOpenChange={setShowOrderDetailModal}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {selectedOrder && getOrderTypeIcon(selectedOrder.order_type)}
