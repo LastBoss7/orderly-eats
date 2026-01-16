@@ -60,7 +60,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-white-full.png';
-import logoGamakoIcon from '@/assets/logo-gamako-icon.png';
+import logoGamakoIcon from '@/assets/logo-gamako-white-icon.png';
 
 const mainMenuItems = [
   { title: 'Meus pedidos', url: '/dashboard', icon: ClipboardList, badge: 0 },
