@@ -1264,6 +1264,10 @@ export type Database = {
         }
         Returns: string
       }
+      get_next_order_number: {
+        Args: { _restaurant_id: string }
+        Returns: number
+      }
       get_user_restaurant_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
