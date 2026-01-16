@@ -28,6 +28,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CloseTabModal } from './CloseTabModal';
+import { MergeTabsModal } from './MergeTabsModal';
+import { TransferItemsModal } from './TransferItemsModal';
 import { 
   Plus, 
   Search, 
@@ -41,6 +43,8 @@ import {
   ChevronDown,
   User,
   Hash,
+  Merge,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 interface Tab {
@@ -96,6 +100,12 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
   // Close tab modal
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeTabOrders, setCloseTabOrders] = useState<Order[]>([]);
+  
+  // Merge tabs modal
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  
+  // Transfer items modal
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const fetchTabs = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -539,6 +549,28 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
               Lançar Pedido
             </Button>
 
+            {/* Quick Actions for Bar */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="gap-2 h-12"
+                onClick={() => setShowMergeModal(true)}
+                disabled={selectedTab?.status !== 'occupied'}
+              >
+                <Merge className="w-4 h-4" />
+                Fundir
+              </Button>
+              <Button
+                variant="outline"
+                className="gap-2 h-12"
+                onClick={() => setShowTransferModal(true)}
+                disabled={tabOrders.length === 0}
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Transferir
+              </Button>
+            </div>
+
             {/* Close Tab Button */}
             {tabOrders.length > 0 && (
               <Button
@@ -646,6 +678,28 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
         tab={selectedTab}
         orders={closeTabOrders}
         onTabClosed={handleTabClosed}
+      />
+
+      {/* Merge Tabs Modal */}
+      <MergeTabsModal
+        open={showMergeModal}
+        onClose={() => setShowMergeModal(false)}
+        targetTab={selectedTab}
+        onMergeComplete={() => {
+          fetchTabs();
+          if (selectedTab) fetchTabOrders(selectedTab.id);
+        }}
+      />
+
+      {/* Transfer Items Modal */}
+      <TransferItemsModal
+        open={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        sourceTab={selectedTab}
+        onTransferComplete={() => {
+          fetchTabs();
+          if (selectedTab) fetchTabOrders(selectedTab.id);
+        }}
       />
     </>
   );
