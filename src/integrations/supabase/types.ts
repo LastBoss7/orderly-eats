@@ -1127,6 +1127,8 @@ export type Database = {
           name: string
           phone: string | null
           pin: string | null
+          pin_hash: string | null
+          pin_salt: string | null
           restaurant_id: string
           status: string | null
           updated_at: string
@@ -1138,6 +1140,8 @@ export type Database = {
           name: string
           phone?: string | null
           pin?: string | null
+          pin_hash?: string | null
+          pin_salt?: string | null
           restaurant_id: string
           status?: string | null
           updated_at?: string
@@ -1149,6 +1153,8 @@ export type Database = {
           name?: string
           phone?: string | null
           pin?: string | null
+          pin_hash?: string | null
+          pin_salt?: string | null
           restaurant_id?: string
           status?: string | null
           updated_at?: string
