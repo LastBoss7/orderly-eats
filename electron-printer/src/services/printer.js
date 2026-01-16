@@ -121,12 +121,23 @@ class PrinterService {
   async printOrder(order, options = {}) {
     const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
     
+    // Check if this is a conference/receipt print
+    const isConference = order.order_type === 'conference';
+    
     // Check if we should use ESC/POS
     if (useEscPos && printerInfo && printerInfo.type === 'usb') {
+      if (isConference) {
+        return this.printConferenceEscPos(order, layout, restaurantInfo, printerInfo);
+      }
       return this.printOrderEscPos(order, layout, restaurantInfo, printerInfo);
     }
     
     // Fallback to text printing
+    if (isConference) {
+      const receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
+      return this.printText(receipt, printerName, layout);
+    }
+    
     const receipt = this.formatReceipt(order, layout, restaurantInfo);
     return this.printText(receipt, printerName, layout);
   }
@@ -1041,6 +1052,364 @@ class PrinterService {
         });
       }
     });
+  }
+
+  // ============================================
+  // CONFERENCE / RECEIPT PRINTING
+  // ============================================
+
+  /**
+   * Print conference using ESC/POS
+   */
+  async printConferenceEscPos(order, layout, restaurantInfo, printerInfo) {
+    if (!this.usbPrinter) {
+      throw new Error('Módulo USB não disponível');
+    }
+
+    if (!this.usbPrinter.isConnected) {
+      await this.usbPrinter.connect(printerInfo.vendorId, printerInfo.productId);
+    }
+
+    const commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
+    await this.usbPrinter.write(commands);
+    
+    return true;
+  }
+
+  /**
+   * Build ESC/POS commands for conference receipt
+   */
+  buildConferenceEscPos(order, layout, restaurantInfo = {}) {
+    const buffers = [];
+    const width = layout.paperWidth || 48;
+    const encoding = 'cp860';
+    
+    // Parse notes for conference data
+    let conferenceData = {};
+    try {
+      conferenceData = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      conferenceData = {};
+    }
+    
+    const isFinalReceipt = conferenceData.isFinalReceipt || false;
+    const payments = conferenceData.payments || [];
+    const discount = conferenceData.discount || 0;
+    const addition = conferenceData.addition || 0;
+    const splitCount = conferenceData.splitCount || 1;
+    const entityType = conferenceData.entityType || 'table';
+    const entityNumber = conferenceData.entityNumber || '';
+    
+    // Initialize printer
+    buffers.push(ESCPOS.HW_INIT);
+    buffers.push(ESCPOS.TXT_FONT_A);
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    
+    // Header
+    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
+    
+    if (restaurantInfo.name) {
+      buffers.push(ESCPOS.TXT_SIZE_2H);
+      buffers.push(ESCPOS.TXT_BOLD_ON);
+      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.name.toUpperCase()) + '\n', encoding));
+      buffers.push(ESCPOS.TXT_BOLD_OFF);
+      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    }
+    
+    buffers.push(lineFeed(1));
+    
+    // Title - Different for conference vs final receipt
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    buffers.push(ESCPOS.TXT_SIZE_2H);
+    if (isFinalReceipt) {
+      buffers.push(Buffer.from('*** CONTA PAGA ***\n', encoding));
+    } else {
+      buffers.push(Buffer.from('*** CONFERENCIA ***\n', encoding));
+    }
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    
+    // Entity (Table/Tab)
+    buffers.push(ESCPOS.TXT_SIZE_2X);
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
+    buffers.push(Buffer.from(`${entityLabel} ${entityNumber}\n`, encoding));
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    
+    // Customer name
+    if (order.customer_name) {
+      buffers.push(Buffer.from(this.removeAccents(order.customer_name) + '\n', encoding));
+    }
+    
+    // Date/Time
+    const now = new Date();
+    buffers.push(Buffer.from(now.toLocaleString('pt-BR') + '\n', encoding));
+    
+    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
+    buffers.push(lineFeed(1));
+    
+    // Items
+    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    buffers.push(Buffer.from('ITENS:\n', encoding));
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
+    
+    if (order.order_items && order.order_items.length > 0) {
+      for (const item of order.order_items) {
+        const qty = item.quantity || 1;
+        const name = this.removeAccents(item.product_name);
+        const price = (item.product_price * qty).toFixed(2);
+        
+        // Item line
+        const itemLine = `${qty}x ${name}`;
+        const maxLen = width - 12;
+        const displayName = itemLine.length > maxLen ? itemLine.slice(0, maxLen - 3) + '...' : itemLine;
+        
+        buffers.push(Buffer.from(displayName + '\n', encoding));
+        buffers.push(ESCPOS.TXT_ALIGN_RIGHT);
+        buffers.push(Buffer.from(`R$ ${price}\n`, encoding));
+        buffers.push(ESCPOS.TXT_ALIGN_LEFT);
+      }
+    }
+    
+    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
+    buffers.push(lineFeed(1));
+    
+    // Subtotal, discount, addition
+    let subtotal = 0;
+    if (order.order_items) {
+      for (const item of order.order_items) {
+        subtotal += (item.product_price || 0) * (item.quantity || 1);
+      }
+    }
+    
+    buffers.push(Buffer.from(this.formatLineItem('Subtotal:', `R$ ${subtotal.toFixed(2)}`, width) + '\n', encoding));
+    
+    if (discount > 0) {
+      buffers.push(Buffer.from(this.formatLineItem('Desconto:', `-R$ ${discount.toFixed(2)}`, width) + '\n', encoding));
+    }
+    
+    if (addition > 0) {
+      buffers.push(Buffer.from(this.formatLineItem('Acrescimo:', `+R$ ${addition.toFixed(2)}`, width) + '\n', encoding));
+    }
+    
+    buffers.push(lineFeed(1));
+    
+    // Total
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    buffers.push(ESCPOS.TXT_SIZE_2X);
+    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
+    const total = order.total || 0;
+    buffers.push(Buffer.from(`TOTAL: R$ ${total.toFixed(2)}\n`, encoding));
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
+    
+    // Split info
+    if (splitCount > 1) {
+      const perPerson = (total / splitCount).toFixed(2);
+      buffers.push(Buffer.from(this.formatLineItem(`Por pessoa (${splitCount}):`, `R$ ${perPerson}`, width) + '\n', encoding));
+    }
+    
+    buffers.push(lineFeed(1));
+    
+    // Payments (only for final receipt)
+    if (isFinalReceipt && payments.length > 0) {
+      buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
+      buffers.push(ESCPOS.TXT_BOLD_ON);
+      buffers.push(Buffer.from('PAGAMENTOS:\n', encoding));
+      buffers.push(ESCPOS.TXT_BOLD_OFF);
+      
+      for (const payment of payments) {
+        const method = this.removeAccents(payment.method || 'Dinheiro');
+        const amount = (payment.amount || 0).toFixed(2);
+        buffers.push(Buffer.from(this.formatLineItem(method + ':', `R$ ${amount}`, width) + '\n', encoding));
+      }
+      
+      buffers.push(lineFeed(1));
+    }
+    
+    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
+    
+    // Footer
+    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
+    buffers.push(lineFeed(1));
+    
+    if (isFinalReceipt) {
+      buffers.push(ESCPOS.TXT_SIZE_2H);
+      buffers.push(ESCPOS.TXT_BOLD_ON);
+      buffers.push(Buffer.from('OBRIGADO!\n', encoding));
+      buffers.push(ESCPOS.TXT_BOLD_OFF);
+      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    } else {
+      buffers.push(Buffer.from('Aguardando pagamento\n', encoding));
+    }
+    
+    buffers.push(Buffer.from(layout.footerMessage || 'Obrigado pela preferencia!' + '\n', encoding));
+    
+    // Feed and cut
+    buffers.push(lineFeed(4));
+    const cutType = layout.paperCut || 'partial';
+    if (cutType === 'full') {
+      buffers.push(ESCPOS.PAPER_FULL_CUT);
+    } else if (cutType === 'partial') {
+      buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
+    }
+    
+    return Buffer.concat(buffers);
+  }
+
+  /**
+   * Format conference receipt for text printing
+   */
+  formatConferenceReceipt(order, layout, restaurantInfo = {}) {
+    const width = parseInt(layout.paperWidth, 10) || 48;
+    const divider = this.createLine('-', width);
+    const doubleDivider = this.createLine('=', width);
+    const lines = [];
+    
+    // Parse notes for conference data
+    let conferenceData = {};
+    try {
+      conferenceData = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      conferenceData = {};
+    }
+    
+    const isFinalReceipt = conferenceData.isFinalReceipt || false;
+    const payments = conferenceData.payments || [];
+    const discount = conferenceData.discount || 0;
+    const addition = conferenceData.addition || 0;
+    const splitCount = conferenceData.splitCount || 1;
+    const entityType = conferenceData.entityType || 'table';
+    const entityNumber = conferenceData.entityNumber || '';
+    
+    // Header
+    if (restaurantInfo.name) {
+      lines.push(this.center(this.removeAccents(restaurantInfo.name.toUpperCase()), width));
+    }
+    
+    lines.push(this.padLine('', width));
+    
+    // Title
+    if (isFinalReceipt) {
+      lines.push(this.center('*** CONTA PAGA ***', width));
+    } else {
+      lines.push(this.center('*** CONFERENCIA ***', width));
+    }
+    
+    // Entity
+    const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
+    lines.push(this.center(`${entityLabel} ${entityNumber}`, width));
+    
+    // Customer
+    if (order.customer_name) {
+      lines.push(this.center(this.removeAccents(order.customer_name), width));
+    }
+    
+    // Date/Time
+    const now = new Date();
+    lines.push(this.center(now.toLocaleString('pt-BR'), width));
+    
+    lines.push(doubleDivider);
+    lines.push(this.padLine('', width));
+    
+    // Items
+    lines.push(this.padLine('ITENS:', width));
+    lines.push(divider);
+    
+    let subtotal = 0;
+    if (order.order_items && order.order_items.length > 0) {
+      for (const item of order.order_items) {
+        const qty = item.quantity || 1;
+        const name = this.removeAccents(item.product_name);
+        const price = item.product_price * qty;
+        subtotal += price;
+        
+        const itemLine = `${qty}x ${name}`;
+        const priceStr = `R$ ${price.toFixed(2).replace('.', ',')}`;
+        
+        if (itemLine.length + priceStr.length + 1 <= width) {
+          lines.push(this.alignBoth(itemLine, priceStr, width));
+        } else {
+          const wrapped = this.wrapText(itemLine, width - 1);
+          wrapped.forEach((line, idx) => {
+            if (idx === wrapped.length - 1) {
+              if (line.length + priceStr.length + 1 <= width) {
+                lines.push(this.alignBoth(line, priceStr, width));
+              } else {
+                lines.push(this.padLine(line, width));
+                lines.push(this.alignRight(priceStr, width));
+              }
+            } else {
+              lines.push(this.padLine(line, width));
+            }
+          });
+        }
+      }
+    }
+    
+    lines.push(divider);
+    lines.push(this.padLine('', width));
+    
+    // Totals
+    lines.push(this.alignBoth('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width));
+    
+    if (discount > 0) {
+      lines.push(this.alignBoth('Desconto:', `-R$ ${discount.toFixed(2).replace('.', ',')}`, width));
+    }
+    
+    if (addition > 0) {
+      lines.push(this.alignBoth('Acrescimo:', `+R$ ${addition.toFixed(2).replace('.', ',')}`, width));
+    }
+    
+    lines.push(this.padLine('', width));
+    
+    const total = order.total || 0;
+    lines.push(this.alignBoth('TOTAL:', `R$ ${total.toFixed(2).replace('.', ',')}`, width));
+    
+    if (splitCount > 1) {
+      const perPerson = (total / splitCount).toFixed(2).replace('.', ',');
+      lines.push(this.alignBoth(`Por pessoa (${splitCount}):`, `R$ ${perPerson}`, width));
+    }
+    
+    lines.push(this.padLine('', width));
+    
+    // Payments (only for final receipt)
+    if (isFinalReceipt && payments.length > 0) {
+      lines.push(doubleDivider);
+      lines.push(this.padLine('PAGAMENTOS:', width));
+      
+      for (const payment of payments) {
+        const method = this.removeAccents(payment.method || 'Dinheiro');
+        const amount = (payment.amount || 0).toFixed(2).replace('.', ',');
+        lines.push(this.alignBoth(method + ':', `R$ ${amount}`, width));
+      }
+      
+      lines.push(this.padLine('', width));
+    }
+    
+    lines.push(doubleDivider);
+    lines.push(this.padLine('', width));
+    
+    // Footer
+    if (isFinalReceipt) {
+      lines.push(this.center('*** OBRIGADO! ***', width));
+    } else {
+      lines.push(this.center('Aguardando pagamento', width));
+    }
+    
+    lines.push(this.center(this.removeAccents(layout.footerMessage || 'Obrigado pela preferencia!'), width));
+    
+    // Extra lines for paper feed
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
+    lines.push(this.padLine('', width));
+    
+    return lines.join('\n');
   }
 }
 
