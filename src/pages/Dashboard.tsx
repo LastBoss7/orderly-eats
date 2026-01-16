@@ -879,10 +879,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       <motion.div 
         ref={setNodeRef} 
         style={style}
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        layout
         animate={{ 
           opacity: isDragging ? 0.6 : 1, 
-          y: 0, 
           scale: isDragging ? 1.02 : 1,
           boxShadow: isDragging 
             ? '0 20px 40px -12px rgba(0, 0, 0, 0.25)' 
@@ -892,14 +891,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           y: -2, 
           scale: 1.01,
           boxShadow: '0 8px 25px -8px rgba(0, 0, 0, 0.15)',
-          transition: { duration: 0.2 }
         }}
         whileTap={{ scale: 0.98 }}
         transition={{ 
           type: "spring", 
           stiffness: 400, 
-          damping: 25,
-          opacity: { duration: 0.2 }
+          damping: 30,
+          layout: { duration: 0.2 }
         }}
         className={`bg-card rounded-lg border overflow-hidden relative cursor-pointer ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
