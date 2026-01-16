@@ -188,15 +188,15 @@ export default function WaiterLogin() {
         <img 
           src={logoGamako} 
           alt="Gamako" 
-          className="h-20 mx-auto mb-4 object-contain"
+          className="h-20 mx-auto mb-4 object-contain animate-fade-in-up"
         />
-        <h1 className="text-xl font-bold text-white">{restaurant?.name}</h1>
-        <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
+        <h1 className="text-xl font-bold text-white animate-fade-in-up" style={{ animationDelay: '0.1s' }}>{restaurant?.name}</h1>
+        <p className="text-amber-400/80 mt-1 text-sm font-medium animate-fade-in-up" style={{ animationDelay: '0.15s' }}>Acesso do Garçom</p>
       </header>
 
       {/* PIN Display */}
       <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4">
-        <div className="w-full max-w-xs">
+        <div className="w-full max-w-xs animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           {/* PIN Dots */}
           <div className="flex justify-center gap-3 mb-6">
             {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -204,9 +204,10 @@ export default function WaiterLogin() {
                 key={i}
                 className={`w-4 h-4 rounded-full transition-all duration-200 ${
                   i < pin.length 
-                    ? 'bg-amber-400 scale-110 shadow-lg shadow-amber-400/50' 
+                    ? 'bg-amber-400 scale-110 shadow-lg shadow-amber-400/50 animate-bounce-in' 
                     : 'bg-white/20 border border-white/30'
                 }`}
+                style={{ animationDelay: `${i * 0.05}s` }}
               />
             ))}
           </div>
@@ -226,8 +227,8 @@ export default function WaiterLogin() {
           </div>
 
           {/* Numeric Keypad */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+          <div className="grid grid-cols-3 gap-3 mb-4 stagger-children">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num, index) => (
               <button
                 key={num}
                 onClick={() => handlePinInput(num.toString())}
@@ -236,7 +237,8 @@ export default function WaiterLogin() {
                          hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
                          transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
                          border border-white/10 hover:border-white/30 active:border-amber-400
-                         shadow-lg backdrop-blur-sm"
+                         shadow-lg backdrop-blur-sm btn-press"
+                style={{ animationDelay: `${0.3 + index * 0.03}s` }}
               >
                 {num}
               </button>

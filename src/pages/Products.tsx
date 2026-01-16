@@ -498,7 +498,12 @@ export default function Products() {
         {/* Products Table */}
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-center space-y-4">
+              <div className="relative inline-flex">
+                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+              <p className="text-muted-foreground animate-pulse">Carregando produtos...</p>
+            </div>
           </div>
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
