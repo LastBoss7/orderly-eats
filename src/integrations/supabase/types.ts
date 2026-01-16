@@ -957,6 +957,67 @@ export type Database = {
         }
         Relationships: []
       }
+      tab_payments: {
+        Row: {
+          amount: number
+          cash_received: number | null
+          change_given: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_by: string | null
+          payment_method: string
+          restaurant_id: string
+          tab_id: string
+        }
+        Insert: {
+          amount: number
+          cash_received?: number | null
+          change_given?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_by?: string | null
+          payment_method: string
+          restaurant_id: string
+          tab_id: string
+        }
+        Update: {
+          amount?: number
+          cash_received?: number | null
+          change_given?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_by?: string | null
+          payment_method?: string
+          restaurant_id?: string
+          tab_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tab_payments_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "tab_payments_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tab_payments_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tables: {
         Row: {
           capacity: number | null
