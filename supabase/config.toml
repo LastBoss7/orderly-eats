@@ -2,3 +2,12 @@ project_id = "ueddnccouuevidwrcjaa"
 
 [functions.print-orders]
 verify_jwt = false
+
+[functions.printer-orders]
+verify_jwt = false
+
+[functions.printer-config]
+verify_jwt = false
+
+[functions.printer-sync]
+verify_jwt = false
