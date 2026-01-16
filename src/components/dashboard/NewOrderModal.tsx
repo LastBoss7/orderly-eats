@@ -703,16 +703,15 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         }
       }
 
-      // Get and increment daily order counter
+      // Check if store is open
       const { data: settings, error: settingsError } = await supabase
         .from('salon_settings')
-        .select('daily_order_counter, is_open')
+        .select('is_open')
         .eq('restaurant_id', restaurant?.id)
         .maybeSingle();
 
       if (settingsError) throw settingsError;
 
-      // Check if store is open
       if (!settings?.is_open) {
         toast({
           variant: 'destructive',
@@ -723,13 +722,13 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         return;
       }
 
-      const newOrderNumber = (settings?.daily_order_counter ?? 0) + 1;
+      // Get next order number atomically using database function
+      const { data: orderNumberData, error: orderNumberError } = await supabase
+        .rpc('get_next_order_number', { _restaurant_id: restaurant?.id });
 
-      // Update the counter
-      await supabase
-        .from('salon_settings')
-        .update({ daily_order_counter: newOrderNumber })
-        .eq('restaurant_id', restaurant?.id);
+      if (orderNumberError) throw orderNumberError;
+      
+      const newOrderNumber = orderNumberData as number;
 
       // Determine print status based on settings
       const autoPrint = shouldAutoPrint ? shouldAutoPrint(orderType) : true;

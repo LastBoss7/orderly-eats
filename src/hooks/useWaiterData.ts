@@ -170,6 +170,12 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       return postToEdge('create-order', orderData);
     }
     
+    // Get next order number atomically using database function
+    const { data: orderNumber, error: orderNumberError } = await supabase
+      .rpc('get_next_order_number', { _restaurant_id: restaurantId });
+
+    if (orderNumberError) throw orderNumberError;
+    
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -187,6 +193,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
         delivery_phone: orderData.delivery_phone || null,
         delivery_fee: orderData.delivery_fee || 0,
         waiter_id: orderData.waiter_id || null,
+        order_number: orderNumber,
       })
       .select()
       .single();

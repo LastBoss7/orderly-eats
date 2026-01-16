@@ -182,6 +182,12 @@ Deno.serve(async (req) => {
     if (req.method === "POST" && action === "create-order") {
       const body = await req.json();
       
+      // Get next order number atomically using database function
+      const { data: orderNumber, error: orderNumberError } = await supabase
+        .rpc('get_next_order_number', { _restaurant_id: restaurantId });
+
+      if (orderNumberError) throw orderNumberError;
+      
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -199,6 +205,7 @@ Deno.serve(async (req) => {
           delivery_phone: body.delivery_phone || null,
           delivery_fee: body.delivery_fee || 0,
           waiter_id: body.waiter_id || null,
+          order_number: orderNumber,
         })
         .select()
         .single();
