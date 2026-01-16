@@ -233,7 +233,7 @@ export function AppSidebar() {
         )}
       </SidebarHeader>
 
-      <SidebarContent className={`${isCollapsed ? 'px-1' : 'px-3'} py-4`}>
+      <SidebarContent className={`${isCollapsed ? 'px-0' : 'px-3'} py-4`}>
         <SidebarGroup>
           {!isCollapsed && (
             <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs uppercase tracking-wider mb-2 px-3">
@@ -241,7 +241,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className={`space-y-1 ${isCollapsed ? 'items-center' : ''}`}>
               {mainMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {renderMenuItem(item, item.badge)}
@@ -319,7 +319,7 @@ export function AppSidebar() {
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={isCollapsed ? 'items-center' : ''}>
               <SidebarMenuItem>
                 {isCollapsed ? (
                   <Tooltip>
@@ -368,7 +368,7 @@ export function AppSidebar() {
               </SidebarGroupLabel>
             )}
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className={isCollapsed ? 'items-center' : ''}>
                 <SidebarMenuItem>
                   {isCollapsed ? (
                     <Tooltip>
@@ -407,9 +407,9 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className={`border-t border-sidebar-border ${isCollapsed ? 'p-2' : 'p-4'}`}>
+      <SidebarFooter className={`border-t border-sidebar-border ${isCollapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
         {isCollapsed ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center justify-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
