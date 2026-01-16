@@ -527,15 +527,35 @@ async function refreshRestaurantConfig(restaurantId) {
 
 /**
  * Get the appropriate local printer for an order based on its type (fallback)
+ * Priority: 1. Order type specific printer, 2. Default printer, 3. First selected printer
  */
 function getLocalPrinterForOrder(order) {
   const printers = store.get('printers') || {};
-  const orderType = order.order_type || 'counter';
+  const selectedPrinters = store.get('selectedPrinters') || [];
+  const orderType = order?.order_type || 'counter';
   
-  // Try to get printer for specific order type
-  const printerName = printers[orderType] || printers.default || store.get('printerName') || '';
+  // Try order-type specific printer first
+  if (printers[orderType]) {
+    return printers[orderType];
+  }
   
-  return printerName;
+  // Then try default
+  if (printers.default) {
+    return printers.default;
+  }
+  
+  // Then printerName setting
+  const printerName = store.get('printerName');
+  if (printerName) {
+    return printerName;
+  }
+  
+  // Finally, use first selected printer
+  if (selectedPrinters.length > 0) {
+    return selectedPrinters[0];
+  }
+  
+  return '';
 }
 
 /**
@@ -996,46 +1016,60 @@ ipcMain.handle('test-print', async () => {
     const configPaperWidth = store.get('paperWidth') || 48;
     const layout = {
       ...(store.get('layout') || defaultLayout),
-      paperWidth: configPaperWidth, // Override with config value
+      paperWidth: configPaperWidth,
     };
     
-    const useEscPos = store.get('useEscPos');
-    const usbPrinter = store.get('usbPrinter');
     const printerName = store.get('printerName') || '';
+    const selectedPrinters = store.get('selectedPrinters') || [];
     
-    // Validate that we have a printer configured
-    if (!printerName && !useEscPos) {
-      sendToRenderer('log', '✗ ERRO: Nenhuma impressora configurada para teste!');
+    // Use printerName OR first selected printer
+    const targetPrinter = printerName || (selectedPrinters.length > 0 ? selectedPrinters[0] : '');
+    
+    if (!targetPrinter) {
+      sendToRenderer('log', '✗ ERRO: Nenhuma impressora configurada!');
+      sendToRenderer('log', '   → Configure uma impressora na lista acima');
       return { success: false, error: 'Nenhuma impressora configurada' };
     }
     
-    let printerInfo = null;
-    if (useEscPos && usbPrinter) {
-      const [vendorId, productId] = usbPrinter.split(':');
-      printerInfo = { type: 'usb', vendorId, productId };
+    sendToRenderer('log', `🖨️ INICIANDO TESTE DE IMPRESSÃO`);
+    sendToRenderer('log', `   → Impressora: "${targetPrinter}"`);
+    sendToRenderer('log', `   → Largura: ${configPaperWidth} caracteres`);
+    
+    // Verify printer exists in system
+    let printers = [];
+    try {
+      printers = mainWindow.webContents.getPrintersAsync 
+        ? await mainWindow.webContents.getPrintersAsync()
+        : mainWindow.webContents.getPrinters();
+    } catch (e) {
+      console.error('Error getting printers:', e);
     }
     
-    sendToRenderer('log', `🖨️ TESTE DE IMPRESSÃO`);
-    sendToRenderer('log', `   → Impressora: "${printerName || 'USB ESC/POS'}"`);
-    sendToRenderer('log', `   → Largura: ${configPaperWidth} caracteres`);
-    sendToRenderer('log', `   → Modo: ${useEscPos ? 'ESC/POS USB' : 'Sistema Windows'}`);
+    const printerExists = printers.some(p => p.name === targetPrinter);
+    if (!printerExists) {
+      sendToRenderer('log', `   ⚠ AVISO: Impressora "${targetPrinter}" não encontrada no sistema!`);
+      sendToRenderer('log', `   → Impressoras disponíveis: ${printers.map(p => p.name).join(', ')}`);
+    } else {
+      sendToRenderer('log', `   ✓ Impressora encontrada no sistema`);
+    }
     
     const success = await printerService.printTest({
       layout,
-      printerName,
-      useEscPos,
-      printerInfo,
+      printerName: targetPrinter,
+      useEscPos: false,
+      printerInfo: null,
     });
     
     if (success) {
-      sendToRenderer('log', `   ✓ Teste de impressão enviado com sucesso!`);
+      sendToRenderer('log', `   ✓ Comando de impressão enviado!`);
+      sendToRenderer('log', `   → Verifique se saiu na impressora física`);
       return { success: true };
     } else {
-      sendToRenderer('log', `   ✗ Falha no teste de impressão (retornou false)`);
+      sendToRenderer('log', `   ✗ Impressão retornou erro`);
       return { success: false, error: 'Impressão falhou' };
     }
   } catch (error) {
-    sendToRenderer('log', `   ✗ ERRO no teste: ${error.message}`);
+    sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
     console.error('Test print error:', error);
     return { success: false, error: error.message };
   }

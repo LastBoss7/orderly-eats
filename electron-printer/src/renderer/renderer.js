@@ -94,10 +94,26 @@ async function selectPrinters() {
   const checkboxes = document.querySelectorAll('#printerList input[type="checkbox"]:checked');
   selectedPrinters = Array.from(checkboxes).map(cb => cb.value);
   
+  if (selectedPrinters.length === 0) {
+    addLog('⚠ Selecione pelo menos uma impressora!', 'error');
+    return;
+  }
+  
   try {
     await window.electronAPI.saveSelectedPrinters(selectedPrinters);
-    addLog(`${selectedPrinters.length} impressora(s) ativada(s)`, 'success');
+    
+    // Also set the first selected printer as the main printer if none is set
+    const currentPrinter = document.getElementById('printerSelect').value;
+    if (!currentPrinter && selectedPrinters.length > 0) {
+      document.getElementById('printerSelect').value = selectedPrinters[0];
+      addLog(`✓ Impressora principal: "${selectedPrinters[0]}"`, 'info');
+    }
+    
+    addLog(`✓ ${selectedPrinters.length} impressora(s) ativada(s)`, 'success');
     closePrinterListModal();
+    
+    // Trigger save to persist the printer selection
+    await saveConfig();
   } catch (error) {
     addLog('Erro ao salvar impressoras: ' + error.message, 'error');
   }
