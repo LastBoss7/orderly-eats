@@ -807,22 +807,13 @@ async function printOrderToPrinter(order, printerName = '', dbPrinter = null) {
       : baseLayout;
     const restaurantInfo = cachedRestaurantInfo || { name: 'Restaurante', phone: null, address: null, cnpj: null };
     
-    // Check for network printer configuration
-    const networkIp = store.get('networkIp');
-    const networkPort = store.get('networkPort') || 9100;
-    const networkConfig = networkIp ? { ip: networkIp, port: networkPort } : null;
-    
-    if (networkConfig) {
-      sendToRenderer('log', `   → Rede TCP/IP: ${networkIp}:${networkPort}`);
-    }
-    sendToRenderer('log', `   → Layout: ${layout.paperWidth} colunas, corte: ${layout.paperCut || 'partial'}`);
+    sendToRenderer('log', `   → Layout: ${layout.paperWidth} colunas`);
     sendToRenderer('log', `   → Itens: ${order.order_items?.length || 0}, Total: R$ ${order.total?.toFixed(2) || '0.00'}`);
     
     const success = await printerService.printOrder(order, {
       layout,
       restaurantInfo,
       printerName,
-      networkConfig, // Pass network config for TCP/IP printing
     });
 
     if (success) {
@@ -1032,58 +1023,20 @@ ipcMain.handle('test-print', async (event, mode = 'auto') => {
     
     sendToRenderer('log', `🖨️ TESTE DE IMPRESSÃO`);
     
-    // MODE: USB Direct (fastest, no spooler)
-    if (mode === 'usb' || mode === 'auto') {
-      sendToRenderer('log', `   → Tentando USB Direto (sem spooler)...`);
-      
-      if (printerService.usbPrinter) {
-        try {
-          const usbPrinters = printerService.usbPrinter.listPrinters();
-          
-          if (usbPrinters.length > 0) {
-            sendToRenderer('log', `   → ${usbPrinters.length} impressora(s) USB encontrada(s)`);
-            
-            for (const p of usbPrinters) {
-              sendToRenderer('log', `      • ${p.name} (${p.vendorId}:${p.productId})`);
-            }
-            
-            // Try to print via USB direct
-            await printerService.usbPrinter.autoConnect();
-            await printerService.usbPrinter.testPrint();
-            
-            sendToRenderer('log', `   ✓ SUCESSO! Impressão USB direta funcionando!`);
-            sendToRenderer('log', `   → Velocidade máxima, sem spooler Windows`);
-            return { success: true, method: 'usb-direct' };
-            
-          } else {
-            sendToRenderer('log', `   ⚠ Nenhuma impressora USB térmica detectada`);
-          }
-        } catch (usbError) {
-          sendToRenderer('log', `   ⚠ USB Direto falhou: ${usbError.message}`);
-        }
-      } else {
-        sendToRenderer('log', `   ⚠ Módulo USB não disponível`);
-      }
-      
-      if (mode === 'usb') {
-        return { success: false, error: 'USB direto não disponível' };
-      }
-      
-      sendToRenderer('log', `   → Tentando via Spooler Windows...`);
-    }
-    
-    // MODE: Windows Spooler (fallback)
+    // Windows Spooler (reliable method for installed printers)
     const printerName = store.get('printerName') || '';
     const selectedPrinters = store.get('selectedPrinters') || [];
     const targetPrinter = printerName || (selectedPrinters.length > 0 ? selectedPrinters[0] : '');
     
     if (!targetPrinter) {
       sendToRenderer('log', '   ✗ Nenhuma impressora configurada!');
+      sendToRenderer('log', '   → Configure uma impressora no menu principal');
       return { success: false, error: 'Nenhuma impressora configurada' };
     }
     
     sendToRenderer('log', `   → Impressora: "${targetPrinter}"`);
     sendToRenderer('log', `   → Largura: ${configPaperWidth} caracteres`);
+    sendToRenderer('log', `   → Modo: Windows Spooler RAW`);
     
     const success = await printerService.printTest({
       layout,
@@ -1093,7 +1046,7 @@ ipcMain.handle('test-print', async (event, mode = 'auto') => {
     });
     
     if (success) {
-      sendToRenderer('log', `   ✓ Impressão via Spooler enviada!`);
+      sendToRenderer('log', `   ✓ Impressão enviada com sucesso!`);
       return { success: true, method: 'spooler' };
     } else {
       sendToRenderer('log', `   ✗ Falha na impressão`);

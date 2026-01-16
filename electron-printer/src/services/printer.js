@@ -125,43 +125,18 @@ class PrinterService {
   }
 
   /**
-   * Print order - tries Network TCP/IP first, then USB direct, then spooler
+   * Print order - Uses Windows Spooler with ESC/POS RAW commands
+   * This is the most reliable method for thermal printers installed on Windows
    */
   async printOrder(order, options = {}) {
-    const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null, networkConfig = null } = options;
+    const { layout = {}, restaurantInfo = {}, printerName = '' } = options;
     
     // Check if this is a conference/receipt print
     const isConference = order.order_type === 'conference';
     
-    // PRIORITY 0: Try Network TCP/IP if configured (fastest for network printers)
-    if (networkConfig && networkConfig.ip) {
-      const networkResult = await this.tryNetworkPrint(order, layout, restaurantInfo, isConference, networkConfig);
-      if (networkResult.success) {
-        console.log(`[PrintOrder] Network TCP/IP print SUCCESS to ${networkConfig.ip}:${networkConfig.port || 9100}!`);
-        return true;
-      }
-      console.log('[PrintOrder] Network print failed, trying other methods...');
-    }
+    // Use ESC/POS via Windows Spooler (RAW mode) - most reliable
+    console.log(`[PrintOrder] Using Windows Spooler RAW for: ${printerName}`);
     
-    // PRIORITY 1: Try USB direct if available (fastest, no spooler)
-    if (this.usbPrinter) {
-      const usbResult = await this.tryUsbDirectPrint(order, layout, restaurantInfo, isConference);
-      if (usbResult.success) {
-        console.log('[PrintOrder] USB direct print SUCCESS!');
-        return true;
-      }
-      console.log('[PrintOrder] USB direct not available, using spooler...');
-    }
-    
-    // PRIORITY 2: Use ESC/POS via USB if explicitly configured
-    if (useEscPos && printerInfo && printerInfo.type === 'usb') {
-      if (isConference) {
-        return this.printConferenceEscPos(order, layout, restaurantInfo, printerInfo);
-      }
-      return this.printOrderEscPos(order, layout, restaurantInfo, printerInfo);
-    }
-    
-    // PRIORITY 3: Fallback to RAW spooler printing (still ESC/POS, but via Windows)
     if (isConference) {
       const receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
       return this.printText(receipt, printerName, layout);
