@@ -203,7 +203,7 @@ export default function POS() {
           customer_name: customerName || null,
           order_type: 'counter',
           status: 'pending',
-          print_status: autoPrint ? 'pending' : 'disabled',
+          print_status: 'pending', // Always print via Electron
           total: cartTotal,
           notes: `Pagamento: ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
         })

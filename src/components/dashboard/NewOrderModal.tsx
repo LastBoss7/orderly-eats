@@ -748,7 +748,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           driver_id: orderType === 'delivery' && selectedDriver && selectedDriver !== 'none' ? selectedDriver : null,
           order_type: orderType === 'table' ? (dineInType === 'tab' ? 'tab' : 'table') : orderType,
           status: 'pending',
-          print_status: autoPrint ? 'pending' : 'disabled',
+          print_status: 'pending', // Always print via Electron
           total: orderTotal,
           notes: notes || null,
           order_number: newOrderNumber,
