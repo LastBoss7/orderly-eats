@@ -5,7 +5,8 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Printer as PrinterIcon, ChevronDown, ChevronUp, Loader2, ChefHat, Wine, Receipt, Utensils, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Printer as PrinterIcon, ChevronDown, ChevronUp, Loader2, ChefHat, Wine, Receipt, Utensils, AlertCircle, Monitor } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
@@ -14,6 +15,13 @@ import { cn } from '@/lib/utils';
 interface Category {
   id: string;
   name: string;
+}
+
+interface AvailablePrinter {
+  id: string;
+  printer_name: string;
+  display_name: string | null;
+  is_default: boolean | null;
 }
 
 interface PrinterConfigCardProps {
@@ -71,11 +79,14 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
   const { restaurant } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [availablePrinters, setAvailablePrinters] = useState<AvailablePrinter[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingAvailablePrinters, setLoadingAvailablePrinters] = useState(false);
   const [saving, setSaving] = useState(false);
   
   // Local state for editing
   const [isActive, setIsActive] = useState(printer.is_active ?? true);
+  const [selectedPrinterName, setSelectedPrinterName] = useState<string>(printer.printer_name || '');
   const [selectedOrderTypes, setSelectedOrderTypes] = useState<string[]>(
     printer.linked_order_types || ['counter', 'table', 'delivery']
   );
@@ -95,37 +106,52 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
     }
   }, [printer.linked_categories, categories.length]);
 
-  // Fetch categories
+  // Fetch categories and available printers
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       if (!restaurant?.id) return;
       
       setLoadingCategories(true);
+      setLoadingAvailablePrinters(true);
+      
       try {
-        const { data, error } = await supabase
+        // Fetch categories
+        const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
           .select('id, name')
           .eq('restaurant_id', restaurant.id)
           .order('sort_order', { ascending: true });
 
-        if (error) throw error;
-        setCategories(data || []);
+        if (categoriesError) throw categoriesError;
+        setCategories(categoriesData || []);
         
         // Initialize selected categories
         if (printer.linked_categories === null) {
-          setSelectedCategories(data?.map(c => c.id) || []);
+          setSelectedCategories(categoriesData?.map(c => c.id) || []);
         } else {
           setSelectedCategories(printer.linked_categories);
         }
+
+        // Fetch available printers (synced from Electron app)
+        const { data: printersData, error: printersError } = await supabase
+          .from('available_printers')
+          .select('id, printer_name, display_name, is_default')
+          .eq('restaurant_id', restaurant.id)
+          .order('is_default', { ascending: false });
+
+        if (printersError) throw printersError;
+        setAvailablePrinters(printersData || []);
+        
       } catch (err) {
-        console.error('Error fetching categories:', err);
+        console.error('Error fetching data:', err);
       } finally {
         setLoadingCategories(false);
+        setLoadingAvailablePrinters(false);
       }
     };
 
     if (expanded) {
-      fetchCategories();
+      fetchData();
     }
   }, [expanded, restaurant?.id, printer.linked_categories]);
 
@@ -221,6 +247,7 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
     is_active: boolean;
     linked_order_types: string[];
     linked_categories: string[] | null;
+    printer_name: string | null;
   }> = {}) => {
     setSaving(true);
     try {
@@ -230,6 +257,7 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
           is_active: overrides.is_active ?? isActive,
           linked_order_types: overrides.linked_order_types ?? selectedOrderTypes,
           linked_categories: allCategoriesSelected ? null : selectedCategories,
+          printer_name: overrides.printer_name ?? (selectedPrinterName || null),
         })
         .eq('id', printer.id);
 
@@ -314,6 +342,47 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
         {/* Expanded Content */}
         {expanded && (
           <div className="mt-6 pt-4 border-t space-y-6">
+            {/* Printer Selection from Windows */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Monitor className="w-4 h-4" />
+                Impressora do Windows
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Selecione a impressora do Windows que será usada (sincronizada pelo app Electron)
+              </p>
+              
+              {loadingAvailablePrinters ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Carregando impressoras...</span>
+                </div>
+              ) : availablePrinters.length === 0 ? (
+                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 p-3 rounded">
+                  ⚠ Nenhuma impressora encontrada. Execute o app Electron para sincronizar as impressoras do Windows.
+                </div>
+              ) : (
+                <Select
+                  value={selectedPrinterName}
+                  onValueChange={setSelectedPrinterName}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma impressora..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePrinters.map((ap) => (
+                      <SelectItem key={ap.id} value={ap.printer_name}>
+                        <div className="flex items-center gap-2">
+                          {ap.is_default && <Badge variant="secondary" className="text-xs py-0">Padrão</Badge>}
+                          {ap.display_name || ap.printer_name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             {/* Printer Type Selection */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">Tipo de Impressora</Label>
