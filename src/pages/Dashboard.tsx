@@ -87,6 +87,7 @@ import {
   Keyboard,
   ChevronDown,
   Truck,
+  Activity,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -196,6 +197,7 @@ export default function Dashboard() {
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [recentlyUpdatedOrders, setRecentlyUpdatedOrders] = useState<Set<string>>(new Set());
+  const [recentActivity, setRecentActivity] = useState<{ orderId: string; timestamp: number; status: string }[]>([]);
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
@@ -208,6 +210,16 @@ export default function Dashboard() {
   const [showCloseTabModal, setShowCloseTabModal] = useState(false);
   const [tableToClose, setTableToClose] = useState<TableForClose & { orders: Order[] } | null>(null);
   const [tabToClose, setTabToClose] = useState<TabForClose & { orders: Order[] } | null>(null);
+  
+  // Clean up old activity entries (older than 5 minutes)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      setRecentActivity(prev => prev.filter(a => a.timestamp > fiveMinutesAgo));
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Keyboard shortcuts for quick order creation
   const handleNewOrderShortcut = useCallback((type?: 'counter' | 'table' | 'delivery' | 'takeaway') => {
@@ -607,6 +619,12 @@ export default function Dashboard() {
     
     // Add visual flash feedback
     setRecentlyUpdatedOrders(prev => new Set(prev).add(orderId));
+    
+    // Track recent activity
+    setRecentActivity(prev => [
+      ...prev,
+      { orderId, timestamp: Date.now(), status }
+    ]);
     
     // Remove flash after animation completes
     setTimeout(() => {
@@ -1490,6 +1508,63 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               >
                 {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </Button>
+              
+              {/* Activity Badge */}
+              {recentActivity.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative flex items-center">
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-medium"
+                      >
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ repeat: Infinity, duration: 2 }}
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                        </motion.div>
+                        <motion.span
+                          key={recentActivity.length}
+                          initial={{ scale: 1.3 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                        >
+                          {recentActivity.length}
+                        </motion.span>
+                      </motion.div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1">
+                      <p className="font-medium text-xs flex items-center gap-1">
+                        <Activity className="w-3 h-3" /> Atividade recente (5 min)
+                      </p>
+                      <div className="text-[10px] space-y-0.5 max-h-32 overflow-y-auto">
+                        {recentActivity.slice(-5).reverse().map((activity, i) => {
+                          const order = orders.find(o => o.id === activity.orderId);
+                          const statusLabels: Record<string, string> = {
+                            'preparing': '🔥 Em preparo',
+                            'ready': '✅ Pronto',
+                            'served': '🍽️ Servido',
+                            'delivered': '📦 Entregue',
+                            'out_for_delivery': '🚚 Em entrega',
+                          };
+                          return (
+                            <div key={i} className="flex justify-between gap-3">
+                              <span className="text-muted-foreground">
+                                {order ? `#${getOrderDisplayNumber(order)}` : 'Pedido'}
+                              </span>
+                              <span>{statusLabels[activity.status] || activity.status}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               
               <Button variant="ghost" size="icon" className="h-8 w-8 relative">
                 <Bell className="w-4 h-4" />
