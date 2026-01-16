@@ -3,9 +3,22 @@
 // ============================================
 let systemPrinters = [];
 let selectedPrinters = [];
+let logsVisible = false;
 
 // ============================================
-// LOG
+// STATUS MESSAGE (clean UI)
+// ============================================
+function showStatus(message, type = 'info') {
+  const statusEl = document.getElementById('statusMessage');
+  statusEl.textContent = message;
+  statusEl.className = `status-message ${type}`;
+  
+  // Also add to hidden log
+  addLog(message, type);
+}
+
+// ============================================
+// LOG (hidden by default)
 // ============================================
 function addLog(message, type = 'info') {
   const logContent = document.getElementById('logContent');
@@ -18,9 +31,24 @@ function addLog(message, type = 'info') {
   logContent.appendChild(entry);
   logContent.scrollTop = logContent.scrollHeight;
   
-  // Keep only last 50 entries
-  while (logContent.children.length > 50) {
+  // Keep only last 30 entries
+  while (logContent.children.length > 30) {
     logContent.removeChild(logContent.firstChild);
+  }
+}
+
+function toggleLogs() {
+  const logArea = document.getElementById('logContent');
+  const toggleBtn = document.querySelector('.toggle-logs');
+  
+  logsVisible = !logsVisible;
+  
+  if (logsVisible) {
+    logArea.classList.add('visible');
+    toggleBtn.textContent = '▲ Ocultar logs';
+  } else {
+    logArea.classList.remove('visible');
+    toggleBtn.textContent = '▼ Mostrar logs';
   }
 }
 
@@ -33,6 +61,8 @@ function updateStatus(connected, message) {
   
   statusDot.className = `status-dot ${connected ? 'connected' : 'disconnected'}`;
   statusText.textContent = message || (connected ? 'Conectado' : 'Desconectado');
+  
+  showStatus(connected ? 'Sistema conectado e pronto' : 'Aguardando conexão', connected ? 'success' : 'info');
 }
 
 // ============================================
@@ -45,13 +75,13 @@ async function loadPrinters() {
     selectedPrinters = config.selectedPrinters || [];
     
     const select = document.getElementById('printerSelect');
-    select.innerHTML = '<option value="">Padrão do Sistema</option>';
+    select.innerHTML = '<option value="">Selecione...</option>';
     
     systemPrinters.forEach(printer => {
       const option = document.createElement('option');
       option.value = printer.name;
       option.textContent = printer.isDefault 
-        ? `{${printer.displayName}}` 
+        ? `★ ${printer.displayName}` 
         : printer.displayName;
       select.appendChild(option);
     });
@@ -61,9 +91,9 @@ async function loadPrinters() {
       select.value = config.printerName;
     }
     
-    addLog(`${systemPrinters.length} impressora(s) encontrada(s)`, 'info');
+    showStatus(`${systemPrinters.length} impressora(s) disponíveis`, 'info');
   } catch (error) {
-    addLog('Erro ao carregar impressoras: ' + error.message, 'error');
+    showStatus('Erro ao carregar impressoras', 'error');
   }
 }
 
@@ -95,7 +125,7 @@ async function selectPrinters() {
   selectedPrinters = Array.from(checkboxes).map(cb => cb.value);
   
   if (selectedPrinters.length === 0) {
-    addLog('⚠ Selecione pelo menos uma impressora!', 'error');
+    showStatus('Selecione pelo menos uma impressora', 'error');
     return;
   }
   
@@ -106,16 +136,15 @@ async function selectPrinters() {
     const currentPrinter = document.getElementById('printerSelect').value;
     if (!currentPrinter && selectedPrinters.length > 0) {
       document.getElementById('printerSelect').value = selectedPrinters[0];
-      addLog(`✓ Impressora principal: "${selectedPrinters[0]}"`, 'info');
     }
     
-    addLog(`✓ ${selectedPrinters.length} impressora(s) ativada(s)`, 'success');
+    showStatus(`${selectedPrinters.length} impressora(s) selecionada(s)`, 'success');
     closePrinterListModal();
     
     // Trigger save to persist the printer selection
     await saveConfig();
   } catch (error) {
-    addLog('Erro ao salvar impressoras: ' + error.message, 'error');
+    showStatus('Erro ao salvar', 'error');
   }
 }
 
@@ -150,7 +179,7 @@ async function loadConfig() {
     selectedPrinters = config.selectedPrinters || [];
     
   } catch (error) {
-    addLog('Erro ao carregar configurações: ' + error.message, 'error');
+    showStatus('Erro ao carregar configurações', 'error');
   }
 }
 
@@ -169,7 +198,7 @@ async function saveConfig() {
     const restaurantId = document.getElementById('restaurantId').value.trim();
     
     if (!restaurantId) {
-      addLog('⚠ ID do Restaurante é obrigatório', 'error');
+      showStatus('ID do Restaurante é obrigatório', 'error');
       return;
     }
     
@@ -195,10 +224,10 @@ async function saveConfig() {
     };
     
     await window.electronAPI.saveConfig(config);
-    addLog('✓ Configurações salvas', 'success');
+    showStatus('Configurações salvas!', 'success');
     
   } catch (error) {
-    addLog('Erro ao salvar: ' + error.message, 'error');
+    showStatus('Erro ao salvar: ' + error.message, 'error');
   }
 }
 
@@ -207,32 +236,17 @@ async function saveConfig() {
 // ============================================
 async function testPrint() {
   try {
-    addLog('🖨️ Iniciando teste de impressão...', 'info');
+    showStatus('Enviando teste de impressão...', 'info');
     const result = await window.electronAPI.testPrint('auto');
     
     if (result.success) {
       const methodLabel = result.method === 'usb-direct' ? 'USB Direto' : 'Spooler';
-      addLog(`✓ Teste enviado via ${methodLabel}`, 'success');
+      showStatus(`✓ Teste enviado via ${methodLabel}`, 'success');
     } else {
-      addLog('✗ Erro: ' + result.error, 'error');
+      showStatus('✗ Falha: ' + result.error, 'error');
     }
   } catch (error) {
-    addLog('✗ Erro: ' + error.message, 'error');
-  }
-}
-
-async function testUsbDirect() {
-  try {
-    addLog('🔌 Testando USB Direto...', 'info');
-    const result = await window.electronAPI.testUsbDirect();
-    
-    if (result.success) {
-      addLog(`✓ USB Direto OK: ${result.printer}`, 'success');
-    } else {
-      addLog('✗ USB Direto falhou: ' + result.error, 'error');
-    }
-  } catch (error) {
-    addLog('✗ Erro: ' + error.message, 'error');
+    showStatus('✗ Erro: ' + error.message, 'error');
   }
 }
 
@@ -243,16 +257,16 @@ async function reconnect() {
     statusDot.style.background = '#f59e0b';
     document.getElementById('statusText').textContent = 'Conectando...';
     
-    addLog('Reconectando...', 'info');
+    showStatus('Reconectando...', 'info');
     const success = await window.electronAPI.reconnect();
     
     if (success) {
-      addLog('✓ Conectado', 'success');
+      showStatus('Conectado com sucesso!', 'success');
     } else {
-      addLog('✗ Falha na conexão', 'error');
+      showStatus('Falha na conexão', 'error');
     }
   } catch (error) {
-    addLog('Erro ao reconectar: ' + error.message, 'error');
+    showStatus('Erro: ' + error.message, 'error');
   }
 }
 
@@ -264,6 +278,16 @@ window.electronAPI.onConnectionStatus((event, data) => {
 });
 
 window.electronAPI.onLog((event, message) => {
+  // Only show important messages in status
+  if (message.includes('✓') || message.includes('SUCESSO')) {
+    showStatus(message.replace(/\[.*?\]/g, '').trim(), 'success');
+  } else if (message.includes('✗') || message.includes('ERRO') || message.includes('FALHA')) {
+    showStatus(message.replace(/\[.*?\]/g, '').trim(), 'error');
+  } else if (message.includes('pedido(s) para imprimir')) {
+    showStatus(message, 'info');
+  }
+  
+  // Always add to hidden log
   if (message.includes('✓')) {
     addLog(message, 'success');
   } else if (message.includes('✗') || message.includes('Erro')) {
@@ -274,14 +298,14 @@ window.electronAPI.onLog((event, message) => {
 });
 
 window.electronAPI.onPrintSuccess((event, data) => {
-  addLog(`✓ Pedido #${data.orderId.slice(0, 8)} impresso`, 'success');
+  showStatus(`✓ Pedido impresso!`, 'success');
 });
 
 // ============================================
 // INITIALIZATION
 // ============================================
 async function init() {
-  addLog('Aplicativo iniciado', 'info');
+  showStatus('Iniciando...', 'info');
   
   try {
     await loadPrinters();
@@ -290,7 +314,7 @@ async function init() {
     const stats = await window.electronAPI.getStats();
     updateStatus(stats.isConnected, stats.isConnected ? 'Conectado' : 'Desconectado');
   } catch (error) {
-    addLog('Erro ao inicializar: ' + error.message, 'error');
+    showStatus('Erro ao inicializar', 'error');
   }
 }
 
