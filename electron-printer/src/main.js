@@ -1147,76 +1147,19 @@ ipcMain.handle('test-usb-direct', async () => {
 });
 
 // ============================================
-// NETWORK PRINTER HANDLERS (TCP/IP Port 9100)
+// SYNC PRINTERS HANDLER
 // ============================================
 
-// Test network printer connection
-ipcMain.handle('test-network-printer', async (event, ip, port = 9100) => {
-  sendToRenderer('log', `🌐 TESTE DE CONEXÃO DE REDE`);
-  sendToRenderer('log', `   → IP: ${ip}:${port}`);
+// Manually trigger printer sync
+ipcMain.handle('sync-printers', async () => {
+  sendToRenderer('log', `🔄 SINCRONIZANDO IMPRESSORAS...`);
   
   try {
-    const result = await printerService.testNetworkPrinter(ip, port);
-    
-    if (result.success) {
-      sendToRenderer('log', `   ✓ Impressora encontrada! (latência: ${result.latency}ms)`);
-      return { success: true, latency: result.latency };
-    } else {
-      sendToRenderer('log', `   ✗ Falha: ${result.error}`);
-      return { success: false, error: result.error };
-    }
+    await syncAvailablePrinters();
+    return { success: true };
   } catch (error) {
     sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
     return { success: false, error: error.message };
-  }
-});
-
-// Test print to network printer
-ipcMain.handle('test-network-print', async (event, ip, port = 9100) => {
-  sendToRenderer('log', `🖨️ TESTE DE IMPRESSÃO VIA REDE`);
-  sendToRenderer('log', `   → Enviando para ${ip}:${port}...`);
-  
-  try {
-    const configPaperWidth = store.get('paperWidth') || 48;
-    const layout = { paperWidth: configPaperWidth };
-    
-    const result = await printerService.testNetworkPrint(ip, port, layout);
-    
-    if (result.success) {
-      sendToRenderer('log', `   ✓ SUCESSO! ${result.bytesSent} bytes enviados`);
-      sendToRenderer('log', `   → Impressão TCP/IP direta (porta 9100)`);
-      return { success: true, bytesSent: result.bytesSent };
-    } else {
-      sendToRenderer('log', `   ✗ Falha: ${result.error}`);
-      return { success: false, error: result.error };
-    }
-  } catch (error) {
-    sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
-    return { success: false, error: error.message };
-  }
-});
-
-// Scan for network printers
-ipcMain.handle('scan-network-printers', async () => {
-  sendToRenderer('log', `🔍 BUSCANDO IMPRESSORAS DE REDE...`);
-  
-  try {
-    const printers = await printerService.scanNetworkPrinters();
-    
-    if (printers.length > 0) {
-      sendToRenderer('log', `   ✓ ${printers.length} impressora(s) encontrada(s):`);
-      for (const p of printers) {
-        sendToRenderer('log', `      • ${p.ip}:${p.port} (${p.latency}ms)`);
-      }
-    } else {
-      sendToRenderer('log', `   ⚠ Nenhuma impressora de rede encontrada`);
-      sendToRenderer('log', `   → Verifique se a impressora está ligada e na mesma rede`);
-    }
-    
-    return { success: true, printers };
-  } catch (error) {
-    sendToRenderer('log', `   ✗ ERRO: ${error.message}`);
-    return { success: false, error: error.message, printers: [] };
   }
 });
 
