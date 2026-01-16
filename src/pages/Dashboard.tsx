@@ -195,6 +195,7 @@ export default function Dashboard() {
   const [showMoveToTableModal, setShowMoveToTableModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
   const [isStoreOpen, setIsStoreOpen] = useState(false);
+  const [recentlyUpdatedOrders, setRecentlyUpdatedOrders] = useState<Set<string>>(new Set());
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
@@ -604,10 +605,22 @@ export default function Dashboard() {
       return;
     }
     
+    // Add visual flash feedback
+    setRecentlyUpdatedOrders(prev => new Set(prev).add(orderId));
+    
+    // Remove flash after animation completes
+    setTimeout(() => {
+      setRecentlyUpdatedOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }, 1500);
+    
     // Update local orders state immediately for faster UI
     setOrders(prev => {
       const updated = prev.map(o => 
-        o.id === orderId ? { ...o, status, updated_at: updateData.updated_at } : o
+        o.id === orderId ? { ...o, status, updated_at: updateData.updated_at, ready_at: updateData.ready_at || o.ready_at } : o
       );
       console.log('Updated orders state:', updated.find(o => o.id === orderId));
       return updated;
@@ -623,10 +636,25 @@ export default function Dashboard() {
       return prev;
     });
     
-    // Note: "delivered" status just removes the order from dashboard display
-    // It does NOT close the table - that happens when the bill is paid via "Fechar Conta"
+    // Get order details for better notification
+    const order = orders.find(o => o.id === orderId);
+    const orderNumber = order ? getOrderDisplayNumber(order) : '';
     
-    toast.success(`Pedido ${status === 'delivered' ? 'marcado como entregue' : 'atualizado'} com sucesso!`);
+    // Status-specific notifications with icons
+    const statusMessages: Record<string, { message: string; icon: string }> = {
+      'preparing': { message: `Pedido ${orderNumber} em preparo! 🔥`, icon: '🔥' },
+      'ready': { message: `Pedido ${orderNumber} pronto! ✅`, icon: '✅' },
+      'served': { message: `Pedido ${orderNumber} servido! 🍽️`, icon: '🍽️' },
+      'delivered': { message: `Pedido ${orderNumber} entregue! 📦`, icon: '📦' },
+      'out_for_delivery': { message: `Pedido ${orderNumber} saiu para entrega! 🚚`, icon: '🚚' },
+    };
+    
+    const notification = statusMessages[status] || { message: `Pedido atualizado com sucesso!`, icon: '✓' };
+    
+    toast.success(notification.message, {
+      duration: 3000,
+      icon: notification.icon,
+    });
   };
 
   const handleCancelOrder = async () => {
@@ -861,6 +889,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     const delayed = isDelayed(order);
     const waiterName = getWaiterName(order.waiter_id);
     const timer = getOrderTimer(order);
+    const isRecentlyUpdated = recentlyUpdatedOrders.has(order.id);
 
     // Check if this order should show close button (ready or served table/tab orders)
     const showCloseButton = (order.status === 'ready' || order.status === 'served') && 
@@ -885,7 +914,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           scale: isDragging ? 1.02 : 1,
           boxShadow: isDragging 
             ? '0 20px 40px -12px rgba(0, 0, 0, 0.25)' 
-            : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+            : isRecentlyUpdated
+              ? '0 0 20px 4px rgba(34, 197, 94, 0.5)'
+              : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
         }}
         whileHover={{ 
           y: -2, 
@@ -901,7 +932,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         }}
         className={`bg-card rounded-lg border overflow-hidden relative cursor-pointer ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
-        } ${isDragging ? 'z-50 rotate-2' : ''}`}
+        } ${isDragging ? 'z-50 rotate-2' : ''} ${isRecentlyUpdated ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30' : ''}`}
       >
         {/* Drag Handle with enhanced feedback */}
         <motion.div 
