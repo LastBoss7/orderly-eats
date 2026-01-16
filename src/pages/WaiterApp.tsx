@@ -248,6 +248,12 @@ export default function WaiterApp({
   const [tabCustomerPhone, setTabCustomerPhone] = useState('');
   const [savingTabCustomer, setSavingTabCustomer] = useState(false);
   
+  // Create new tab modal
+  const [showCreateTabModal, setShowCreateTabModal] = useState(false);
+  const [newTabCustomerName, setNewTabCustomerName] = useState('');
+  const [newTabCustomerPhone, setNewTabCustomerPhone] = useState('');
+  const [creatingTab, setCreatingTab] = useState(false);
+  
   // Menu view mode - persist in localStorage
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>(() => {
     const saved = localStorage.getItem('waiter_menu_view_mode');
@@ -641,6 +647,68 @@ export default function WaiterApp({
       toast.error('Erro ao salvar cliente na comanda');
     } finally {
       setSavingTabCustomer(false);
+    }
+  };
+
+  // Create a new tab dynamically
+  const handleCreateNewTab = async () => {
+    if (!restaurant?.id) return;
+    if (!newTabCustomerName.trim()) {
+      toast.error('Nome do cliente é obrigatório');
+      return;
+    }
+
+    setCreatingTab(true);
+    try {
+      // Get the next tab number
+      const maxNumber = tabs.length > 0 
+        ? Math.max(...tabs.map(t => t.number)) 
+        : 0;
+      const nextNumber = maxNumber + 1;
+
+      // Create new tab
+      const { data: newTab, error } = await supabase
+        .from('tabs')
+        .insert({
+          restaurant_id: restaurant.id,
+          number: nextNumber,
+          customer_name: newTabCustomerName.trim(),
+          customer_phone: newTabCustomerPhone.trim() || null,
+          status: 'occupied'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local state
+      const createdTab: Tab = {
+        id: newTab.id,
+        number: newTab.number,
+        customer_name: newTab.customer_name,
+        status: 'occupied'
+      };
+      setTabs(prev => [...prev, createdTab]);
+
+      // Set selected tab and go to order view
+      setSelectedTab(createdTab);
+      setOrderMode('tab');
+      setView('order');
+      setCart([]);
+      setSearchTerm('');
+      setSelectedCategory(null);
+      setOrderNotes('');
+      
+      setShowCreateTabModal(false);
+      setNewTabCustomerName('');
+      setNewTabCustomerPhone('');
+      
+      toast.success(`Comanda #${nextNumber} criada para ${newTabCustomerName.trim()}`);
+    } catch (error: any) {
+      console.error('Error creating tab:', error);
+      toast.error('Erro ao criar comanda');
+    } finally {
+      setCreatingTab(false);
     }
   };
 
@@ -2378,6 +2446,19 @@ export default function WaiterApp({
           </div>
         ) : (
           <div className="p-3 grid grid-cols-3 gap-2">
+            {/* Create New Tab Button */}
+            <button
+              onClick={() => {
+                setNewTabCustomerName('');
+                setNewTabCustomerPhone('');
+                setShowCreateTabModal(true);
+              }}
+              className="relative rounded-xl p-3 min-h-[80px] flex flex-col items-center justify-center text-center transition-all active:scale-95 border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10"
+            >
+              <Plus className="w-6 h-6 text-primary mb-1" />
+              <span className="font-medium text-sm text-primary">Criar comanda</span>
+            </button>
+            
             {tabs.filter(tab => {
               if (!tableSearchTerm) return true;
               return tab.number.toString().includes(tableSearchTerm) ||
@@ -2400,13 +2481,6 @@ export default function WaiterApp({
                 )}
               </button>
             ))}
-            
-            {tabs.length === 0 && (
-              <div className="col-span-3 flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <ClipboardList className="w-12 h-12 mb-3 opacity-50" />
-                <p className="text-sm">Nenhuma comanda</p>
-              </div>
-            )}
           </div>
         )}
       </ScrollArea>
@@ -2605,6 +2679,78 @@ export default function WaiterApp({
                   setShowTabCustomerModal(false);
                   setPendingTab(null);
                 }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Tab Modal */}
+      {showCreateTabModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+          <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-bold">Nova Comanda</h3>
+                <p className="text-sm text-muted-foreground">Dados do cliente</p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowCreateTabModal(false)}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Nome do Cliente *
+                </Label>
+                <Input
+                  placeholder="Nome para identificação"
+                  value={newTabCustomerName}
+                  onChange={(e) => setNewTabCustomerName(e.target.value)}
+                  className="h-12"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  Telefone (opcional)
+                </Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={newTabCustomerPhone}
+                  onChange={(e) => setNewTabCustomerPhone(e.target.value)}
+                  className="h-12"
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 border-t space-y-2">
+              <Button 
+                className="w-full h-12"
+                onClick={handleCreateNewTab}
+                disabled={creatingTab || !newTabCustomerName.trim()}
+              >
+                {creatingTab ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                )}
+                Criar Comanda
+              </Button>
+              <Button 
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowCreateTabModal(false)}
               >
                 Cancelar
               </Button>
