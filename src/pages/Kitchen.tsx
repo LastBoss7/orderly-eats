@@ -13,7 +13,7 @@ export default function Kitchen() {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col bg-muted/30">
+      <div className="h-full flex flex-col bg-muted/30 animate-fade-in-up">
         {/* Top Bar */}
         <div className="bg-card border-b px-4 py-3">
           <div className="flex items-center gap-4">

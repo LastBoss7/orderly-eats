@@ -407,8 +407,10 @@ export default function Tables() {
             {loading ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center space-y-4">
-                  <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-                  <p className="text-muted-foreground">Carregando mesas...</p>
+                  <div className="relative inline-flex">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  </div>
+                  <p className="text-muted-foreground animate-pulse">Carregando mesas...</p>
                 </div>
               </div>
             ) : tables.length === 0 ? (
@@ -424,11 +426,12 @@ export default function Tables() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
-                {tables.map((table) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5 stagger-children">
+                {tables.map((table, index) => (
                   <div
                     key={table.id}
-                    className={`table-card ${table.status}`}
+                    className={`table-card ${table.status} animate-scale-in`}
+                    style={{ animationDelay: `${index * 0.05}s` }}
                     onClick={() => handleTableClick(table)}
                   >
                     <span className="text-4xl font-extrabold mb-2">{table.number}</span>

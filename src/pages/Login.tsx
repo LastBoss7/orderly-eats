@@ -238,19 +238,19 @@ export default function Login() {
       <div className="w-full lg:w-[45%] flex flex-col justify-center px-8 md:px-16 lg:px-20 py-12 bg-white">
         <div className="max-w-md w-full mx-auto">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <img src={logoGamako} alt="Gamako" className="h-12 object-contain" />
+          <div className="flex items-center gap-3 mb-8 animate-fade-in-up">
+            <img src={logoGamako} alt="Gamako" className="h-16 object-contain" />
           </div>
 
           {mode === 'login' ? (
             <>
               {/* Welcome Text */}
-              <h1 className="text-2xl font-bold text-foreground mb-8">
+              <h1 className="text-2xl font-bold text-foreground mb-8 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                 Que bom ter você aqui com a gente!
               </h1>
 
               {/* Login Form */}
-              <form onSubmit={handleLogin} className="space-y-5">
+              <form onSubmit={handleLogin} className="space-y-5 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-sm font-medium">
                     E-mail <span className="text-destructive">*</span>
@@ -334,15 +334,15 @@ export default function Login() {
           ) : (
             <>
               {/* Signup Header */}
-              <h1 className="text-2xl font-bold text-foreground mb-2">
+              <h1 className="text-2xl font-bold text-foreground mb-2 animate-fade-in-up">
                 Crie sua conta
               </h1>
-              <p className="text-muted-foreground mb-6">
+              <p className="text-muted-foreground mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
                 Preencha os dados do seu estabelecimento
               </p>
 
               {/* Signup Form */}
-              <form onSubmit={handleSignup} className="space-y-4">
+              <form onSubmit={handleSignup} className="space-y-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
                 {/* CNPJ */}
                 <div className="space-y-2">
                   <Label htmlFor="cnpj" className="text-sm font-medium">

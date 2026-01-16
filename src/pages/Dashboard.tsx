@@ -856,7 +856,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         style={style}
         className={`bg-card rounded-lg border shadow-sm overflow-hidden transition-all hover:shadow-md relative ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
-        } ${isDragging ? 'shadow-xl z-50' : ''}`}
+        } ${isDragging ? 'shadow-xl z-50' : ''} animate-scale-in`}
       >
         {/* Drag Handle */}
         <div 
@@ -1236,9 +1236,31 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     }
   };
 
+  // Initial loading state
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center space-y-6 animate-fade-in-up">
+            <div className="relative inline-flex">
+              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ChefHat className="w-6 h-6 text-primary animate-pulse" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-medium text-foreground">Carregando pedidos...</p>
+              <p className="text-sm text-muted-foreground">Preparando seu dashboard</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col animate-fade-in-up">
         {/* Top Bar - Compact */}
         <div className="bg-card border-b px-3 py-2">
           <div className="flex items-center gap-2 flex-wrap">
