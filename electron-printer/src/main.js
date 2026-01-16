@@ -554,6 +554,7 @@ function getOrderTypeLabel(orderType) {
     table: 'Mesa',
     counter: 'Balcão',
     delivery: 'Delivery',
+    conference: 'Conferência',
   };
   return labels[orderType] || orderType;
 }
@@ -565,6 +566,22 @@ function getOrderTypeLabel(orderType) {
 async function printOrderToAllPrinters(order, dbPrinters) {
   const orderType = order.order_type || 'counter';
   const orderLabel = `#${order.order_number || order.id.slice(0, 8)}`;
+  
+  // Conference orders always print to default/first printer
+  if (orderType === 'conference') {
+    sendToRenderer('log', `Imprimindo conferência ${orderLabel}...`);
+    const printerName = dbPrinters?.[0]?.printer_name || getLocalPrinterForOrder(order);
+    const success = await printOrderToPrinter(order, printerName, dbPrinters?.[0] || null);
+    if (success) {
+      await markOrderPrinted(order);
+      printedCount++;
+      updateTrayMenu();
+      sendToRenderer('print-success', { orderId: order.id, orderType });
+      sendToRenderer('stats', { printedCount });
+      sendToRenderer('log', `✓ Conferência ${orderLabel} impressa com sucesso`);
+    }
+    return success;
+  }
   
   // If no database printers, use local config
   if (!dbPrinters || dbPrinters.length === 0) {
