@@ -54,6 +54,7 @@ import {
   LayoutList,
   Delete,
   KeyRound,
+  Pencil,
 } from 'lucide-react';
 
 interface Waiter {
@@ -87,6 +88,7 @@ interface Tab {
   id: string;
   number: number;
   customer_name: string | null;
+  customer_phone: string | null;
   status: 'available' | 'occupied' | 'closing';
 }
 
@@ -253,6 +255,12 @@ export default function WaiterApp({
   const [newTabCustomerName, setNewTabCustomerName] = useState('');
   const [newTabCustomerPhone, setNewTabCustomerPhone] = useState('');
   const [creatingTab, setCreatingTab] = useState(false);
+  
+  // Edit tab customer modal
+  const [showEditTabCustomerModal, setShowEditTabCustomerModal] = useState(false);
+  const [editTabCustomerName, setEditTabCustomerName] = useState('');
+  const [editTabCustomerPhone, setEditTabCustomerPhone] = useState('');
+  const [savingEditTabCustomer, setSavingEditTabCustomer] = useState(false);
   
   // Menu view mode - persist in localStorage
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>(() => {
@@ -621,7 +629,7 @@ export default function WaiterApp({
       // Update local state
       setTabs(prev => prev.map(t => 
         t.id === pendingTab.id 
-          ? { ...t, customer_name: tabCustomerName.trim(), status: 'occupied' as const }
+          ? { ...t, customer_name: tabCustomerName.trim(), customer_phone: tabCustomerPhone.trim() || null, status: 'occupied' as const }
           : t
       ));
 
@@ -629,6 +637,7 @@ export default function WaiterApp({
       setSelectedTab({
         ...pendingTab,
         customer_name: tabCustomerName.trim(),
+        customer_phone: tabCustomerPhone.trim() || null,
         status: 'occupied'
       });
       setOrderMode('tab');
@@ -686,6 +695,7 @@ export default function WaiterApp({
         id: newTab.id,
         number: newTab.number,
         customer_name: newTab.customer_name,
+        customer_phone: newTab.customer_phone,
         status: 'occupied'
       };
       setTabs(prev => [...prev, createdTab]);
@@ -709,6 +719,48 @@ export default function WaiterApp({
       toast.error('Erro ao criar comanda');
     } finally {
       setCreatingTab(false);
+    }
+  };
+
+  // Edit tab customer info
+  const handleEditTabCustomer = async () => {
+    if (!selectedTab || !editTabCustomerName.trim()) {
+      toast.error('Nome do cliente é obrigatório');
+      return;
+    }
+
+    setSavingEditTabCustomer(true);
+    try {
+      const { error } = await supabase
+        .from('tabs')
+        .update({ 
+          customer_name: editTabCustomerName.trim(),
+          customer_phone: editTabCustomerPhone.trim() || null,
+        })
+        .eq('id', selectedTab.id);
+
+      if (error) throw error;
+
+      // Update local state
+      const updatedTab = {
+        ...selectedTab,
+        customer_name: editTabCustomerName.trim(),
+        customer_phone: editTabCustomerPhone.trim() || null,
+      };
+      setSelectedTab(updatedTab);
+      setTabs(prev => prev.map(t => 
+        t.id === selectedTab.id 
+          ? { ...t, customer_name: editTabCustomerName.trim(), customer_phone: editTabCustomerPhone.trim() || null }
+          : t
+      ));
+      
+      setShowEditTabCustomerModal(false);
+      toast.success('Dados do cliente atualizados!');
+    } catch (error: any) {
+      console.error('Error updating tab customer:', error);
+      toast.error('Erro ao atualizar dados do cliente');
+    } finally {
+      setSavingEditTabCustomer(false);
     }
   };
 
@@ -1415,6 +1467,18 @@ export default function WaiterApp({
               )}
             </div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/10"
+            onClick={() => {
+              setEditTabCustomerName(selectedTab.customer_name || '');
+              setEditTabCustomerPhone(selectedTab.customer_phone || '');
+              setShowEditTabCustomerModal(true);
+            }}
+          >
+            <Pencil className="w-5 h-5" />
+          </Button>
         </header>
 
         <ScrollArea className="flex-1">
@@ -1604,6 +1668,78 @@ export default function WaiterApp({
                   </>
                 )}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Tab Customer Modal */}
+        {showEditTabCustomerModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
+            <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
+              <div className="flex items-center justify-between p-4 border-b">
+                <div>
+                  <h3 className="text-lg font-bold">Editar Cliente</h3>
+                  <p className="text-sm text-muted-foreground">Comanda #{selectedTab.number}</p>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setShowEditTabCustomerModal(false)}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Nome do Cliente *
+                  </Label>
+                  <Input
+                    placeholder="Nome para identificação"
+                    value={editTabCustomerName}
+                    onChange={(e) => setEditTabCustomerName(e.target.value)}
+                    className="h-12"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    <Phone className="w-4 h-4" />
+                    Telefone (opcional)
+                  </Label>
+                  <Input
+                    placeholder="(00) 00000-0000"
+                    value={editTabCustomerPhone}
+                    onChange={(e) => setEditTabCustomerPhone(e.target.value)}
+                    className="h-12"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-4 border-t space-y-2">
+                <Button 
+                  className="w-full h-12"
+                  onClick={handleEditTabCustomer}
+                  disabled={savingEditTabCustomer || !editTabCustomerName.trim()}
+                >
+                  {savingEditTabCustomer ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Alterações
+                </Button>
+                <Button 
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setShowEditTabCustomerModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
             </div>
           </div>
         )}
