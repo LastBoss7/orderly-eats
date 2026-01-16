@@ -141,6 +141,11 @@ export function usePrintToElectron() {
     discount?: number;
     addition?: number;
     splitCount?: number;
+    payments?: Array<{
+      method: string;
+      amount: number;
+    }>;
+    isFinalReceipt?: boolean;
   }) => {
     if (!restaurant?.id) {
       toast.error('Restaurante não identificado');
@@ -164,7 +169,9 @@ export function usePrintToElectron() {
             discount: params.discount || 0,
             addition: params.addition || 0,
             splitCount: params.splitCount || 1,
-            isConference: true,
+            isConference: !params.isFinalReceipt,
+            isFinalReceipt: params.isFinalReceipt || false,
+            payments: params.payments || [],
           }),
         })
         .select('id, order_number')
