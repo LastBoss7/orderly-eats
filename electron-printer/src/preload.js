@@ -12,6 +12,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   savePrinters: (printers) => ipcRenderer.invoke('save-printers', printers),
   saveSelectedPrinters: (printers) => ipcRenderer.invoke('save-selected-printers', printers),
   
+  // Network Printers (TCP/IP Port 9100)
+  testNetworkPrinter: (ip, port) => ipcRenderer.invoke('test-network-printer', ip, port),
+  testNetworkPrint: (ip, port) => ipcRenderer.invoke('test-network-print', ip, port),
+  scanNetworkPrinters: () => ipcRenderer.invoke('scan-network-printers'),
+  
   // Print Tests
   testPrint: (mode) => ipcRenderer.invoke('test-print', mode || 'auto'),
   testUsbDirect: () => ipcRenderer.invoke('test-usb-direct'),

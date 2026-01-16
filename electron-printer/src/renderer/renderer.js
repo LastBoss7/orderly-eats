@@ -170,6 +170,10 @@ async function loadConfig() {
     document.getElementById('cutCommand').value = config.cutCommand || '';
     document.getElementById('cashDrawer').value = config.cashDrawer || '';
     
+    // Network printer config
+    document.getElementById('networkIp').value = config.networkIp || '';
+    document.getElementById('networkPort').value = config.networkPort || 9100;
+    
     // Radio buttons
     setRadioValue('fontType', config.fontType || '1');
     setRadioValue('escpos', config.escpos !== false ? '1' : '0');
@@ -221,6 +225,9 @@ async function saveConfig() {
       bold: getRadioValue('bold') === '1',
       removeAccents: getRadioValue('removeAccents') === '1',
       selectedPrinters: selectedPrinters,
+      // Network printer config
+      networkIp: document.getElementById('networkIp').value.trim(),
+      networkPort: parseInt(document.getElementById('networkPort').value) || 9100,
     };
     
     await window.electronAPI.saveConfig(config);
@@ -228,6 +235,84 @@ async function saveConfig() {
     
   } catch (error) {
     showStatus('Erro ao salvar: ' + error.message, 'error');
+  }
+}
+
+// ============================================
+// NETWORK PRINTER FUNCTIONS
+// ============================================
+function showNetworkStatus(message, type = 'info') {
+  const el = document.getElementById('networkStatus');
+  el.style.display = 'block';
+  el.textContent = message;
+  el.style.color = type === 'success' ? '#2e7d32' : (type === 'error' ? '#c62828' : '#666');
+}
+
+async function testNetworkConnection() {
+  const ip = document.getElementById('networkIp').value.trim();
+  const port = parseInt(document.getElementById('networkPort').value) || 9100;
+  
+  if (!ip) {
+    showNetworkStatus('Digite o IP da impressora', 'error');
+    return;
+  }
+  
+  showNetworkStatus('Testando conexão...', 'info');
+  
+  try {
+    const result = await window.electronAPI.testNetworkPrinter(ip, port);
+    
+    if (result.success) {
+      showNetworkStatus(`✓ Conectado! (${result.latency}ms)`, 'success');
+    } else {
+      showNetworkStatus(`✗ ${result.error}`, 'error');
+    }
+  } catch (error) {
+    showNetworkStatus(`✗ Erro: ${error.message}`, 'error');
+  }
+}
+
+async function testNetworkPrint() {
+  const ip = document.getElementById('networkIp').value.trim();
+  const port = parseInt(document.getElementById('networkPort').value) || 9100;
+  
+  if (!ip) {
+    showNetworkStatus('Digite o IP da impressora', 'error');
+    return;
+  }
+  
+  showNetworkStatus('Enviando teste de impressão...', 'info');
+  
+  try {
+    const result = await window.electronAPI.testNetworkPrint(ip, port);
+    
+    if (result.success) {
+      showNetworkStatus(`✓ Impresso! (${result.bytesSent} bytes)`, 'success');
+    } else {
+      showNetworkStatus(`✗ ${result.error}`, 'error');
+    }
+  } catch (error) {
+    showNetworkStatus(`✗ Erro: ${error.message}`, 'error');
+  }
+}
+
+async function scanNetworkPrinters() {
+  showNetworkStatus('Buscando impressoras na rede...', 'info');
+  
+  try {
+    const result = await window.electronAPI.scanNetworkPrinters();
+    
+    if (result.printers && result.printers.length > 0) {
+      // Auto-fill first found printer
+      const first = result.printers[0];
+      document.getElementById('networkIp').value = first.ip;
+      document.getElementById('networkPort').value = first.port;
+      showNetworkStatus(`✓ Encontrada: ${first.ip}:${first.port}`, 'success');
+    } else {
+      showNetworkStatus('Nenhuma impressora encontrada', 'info');
+    }
+  } catch (error) {
+    showNetworkStatus(`✗ Erro: ${error.message}`, 'error');
   }
 }
 

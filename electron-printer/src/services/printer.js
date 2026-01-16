@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { ESCPOS, textCommand, lineFeed } = require('./escpos-commands');
+const NetworkPrinterService = require('./network-printer');
 
 // Try to load USB module (optional but preferred for direct printing)
 let USBPrinterService = null;
@@ -19,10 +20,13 @@ class PrinterService {
   constructor() {
     this.platform = os.platform();
     this.usbPrinter = usbAvailable ? new USBPrinterService() : null;
+    this.networkPrinter = new NetworkPrinterService();
     this.useEscPos = false;
     this.connectedPrinter = null;
     this.cachedUsbPrinters = null;
+    this.cachedNetworkPrinters = [];
     this.lastUsbScan = 0;
+    this.lastNetworkScan = 0;
   }
 
   /**
@@ -121,13 +125,23 @@ class PrinterService {
   }
 
   /**
-   * Print order - tries USB direct first, then falls back to spooler
+   * Print order - tries Network TCP/IP first, then USB direct, then spooler
    */
   async printOrder(order, options = {}) {
-    const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
+    const { layout = {}, restaurantInfo = {}, printerName = '', useEscPos = false, printerInfo = null, networkConfig = null } = options;
     
     // Check if this is a conference/receipt print
     const isConference = order.order_type === 'conference';
+    
+    // PRIORITY 0: Try Network TCP/IP if configured (fastest for network printers)
+    if (networkConfig && networkConfig.ip) {
+      const networkResult = await this.tryNetworkPrint(order, layout, restaurantInfo, isConference, networkConfig);
+      if (networkResult.success) {
+        console.log(`[PrintOrder] Network TCP/IP print SUCCESS to ${networkConfig.ip}:${networkConfig.port || 9100}!`);
+        return true;
+      }
+      console.log('[PrintOrder] Network print failed, trying other methods...');
+    }
     
     // PRIORITY 1: Try USB direct if available (fastest, no spooler)
     if (this.usbPrinter) {
@@ -155,6 +169,132 @@ class PrinterService {
     
     const receipt = this.formatReceipt(order, layout, restaurantInfo);
     return this.printText(receipt, printerName, layout);
+  }
+
+  /**
+   * Try to print via Network TCP/IP (Port 9100)
+   * This is the standard method for network thermal printers like Epson TM-T20X, Elgin i9, Tectoy C3
+   */
+  async tryNetworkPrint(order, layout, restaurantInfo, isConference, networkConfig) {
+    const { ip, port = 9100 } = networkConfig;
+    
+    if (!ip) {
+      return { success: false, reason: 'No IP address configured' };
+    }
+
+    try {
+      // Build ESC/POS commands
+      let commands;
+      if (isConference) {
+        commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
+      } else {
+        commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
+      }
+
+      // Send via TCP/IP
+      const result = await this.networkPrinter.printEscPos(ip, port, commands);
+      
+      if (result.success) {
+        console.log(`[Network Print] Sent ${result.bytesSent} bytes to ${ip}:${port}`);
+        return { success: true, bytesSent: result.bytesSent };
+      }
+
+      console.log(`[Network Print] Failed: ${result.error}`);
+      return { success: false, reason: result.error };
+
+    } catch (error) {
+      console.log('[Network Print] Error:', error.message);
+      return { success: false, reason: error.message };
+    }
+  }
+
+  /**
+   * Test network printer connection
+   */
+  async testNetworkPrinter(ip, port = 9100) {
+    return this.networkPrinter.testConnection(ip, port);
+  }
+
+  /**
+   * Scan for network printers on common IPs
+   */
+  async scanNetworkPrinters() {
+    return this.networkPrinter.quickScan();
+  }
+
+  /**
+   * Full network scan for printers
+   */
+  async fullNetworkScan(subnet) {
+    return this.networkPrinter.scanNetwork(subnet);
+  }
+
+  /**
+   * Print test page to network printer
+   */
+  async testNetworkPrint(ip, port = 9100, layout = {}) {
+    const width = layout.paperWidth || 48;
+    
+    // Build test receipt
+    const buffers = [];
+    
+    // Initialize
+    buffers.push(ESCPOS.HW_INIT);
+    buffers.push(ESCPOS.TXT_FONT_A);
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
+    
+    // Title
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    buffers.push(ESCPOS.TXT_SIZE_2H);
+    buffers.push(Buffer.from('TESTE DE REDE\n', 'cp860'));
+    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    
+    buffers.push(lineFeed(1));
+    buffers.push(Buffer.from('='.repeat(width) + '\n', 'cp860'));
+    buffers.push(lineFeed(1));
+    
+    // Info
+    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
+    buffers.push(Buffer.from(`IP: ${ip}\n`, 'cp860'));
+    buffers.push(Buffer.from(`Porta: ${port}\n`, 'cp860'));
+    buffers.push(Buffer.from(`Metodo: TCP/IP Direto\n`, 'cp860'));
+    buffers.push(Buffer.from(`Protocolo: ESC/POS RAW\n`, 'cp860'));
+    
+    buffers.push(lineFeed(1));
+    buffers.push(Buffer.from('-'.repeat(width) + '\n', 'cp860'));
+    
+    // Models supported
+    buffers.push(Buffer.from('Modelos compativeis:\n', 'cp860'));
+    buffers.push(Buffer.from('- Epson TM-T20X\n', 'cp860'));
+    buffers.push(Buffer.from('- Elgin i9\n', 'cp860'));
+    buffers.push(Buffer.from('- Tectoy C3\n', 'cp860'));
+    buffers.push(Buffer.from('- Techa POS80\n', 'cp860'));
+    buffers.push(Buffer.from('- Bematech MP-4200\n', 'cp860'));
+    
+    buffers.push(lineFeed(1));
+    buffers.push(Buffer.from('='.repeat(width) + '\n', 'cp860'));
+    
+    // Date/time
+    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('pt-BR');
+    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    buffers.push(Buffer.from(`${dateStr} ${timeStr}\n`, 'cp860'));
+    
+    buffers.push(lineFeed(1));
+    buffers.push(ESCPOS.TXT_BOLD_ON);
+    buffers.push(Buffer.from('Impressora de Rede OK!\n', 'cp860'));
+    buffers.push(ESCPOS.TXT_BOLD_OFF);
+    
+    // Feed and cut
+    buffers.push(lineFeed(4));
+    buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
+    
+    const data = Buffer.concat(buffers);
+    
+    return this.networkPrinter.print(ip, port, data);
   }
 
   /**
