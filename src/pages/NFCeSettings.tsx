@@ -342,6 +342,17 @@ export default function NFCeSettings() {
           </Button>
         </div>
 
+        {/* Development Banner */}
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+          <div>
+            <p className="font-medium text-amber-600 dark:text-amber-400">Funcionalidade em Desenvolvimento</p>
+            <p className="text-sm text-muted-foreground">
+              A integração com NFC-e está em fase de desenvolvimento. Algumas funcionalidades podem não estar disponíveis ainda.
+            </p>
+          </div>
+        </div>
+
         <Tabs defaultValue="config" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="config" className="gap-2">
