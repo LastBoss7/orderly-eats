@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Upload, Loader2, ImageIcon, Check, X, Sparkles, AlertCircle } from "lucide-react";
+import { Camera, Upload, Loader2, ImageIcon, Check, X, Sparkles, AlertCircle, Plus } from "lucide-react";
 
 interface ExtractedProduct {
   name: string;
@@ -43,7 +44,8 @@ export function MenuImportModal({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [extractedProducts, setExtractedProducts] = useState<ExtractedProduct[]>([]);
   const [isImporting, setIsImporting] = useState(false);
-
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [localCategories, setLocalCategories] = useState<{ id: string; name: string }[]>(categories);
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -390,7 +392,7 @@ export function MenuImportModal({
 
         {step === "review" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="text-sm text-muted-foreground">
                 {selectedCount} de {extractedProducts.length} produtos selecionados
               </div>
@@ -404,7 +406,33 @@ export function MenuImportModal({
               </div>
             </div>
 
-            <ScrollArea className="h-[400px] pr-4">
+            {/* Quick category filter/add */}
+            <div className="flex gap-2 items-center">
+              <Input
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Nova categoria..."
+                className="flex-1 h-8 text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!newCategoryName.trim()}
+                onClick={() => {
+                  const name = newCategoryName.trim();
+                  if (name && !localCategories.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+                    const tempId = `temp-${Date.now()}`;
+                    setLocalCategories(prev => [...prev, { id: tempId, name }]);
+                  }
+                  setNewCategoryName("");
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Criar
+              </Button>
+            </div>
+
+            <ScrollArea className="h-[350px] pr-4">
               <div className="space-y-3">
                 {extractedProducts.map((product, index) => (
                   <div 
@@ -422,6 +450,7 @@ export function MenuImportModal({
                         className="mt-1"
                       />
                       <div className="flex-1 space-y-2">
+                        {/* Row 1: Name + Size Toggle */}
                         <div className="flex items-center gap-2">
                           <Input
                             value={product.name}
@@ -429,25 +458,20 @@ export function MenuImportModal({
                             placeholder="Nome do produto"
                             className="flex-1 h-8"
                           />
-                          {product.has_sizes ? (
-                            <Badge 
-                              variant="secondary" 
-                              className="cursor-pointer hover:bg-secondary/80"
-                              onClick={() => toggleSizes(index)}
-                            >
-                              P/M/G
-                            </Badge>
-                          ) : (
-                            <Badge 
-                              variant="outline" 
-                              className="cursor-pointer hover:bg-muted"
-                              onClick={() => toggleSizes(index)}
-                            >
-                              Único
-                            </Badge>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => toggleSizes(index)}
+                            className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${
+                              product.has_sizes 
+                                ? "bg-primary/20 text-primary border border-primary/30" 
+                                : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
+                            }`}
+                          >
+                            {product.has_sizes ? "P/M/G" : "Único"}
+                          </button>
                         </div>
                         
+                        {/* Row 2: Prices */}
                         {product.has_sizes ? (
                           <div className="flex gap-2">
                             <div className="flex-1">
@@ -457,7 +481,7 @@ export function MenuImportModal({
                                 step="0.01"
                                 value={product.price_small || ""}
                                 onChange={(e) => updateProduct(index, "price_small", e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="Pequeno"
+                                placeholder="0,00"
                                 className="h-8"
                               />
                             </div>
@@ -468,7 +492,7 @@ export function MenuImportModal({
                                 step="0.01"
                                 value={product.price_medium || ""}
                                 onChange={(e) => updateProduct(index, "price_medium", e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="Médio"
+                                placeholder="0,00"
                                 className="h-8"
                               />
                             </div>
@@ -479,7 +503,7 @@ export function MenuImportModal({
                                 step="0.01"
                                 value={product.price_large || ""}
                                 onChange={(e) => updateProduct(index, "price_large", e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="Grande"
+                                placeholder="0,00"
                                 className="h-8"
                               />
                             </div>
@@ -487,22 +511,23 @@ export function MenuImportModal({
                         ) : (
                           <div className="flex gap-2">
                             <Input
-                              value={product.description || ""}
-                              onChange={(e) => updateProduct(index, "description", e.target.value)}
-                              placeholder="Descrição (opcional)"
-                              className="flex-1 h-8 text-sm"
-                            />
-                            <Input
                               type="number"
                               step="0.01"
                               value={product.price || ""}
                               onChange={(e) => updateProduct(index, "price", parseFloat(e.target.value) || 0)}
                               placeholder="Preço"
-                              className="w-24 h-8"
+                              className="w-28 h-8"
+                            />
+                            <Input
+                              value={product.description || ""}
+                              onChange={(e) => updateProduct(index, "description", e.target.value)}
+                              placeholder="Descrição (opcional)"
+                              className="flex-1 h-8 text-sm"
                             />
                           </div>
                         )}
                         
+                        {/* Row 3: Description (for sizes) + Category */}
                         <div className="flex gap-2">
                           {product.has_sizes && (
                             <Input
@@ -512,12 +537,25 @@ export function MenuImportModal({
                               className="flex-1 h-8 text-sm"
                             />
                           )}
-                          <Input
+                          <Select
                             value={product.category}
-                            onChange={(e) => updateProduct(index, "category", e.target.value)}
-                            placeholder="Categoria"
-                            className={product.has_sizes ? "w-32 h-8 text-sm" : "w-32 h-8 text-sm"}
-                          />
+                            onValueChange={(value) => updateProduct(index, "category", value)}
+                          >
+                            <SelectTrigger className={`h-8 text-sm ${product.has_sizes ? "w-40" : "flex-1"}`}>
+                              <SelectValue placeholder="Categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {/* Get unique categories from products + localCategories */}
+                              {[...new Set([
+                                ...localCategories.map(c => c.name),
+                                ...extractedProducts.map(p => p.category).filter(Boolean)
+                              ])].map((catName) => (
+                                <SelectItem key={catName} value={catName}>
+                                  {catName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </div>
