@@ -931,115 +931,116 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       <div 
         ref={setNodeRef} 
         style={style}
-        className={`bg-card rounded-lg border overflow-hidden relative cursor-pointer ${getCardBorderClass()} ${
-          delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
+        className={`order-card relative ${getCardBorderClass()} ${
+          delayed && order.status !== 'delivered' ? 'delayed' : ''
         } ${isDragging ? 'z-50 opacity-50' : ''} ${isRecentlyUpdated ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30' : ''}`}
       >
         {/* Drag Handle */}
         <div 
           {...listeners} 
           {...attributes}
-          className="absolute top-1.5 right-1.5 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 z-10"
+          className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 z-10 hover:text-muted-foreground"
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="w-3.5 h-3.5" />
+          <GripVertical className="w-4 h-4" />
         </div>
 
         {/* Card Content - Clickable area */}
         <div 
-          className="p-3 cursor-pointer"
+          className="p-4 cursor-pointer"
           onClick={() => handleOpenOrderDetail(order)}
         >
           {/* Header Row: Order number, Timer */}
-          <div className="flex items-center justify-between mb-1.5 pr-5">
-            <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs">
+          <div className="flex items-center justify-between mb-3 pr-6">
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                 {getOrderTypeIcon(order.order_type)}
               </span>
-              <span className="font-semibold text-sm text-foreground">
-                {getOrderDisplayNumber(order)}
+              <span className="font-bold text-base text-foreground">
+                Pedido {getOrderDisplayNumber(order)}
               </span>
             </div>
             
-            {/* Timer Badge - Stops when ready */}
-            {timer && (
-              <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                timer.isStopped
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                  : timer.isOverdue 
-                    ? 'bg-destructive/10 text-destructive animate-pulse' 
-                    : timer.percentage > 75
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                      : 'bg-muted text-muted-foreground'
-              }`}>
-                {timer.isStopped ? (
-                  <CheckCircle className="w-3 h-3" />
-                ) : (
-                  <Clock className="w-3 h-3" />
-                )}
-                <span>{formatElapsedTimeWithSeconds(timer.elapsedSeconds)}</span>
-              </div>
-            )}
-            
-            {/* Time badge if no timer (for delivered orders) */}
-            {!timer && (
-              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
-                delayed ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-              }`}>
-                <Clock className="w-2.5 h-2.5" />
-                {formatTime(order.created_at)}
-              </div>
-            )}
+            {/* Timer Badge with time */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+              timer?.isStopped
+                ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
+                : timer?.isOverdue 
+                  ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                  : timer && timer.percentage > 75
+                    ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700'
+                    : 'bg-muted text-muted-foreground border-border'
+            }`}>
+              <Clock className="w-3 h-3" />
+              <span className="font-mono font-semibold">
+                {timer ? formatElapsedTimeWithSeconds(timer.elapsedSeconds) : formatTime(order.created_at)}
+              </span>
+            </div>
           </div>
+
+          {/* Delayed Status Badge */}
+          {delayed && order.status === 'preparing' && (
+            <div className="order-status-bar delayed mb-3">
+              Pedido atrasado
+            </div>
+          )}
 
           {/* Customer Name and Total Row */}
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-muted-foreground truncate max-w-[120px]">
+          <div className="flex items-center justify-between text-sm mb-2">
+            <span className="text-muted-foreground truncate max-w-[160px]">
               {order.customer_name || 'Não identificado'}
             </span>
-            <span className="font-bold text-sm">{formatCurrency(order.total)}</span>
+            <div className="text-right">
+              <span className="text-xs text-muted-foreground">Total:</span>
+              <span className="font-bold text-base ml-2">{formatCurrency(order.total)}</span>
+            </div>
           </div>
 
-          {/* Waiter info - compact */}
+          {/* Payment status for ready orders */}
+          {(order.status === 'ready' || order.status === 'served') && !order.payment_method && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+              <span>💳 Não registrado</span>
+            </div>
+          )}
+
+          {/* Waiter info */}
           {waiterName && (
-            <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 mb-1.5">
-              <ChefHat className="w-2.5 h-2.5" />
+            <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 mb-2">
+              <ChefHat className="w-3 h-3" />
               <span className="truncate">{waiterName}</span>
             </div>
           )}
 
-          {/* Table or Tab location badge - compact */}
+          {/* Table or Tab location badge */}
           {locationInfo && (
-            <div className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
+            <div className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg ${
               locationInfo.type === 'table' 
-                ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/30' 
-                : 'text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-900/30'
+                ? 'text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700' 
+                : 'text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-700'
             }`}>
-              <UtensilsCrossed className="w-3 h-3" />
+              <UtensilsCrossed className="w-4 h-4" />
               {locationInfo.label}
             </div>
           )}
 
-          {/* Order type badge for non-table orders - compact */}
+          {/* Order type badge for non-table orders */}
           {order.order_type && order.order_type !== 'table' && !locationInfo && (
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+            <Badge variant="outline" className="text-xs h-6 px-2">
               {getOrderTypeIcon(order.order_type)}
-              <span className="ml-0.5">{getOrderTypeLabel(order.order_type)}</span>
+              <span className="ml-1">{getOrderTypeLabel(order.order_type)}</span>
             </Badge>
           )}
         </div>
 
-        {/* Timer Progress Bar for preparing - thinner */}
-        {timer && order.status === 'preparing' && (
-          <div className="px-3 pb-1.5">
-            <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+        {/* Timer Progress Bar for preparing */}
+        {timer && order.status === 'preparing' && !delayed && (
+          <div className="px-4 pb-3">
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div 
                 className={`h-full transition-all duration-300 rounded-full ${
-                  timer.isOverdue 
-                    ? 'bg-destructive' 
-                    : timer.percentage > 75 
-                      ? 'bg-amber-500' 
-                      : 'bg-emerald-500'
+                  timer.percentage > 75 
+                    ? 'bg-amber-500' 
+                    : 'bg-emerald-500'
                 }`}
                 style={{ width: `${Math.min(timer.percentage, 100)}%` }}
               />
@@ -1047,10 +1048,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Driver selector for delivery orders - compact */}
+        {/* Driver selector for delivery orders */}
         {order.order_type === 'delivery' && (
           <div 
-            className="px-3 pb-2 space-y-1.5" 
+            className="px-4 pb-3 space-y-2" 
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
@@ -1058,24 +1059,24 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button 
-                  className={`w-full h-7 px-3 justify-between text-[11px] inline-flex items-center rounded-md border bg-background ${
+                  className={`w-full h-9 px-3 justify-between text-sm inline-flex items-center rounded-lg border bg-background font-medium ${
                     order.driver_id 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-dashed border-input'
                   }`}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  <span className="flex items-center gap-1.5">
-                    <Bike className="w-3 h-3" />
-                    {order.driver_id ? getDriverName(order.driver_id) : 'Motoboy'}
+                  <span className="flex items-center gap-2">
+                    <Bike className="w-4 h-4" />
+                    {order.driver_id ? getDriverName(order.driver_id) : 'Selecionar motoboy'}
                   </span>
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[160px]">
+              <DropdownMenuContent align="start" className="w-[180px]">
                 {drivers.length === 0 ? (
-                  <DropdownMenuItem disabled className="text-xs">
-                    Nenhum cadastrado
+                  <DropdownMenuItem disabled>
+                    Nenhum motoboy cadastrado
                   </DropdownMenuItem>
                 ) : (
                   <>
@@ -1086,9 +1087,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                           e.stopPropagation();
                           updateOrderDriver(order.id, driver.id, order);
                         }}
-                        className={`text-xs ${order.driver_id === driver.id ? 'bg-accent' : ''}`}
+                        className={order.driver_id === driver.id ? 'bg-accent' : ''}
                       >
-                        <Bike className="w-3 h-3 mr-1.5" />
+                        <Bike className="w-4 h-4 mr-2" />
                         {driver.name}
                       </DropdownMenuItem>
                     ))}
@@ -1100,10 +1101,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                             e.stopPropagation();
                             updateOrderDriver(order.id, null);
                           }}
-                          className="text-destructive text-xs"
+                          className="text-destructive"
                         >
-                          <X className="w-3 h-3 mr-1.5" />
-                          Remover
+                          <X className="w-4 h-4 mr-2" />
+                          Remover motoboy
                         </DropdownMenuItem>
                       </>
                     )}
@@ -1112,25 +1113,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* WhatsApp button for assigned driver - inline compact */}
+            {/* WhatsApp button for assigned driver */}
             {order.driver_id && getDriverPhone(order.driver_id) && (
               <a
                 href={formatWhatsAppLink(getDriverPhone(order.driver_id)!)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[10px] text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-2 py-1 rounded transition-colors"
+                className="flex items-center gap-2 text-xs text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 px-3 py-2 rounded-lg transition-colors font-medium"
               >
-                <Phone className="w-2.5 h-2.5" />
+                <Phone className="w-3.5 h-3.5" />
                 <span>{getDriverPhone(order.driver_id)}</span>
               </a>
             )}
           </div>
         )}
 
-        {/* Items preview - compact */}
+        {/* Items preview */}
         {order.order_items && order.order_items.length > 0 && (
           <div 
-            className="px-3 py-1.5 border-t text-[10px] text-muted-foreground cursor-pointer"
+            className="px-4 py-2 border-t text-xs text-muted-foreground cursor-pointer bg-muted/30"
             onClick={() => handleOpenOrderDetail(order)}
           >
             {order.order_items.slice(0, 2).map((item) => (
@@ -1139,15 +1140,15 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </div>
             ))}
             {order.order_items.length > 2 && (
-              <div className="text-primary">+{order.order_items.length - 2} mais</div>
+              <div className="text-primary font-medium">+{order.order_items.length - 2} mais itens</div>
             )}
           </div>
         )}
 
-        {/* Delivery Status Dropdown - compact */}
+        {/* Delivery Status Dropdown */}
         {order.order_type === 'delivery' && order.status !== 'pending' && (
           <div 
-            className="px-3 pb-2" 
+            className="px-4 pb-3" 
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
@@ -1155,44 +1156,44 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button 
-                  className={`w-full h-7 px-3 justify-between text-xs inline-flex items-center rounded-md border bg-background ${
+                  className={`w-full h-9 px-3 justify-between text-sm inline-flex items-center rounded-lg border bg-background font-medium ${
                     order.status === 'out_for_delivery' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-input'
                   }`}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-2">
                     {order.status === 'preparing' && '🔥 Preparando'}
                     {order.status === 'ready' && '✅ Pronto'}
                     {order.status === 'served' && '🍽️ Servido'}
                     {order.status === 'out_for_delivery' && (
                       <>
-                        <Truck className="w-3 h-3" />
+                        <Truck className="w-4 h-4" />
                         Em entrega
                       </>
                     )}
                   </span>
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className="w-4 h-4" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[160px]">
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'preparing'); }} className="text-xs">
+              <DropdownMenuContent align="start" className="w-[180px]">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'preparing'); }}>
                   🔥 Preparando
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'ready'); }} className="text-xs">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'ready'); }}>
                   ✅ Pronto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'out_for_delivery'); }} className="text-xs">
-                  <Truck className="w-3 h-3 mr-1.5" />
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'out_for_delivery'); }}>
+                  <Truck className="w-4 h-4 mr-2" />
                   Em entrega
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'delivered'); }}
-                  className="text-green-600 text-xs"
+                  className="text-green-600"
                 >
-                  <CheckCircle className="w-3 h-3 mr-1.5" />
+                  <CheckCircle className="w-4 h-4 mr-2" />
                   Finalizado
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1200,14 +1201,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Close Table/Tab Button - Main action for ready/served orders - compact */}
+        {/* Close Table/Tab Button - Main action for ready/served orders */}
         {showCloseButton && locationInfo && (
           <div 
-            className="px-3 pb-3" 
+            className="px-4 pb-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1"
+              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold h-10 text-sm rounded-lg flex items-center justify-center gap-2 transition-colors"
               onClick={() => handleCloseTableFromOrder(order)}
             >
               Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
@@ -1215,14 +1216,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           </div>
         )}
 
-        {/* Action buttons for non-delivery, non-table/tab orders - compact */}
+        {/* Action buttons for non-delivery, non-table/tab orders */}
         {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
           <div 
-            className="px-3 pb-2" 
+            className="px-4 pb-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
+              className="w-full h-10 text-sm border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-lg flex items-center justify-center gap-2 bg-background font-semibold transition-colors"
               onClick={() => {
                 const nextStatus = order.status === 'pending' 
                   ? 'preparing' 
@@ -1232,56 +1233,54 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 updateOrderStatus(order.id, nextStatus);
               }}
             >
-              {order.status === 'ready' ? 'Marcar servido' : 'Avançar'}
-              <ArrowRight className="w-3 h-3" />
+              {order.status === 'ready' ? 'Marcar servido' : 'Avançar'} →
             </button>
           </div>
         )}
 
-        {/* Advance button for delivery in pending status - compact */}
+        {/* Advance button for delivery in pending status */}
         {order.order_type === 'delivery' && order.status === 'pending' && (
           <div 
-            className="px-3 pb-2" 
+            className="px-4 pb-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
+              className="w-full h-10 text-sm border-2 border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-lg flex items-center justify-center gap-2 bg-background font-semibold transition-colors"
               onClick={() => updateOrderStatus(order.id, 'preparing')}
             >
-              Aceitar
-              <ArrowRight className="w-3 h-3" />
+              Aceitar →
             </button>
           </div>
         )}
 
-        {/* Finalize button - only for counter/takeaway orders (not table/tab) - compact */}
+        {/* Finalize button - only for counter/takeaway orders (not table/tab) */}
         {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
           <div 
-            className="px-3 pb-2" 
+            className="px-4 pb-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
+              className="w-full h-10 text-sm border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded-lg flex items-center justify-center gap-2 bg-background font-semibold transition-colors"
               onClick={() => updateOrderStatus(order.id, 'delivered')}
             >
-              <CheckCircle className="w-3 h-3" />
-              Entregue
+              <CheckCircle className="w-4 h-4" />
+              Produto Entregue
             </button>
           </div>
         )}
 
-        {/* Mark as served button - for table/tab orders in ready status - compact */}
+        {/* Mark as served button - for table/tab orders in ready status */}
         {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
           <div 
-            className="px-3 pb-2" 
+            className="px-4 pb-4" 
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
+              className="w-full h-10 text-sm border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded-lg flex items-center justify-center gap-2 bg-background font-semibold transition-colors"
               onClick={() => updateOrderStatus(order.id, 'served')}
             >
-              <CheckCircle className="w-3 h-3" />
-              Servido
+              <CheckCircle className="w-4 h-4" />
+              Marcar como servido
             </button>
           </div>
         )}
@@ -1599,40 +1598,40 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Em análise */}
               <DroppableColumn 
                 id="column-pending" 
-                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-72 lg:w-80 flex-shrink-0 kanban-column analysis"
               >
-                <div className="kanban-header analysis py-2 px-3">
-                  <span className="text-sm">Em análise</span>
-                  <Badge variant="secondary" className="bg-white/20 text-white h-5 text-[10px]">
+                <div className="kanban-header analysis py-3 px-4">
+                  <span className="text-sm font-bold">Em análise</span>
+                  <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
                     {pendingOrders.length}
                   </Badge>
                 </div>
                 
-                {/* Auto accept toggle - compact */}
-                <div className="p-2.5 bg-card border-b">
-                  <div className="text-[11px] space-y-0.5 text-muted-foreground">
-                    <p>
-                      <span className="font-medium text-foreground">Balcão:</span> {prepTimes.counter_min}-{prepTimes.counter_max}min{' '}
+                {/* Auto accept toggle - styled panel */}
+                <div className="p-3 bg-orange-100/50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-800">
+                  <div className="text-xs space-y-1 text-muted-foreground">
+                    <p className="flex items-center justify-between">
+                      <span><span className="font-semibold text-foreground">Balcão:</span> {prepTimes.counter_min} a {prepTimes.counter_max} min</span>
                       <span 
-                        className="text-primary cursor-pointer hover:underline"
+                        className="text-primary cursor-pointer hover:underline font-medium"
                         onClick={() => setShowPrepTimeModal(true)}
                       >
-                        ✏️
+                        Editar
                       </span>
                     </p>
-                    <p><span className="font-medium text-foreground">Delivery:</span> {prepTimes.delivery_min}-{prepTimes.delivery_max}min</p>
+                    <p><span className="font-semibold text-foreground">Delivery:</span> {prepTimes.delivery_min} a {prepTimes.delivery_max} min</p>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <Switch checked={autoAccept} onCheckedChange={setAutoAccept} className="scale-75" />
-                    <span className="text-[10px]">Auto-aceitar</span>
+                  <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-orange-200 dark:border-orange-700">
+                    <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
+                    <span className="text-xs font-medium">Aceitar os pedidos automaticamente</span>
                   </div>
                 </div>
 
                 {pendingOrders.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
-                    <div className="w-8 h-8 mb-2 opacity-50 text-2xl">↩</div>
-                    <p className="text-xs">
-                      {autoAccept ? 'Auto-aceite ativado' : 'Sem pedidos'}
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                    <div className="w-10 h-10 mb-3 opacity-50 text-3xl">↩</div>
+                    <p className="text-sm font-medium">
+                      {autoAccept ? 'Todos os pedidos são aceitos automaticamente' : 'Sem pedidos pendentes'}
                     </p>
                   </div>
                 ) : (
@@ -1647,23 +1646,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Em produção */}
               <DroppableColumn 
                 id="column-preparing" 
-                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-72 lg:w-80 flex-shrink-0 kanban-column production"
               >
-                <div className="kanban-header production py-2 px-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">Em produção</span>
-                    <AlertTriangle className="w-3.5 h-3.5" />
+                <div className="kanban-header production py-3 px-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold">Em produção</span>
+                    {preparingOrders.some(o => isDelayed(o)) && (
+                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                    )}
                   </div>
-                  <Badge variant="secondary" className="bg-white/20 text-white h-5 text-[10px]">
+                  <Badge className="bg-gray-800/20 text-gray-800 border-gray-800/20 h-6 min-w-[28px] text-xs font-bold">
                     {preparingOrders.length}
                   </Badge>
                 </div>
                 
                 <ScrollableColumn>
                   {preparingOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
-                      <ChefHat className="w-8 h-8 mb-2 opacity-30" />
-                      <p className="text-xs">Nenhum em produção</p>
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                      <ChefHat className="w-10 h-10 mb-3 opacity-30" />
+                      <p className="text-sm font-medium">Nenhum pedido em produção</p>
                     </div>
                   ) : (
                     preparingOrders.map(order => (
@@ -1676,22 +1677,22 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Prontos para entrega */}
               <DroppableColumn 
                 id="column-ready" 
-                className="w-64 lg:w-72 flex-shrink-0 flex flex-col bg-muted/30 rounded-lg overflow-hidden"
+                className="w-72 lg:w-80 flex-shrink-0 kanban-column ready"
               >
-                <div className="kanban-header ready py-2 px-3">
-                  <span className="text-sm">Prontos</span>
-                  <div className="flex items-center gap-1.5">
+                <div className="kanban-header ready py-3 px-4">
+                  <span className="text-sm font-bold">Prontos para entrega</span>
+                  <div className="flex items-center gap-2">
                     {readyOrders.length > 0 && (
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        className="h-5 text-[10px] px-1.5 bg-white/90 text-emerald-700 border-white/50 hover:bg-white hover:text-emerald-800"
+                        className="h-6 text-xs px-2 bg-white/90 text-emerald-700 border-white/50 hover:bg-white hover:text-emerald-800 font-semibold"
                         onClick={handleFinalizeAllReady}
                       >
-                        Todos
+                        Finalizar
                       </Button>
                     )}
-                    <Badge variant="secondary" className="h-5 text-[10px]">
+                    <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
                       {readyOrders.length}
                     </Badge>
                   </div>
@@ -1699,9 +1700,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 
                 <ScrollableColumn>
                   {readyOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
-                      <UtensilsCrossed className="w-8 h-8 mb-2 opacity-30" />
-                      <p className="text-xs">Nenhum pronto</p>
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                      <UtensilsCrossed className="w-10 h-10 mb-3 opacity-30" />
+                      <p className="text-sm font-medium">Nenhum pedido pronto</p>
                     </div>
                   ) : (
                     readyOrders.map(order => (
@@ -1715,13 +1716,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {servedOrders.length > 0 && (
                 <DroppableColumn 
                   id="served" 
-                  className="w-64 lg:w-72 flex-shrink-0 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800"
+                  className="w-72 lg:w-80 flex-shrink-0 kanban-column served"
                 >
-                  <div className="py-2 px-3 border-b border-purple-200 dark:border-purple-800 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-sm font-medium text-purple-700 dark:text-purple-300">
-                      🍽️ Servidos
-                    </span>
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 h-5 text-[10px]">
+                  <div className="kanban-header served py-3 px-4">
+                    <span className="text-sm font-bold">🍽️ Servidos</span>
+                    <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
                       {servedOrders.length}
                     </Badge>
                   </div>
@@ -1730,8 +1729,8 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     {servedOrders.map(order => (
                       <DraggableOrderCard key={order.id} order={order} />
                     ))}
-                    <p className="text-[10px] text-center text-muted-foreground mt-1">
-                      Aguardando fechamento
+                    <p className="text-xs text-center text-muted-foreground mt-2 px-3">
+                      Aguardando fechamento de mesa/comanda
                     </p>
                   </ScrollableColumn>
                 </DroppableColumn>

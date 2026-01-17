@@ -162,28 +162,57 @@
 }
 
 @layer components {
-  /* Kanban Column Header */
+  /* Kanban header styles - Colorful columns like reference */
   .kanban-header {
-    @apply px-5 py-4 rounded-t-2xl font-semibold text-white flex items-center justify-between;
+    @apply flex items-center justify-between font-semibold text-white;
   }
 
   .kanban-header.analysis {
-    background: linear-gradient(135deg, hsl(var(--column-analysis)), hsl(var(--column-analysis) / 0.85));
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
   }
 
   .kanban-header.production {
-    background: linear-gradient(135deg, hsl(var(--column-production)), hsl(var(--column-production) / 0.85));
+    background: linear-gradient(135deg, #ffd93d 0%, #f7b801 100%);
+    @apply text-gray-800;
   }
 
   .kanban-header.ready {
-    background: linear-gradient(135deg, hsl(var(--column-ready)), hsl(var(--column-ready) / 0.85));
-    @apply text-white;
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  }
+
+  .kanban-header.served {
+    background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  }
+
+  /* Kanban column styles */
+  .kanban-column {
+    @apply flex flex-col rounded-xl overflow-hidden border shadow-sm;
+  }
+
+  .kanban-column.analysis {
+    @apply bg-orange-50/50 dark:bg-orange-950/10 border-orange-200 dark:border-orange-900;
+  }
+
+  .kanban-column.production {
+    @apply bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900;
+  }
+
+  .kanban-column.ready {
+    @apply bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-200 dark:border-emerald-900;
+  }
+
+  .kanban-column.served {
+    @apply bg-violet-50/50 dark:bg-violet-950/10 border-violet-200 dark:border-violet-900;
   }
 
   /* Order Card */
   .order-card {
-    @apply bg-card rounded-2xl border shadow-sm p-5 space-y-4 transition-all duration-300;
-    @apply hover:shadow-lg hover:border-primary/30 hover:-translate-y-0.5;
+    @apply bg-card rounded-xl border shadow-sm overflow-hidden transition-all duration-200;
+    @apply hover:shadow-md;
+  }
+
+  .order-card.delayed {
+    @apply ring-2 ring-destructive;
   }
 
   .order-card-header {
@@ -191,23 +220,24 @@
   }
 
   .order-number {
-    @apply flex items-center gap-2 font-bold text-foreground text-lg;
+    @apply flex items-center gap-2 font-bold text-foreground text-base;
   }
 
   .order-time {
-    @apply text-xs font-medium text-muted-foreground bg-muted px-3 py-1.5 rounded-full flex items-center gap-1.5;
+    @apply text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full flex items-center gap-1;
   }
 
   .order-status-bar {
-    @apply py-2 px-4 rounded-xl text-xs font-semibold text-center text-white uppercase tracking-wide;
+    @apply py-1.5 px-3 rounded-lg text-xs font-bold text-center text-white uppercase tracking-wide;
   }
 
   .order-status-bar.delayed {
-    background: linear-gradient(135deg, hsl(var(--column-production)), hsl(var(--column-production) / 0.8));
+    background: linear-gradient(135deg, #ef4444, #dc2626);
   }
 
   .order-status-bar.preparing {
-    background: linear-gradient(135deg, hsl(var(--column-analysis)), hsl(var(--column-analysis) / 0.8));
+    background: linear-gradient(135deg, #ffd93d, #f7b801);
+    @apply text-gray-800;
   }
 
   .order-status-bar.ready {
