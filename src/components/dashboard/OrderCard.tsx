@@ -149,7 +149,7 @@ export function OrderCard({
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-shadow hover:shadow-md relative ${
+      className={`bg-card rounded-xl border shadow-sm overflow-hidden relative ${
         isDelayed && order.status !== 'delivered' ? 'ring-2 ring-destructive' : ''
       } ${isDragging ? 'shadow-xl z-50' : ''}`}
     >
