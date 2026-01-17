@@ -391,8 +391,8 @@ export function MenuImportModal({
         )}
 
         {step === "review" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
               <div className="text-sm text-muted-foreground">
                 {selectedCount} de {extractedProducts.length} produtos selecionados
               </div>
@@ -407,7 +407,7 @@ export function MenuImportModal({
             </div>
 
             {/* Quick category filter/add */}
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center mb-3">
               <Input
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
@@ -432,7 +432,7 @@ export function MenuImportModal({
               </Button>
             </div>
 
-            <ScrollArea className="h-[350px] pr-4">
+            <ScrollArea className="flex-1 max-h-[300px] pr-4 mb-4">
               <div className="space-y-3">
                 {extractedProducts.map((product, index) => (
                   <div 
@@ -461,7 +461,7 @@ export function MenuImportModal({
                           <button
                             type="button"
                             onClick={() => toggleSizes(index)}
-                            className={`px-2 py-1 text-xs rounded-md font-medium transition-colors ${
+                            className={`px-2 py-1 text-xs rounded-md font-medium transition-colors whitespace-nowrap ${
                               product.has_sizes 
                                 ? "bg-primary/20 text-primary border border-primary/30" 
                                 : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
@@ -545,7 +545,6 @@ export function MenuImportModal({
                               <SelectValue placeholder="Categoria" />
                             </SelectTrigger>
                             <SelectContent>
-                              {/* Get unique categories from products + localCategories */}
                               {[...new Set([
                                 ...localCategories.map(c => c.name),
                                 ...extractedProducts.map(p => p.category).filter(Boolean)
@@ -564,7 +563,8 @@ export function MenuImportModal({
               </div>
             </ScrollArea>
 
-            <div className="flex gap-2 pt-2">
+            {/* Action buttons - always visible at bottom */}
+            <div className="flex gap-2 pt-3 border-t">
               <Button
                 variant="outline"
                 onClick={() => setStep("upload")}
