@@ -2,9 +2,9 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, Upload, Loader2, ImageIcon, Check, X, Sparkles, AlertCircle } from "lucide-react";
@@ -12,9 +12,13 @@ import { Camera, Upload, Loader2, ImageIcon, Check, X, Sparkles, AlertCircle } f
 interface ExtractedProduct {
   name: string;
   description?: string;
-  price: number;
+  price?: number;
   category: string;
   selected?: boolean;
+  has_sizes?: boolean;
+  price_small?: number | null;
+  price_medium?: number | null;
+  price_large?: number | null;
 }
 
 interface MenuImportModalProps {
@@ -44,7 +48,6 @@ export function MenuImportModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Arquivo inválido",
@@ -54,7 +57,6 @@ export function MenuImportModal({
       return;
     }
 
-    // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "Arquivo muito grande",
@@ -64,7 +66,6 @@ export function MenuImportModal({
       return;
     }
 
-    // Convert to base64
     const reader = new FileReader();
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
@@ -93,15 +94,20 @@ export function MenuImportModal({
       const products = data.products.map((p: any) => ({
         ...p,
         selected: true,
-        price: typeof p.price === "string" ? parseFloat(String(p.price).replace(",", ".")) : (p.price || 0),
+        has_sizes: p.has_sizes || false,
+        price: p.has_sizes ? undefined : (typeof p.price === "string" ? parseFloat(String(p.price).replace(",", ".")) : (p.price || 0)),
+        price_small: p.has_sizes ? (typeof p.price_small === "string" ? parseFloat(String(p.price_small).replace(",", ".")) : p.price_small) : null,
+        price_medium: p.has_sizes ? (typeof p.price_medium === "string" ? parseFloat(String(p.price_medium).replace(",", ".")) : p.price_medium) : null,
+        price_large: p.has_sizes ? (typeof p.price_large === "string" ? parseFloat(String(p.price_large).replace(",", ".")) : p.price_large) : null,
       }));
 
       setExtractedProducts(products);
       setStep("review");
 
+      const sizesCount = products.filter((p: ExtractedProduct) => p.has_sizes).length;
       toast({
         title: "Cardápio analisado!",
-        description: `Encontramos ${products.length} produtos. Revise antes de importar.`,
+        description: `${products.length} produtos encontrados${sizesCount > 0 ? ` (${sizesCount} com tamanhos P/M/G)` : ""}. Revise antes de importar.`,
       });
     } catch (error) {
       console.error("Error extracting menu:", error);
@@ -121,9 +127,38 @@ export function MenuImportModal({
     );
   };
 
-  const updateProduct = (index: number, field: keyof ExtractedProduct, value: string | number) => {
+  const updateProduct = (index: number, field: keyof ExtractedProduct, value: string | number | boolean | null) => {
     setExtractedProducts(prev => 
       prev.map((p, i) => i === index ? { ...p, [field]: value } : p)
+    );
+  };
+
+  const toggleSizes = (index: number) => {
+    setExtractedProducts(prev => 
+      prev.map((p, i) => {
+        if (i !== index) return p;
+        if (p.has_sizes) {
+          // Converting from sizes to single price - use smallest price
+          return { 
+            ...p, 
+            has_sizes: false, 
+            price: p.price_small || p.price_medium || p.price_large || 0,
+            price_small: null,
+            price_medium: null,
+            price_large: null,
+          };
+        } else {
+          // Converting from single to sizes
+          return { 
+            ...p, 
+            has_sizes: true, 
+            price_small: p.price || 0,
+            price_medium: null,
+            price_large: null,
+            price: undefined,
+          };
+        }
+      })
     );
   };
 
@@ -133,6 +168,13 @@ export function MenuImportModal({
 
   const deselectAll = () => {
     setExtractedProducts(prev => prev.map(p => ({ ...p, selected: false })));
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   const importProducts = async () => {
@@ -151,12 +193,11 @@ export function MenuImportModal({
     setStep("importing");
 
     try {
-      // First, get or create categories
+      // Get or create categories
       const uniqueCategories = [...new Set(selectedProducts.map(p => p.category))];
       const categoryMap: Record<string, string> = {};
 
       for (const catName of uniqueCategories) {
-        // Check if category exists
         const existingCat = categories.find(c => 
           c.name.toLowerCase() === catName.toLowerCase()
         );
@@ -164,7 +205,6 @@ export function MenuImportModal({
         if (existingCat) {
           categoryMap[catName] = existingCat.id;
         } else {
-          // Create new category
           const { data: newCat, error } = await supabase
             .from("categories")
             .insert({ name: catName, restaurant_id: restaurantId })
@@ -179,11 +219,15 @@ export function MenuImportModal({
         }
       }
 
-      // Insert products
+      // Insert products with size support
       const productsToInsert = selectedProducts.map(p => ({
         name: p.name,
         description: p.description || null,
-        price: p.price || 0,
+        price: p.has_sizes ? (p.price_small || p.price_medium || p.price_large || 0) : (p.price || 0),
+        has_sizes: p.has_sizes || false,
+        price_small: p.has_sizes ? p.price_small : null,
+        price_medium: p.has_sizes ? p.price_medium : null,
+        price_large: p.has_sizes ? p.price_large : null,
         category_id: categoryMap[p.category] || null,
         restaurant_id: restaurantId,
         is_available: true,
@@ -197,9 +241,10 @@ export function MenuImportModal({
         throw insertError;
       }
 
+      const sizesCount = selectedProducts.filter(p => p.has_sizes).length;
       toast({
         title: "Produtos importados!",
-        description: `${selectedProducts.length} produtos foram adicionados ao cardápio.`,
+        description: `${selectedProducts.length} produtos adicionados${sizesCount > 0 ? ` (${sizesCount} com tamanhos)` : ""}.`,
       });
 
       onSuccess();
@@ -254,7 +299,7 @@ export function MenuImportModal({
                     Analisando cardápio com IA...
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Isso pode levar alguns segundos
+                    Detectando produtos e tamanhos (P/M/G)
                   </p>
                 </div>
               ) : imagePreview ? (
@@ -335,7 +380,7 @@ export function MenuImportModal({
                   <ul className="list-disc list-inside mt-1 space-y-0.5">
                     <li>Use boa iluminação</li>
                     <li>Certifique-se que os preços estejam legíveis</li>
-                    <li>Fotografe uma seção de cada vez para cardápios grandes</li>
+                    <li>Produtos com tamanhos P/M/G serão detectados automaticamente</li>
                   </ul>
                 </div>
               </div>
@@ -377,34 +422,101 @@ export function MenuImportModal({
                         className="mt-1"
                       />
                       <div className="flex-1 space-y-2">
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <Input
                             value={product.name}
                             onChange={(e) => updateProduct(index, "name", e.target.value)}
                             placeholder="Nome do produto"
                             className="flex-1 h-8"
                           />
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={product.price}
-                            onChange={(e) => updateProduct(index, "price", parseFloat(e.target.value) || 0)}
-                            placeholder="Preço"
-                            className="w-24 h-8"
-                          />
+                          {product.has_sizes ? (
+                            <Badge 
+                              variant="secondary" 
+                              className="cursor-pointer hover:bg-secondary/80"
+                              onClick={() => toggleSizes(index)}
+                            >
+                              P/M/G
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              variant="outline" 
+                              className="cursor-pointer hover:bg-muted"
+                              onClick={() => toggleSizes(index)}
+                            >
+                              Único
+                            </Badge>
+                          )}
                         </div>
+                        
+                        {product.has_sizes ? (
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">P</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={product.price_small || ""}
+                                onChange={(e) => updateProduct(index, "price_small", e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="Pequeno"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">M</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={product.price_medium || ""}
+                                onChange={(e) => updateProduct(index, "price_medium", e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="Médio"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-xs text-muted-foreground">G</label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={product.price_large || ""}
+                                onChange={(e) => updateProduct(index, "price_large", e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="Grande"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <Input
+                              value={product.description || ""}
+                              onChange={(e) => updateProduct(index, "description", e.target.value)}
+                              placeholder="Descrição (opcional)"
+                              className="flex-1 h-8 text-sm"
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={product.price || ""}
+                              onChange={(e) => updateProduct(index, "price", parseFloat(e.target.value) || 0)}
+                              placeholder="Preço"
+                              className="w-24 h-8"
+                            />
+                          </div>
+                        )}
+                        
                         <div className="flex gap-2">
-                          <Input
-                            value={product.description || ""}
-                            onChange={(e) => updateProduct(index, "description", e.target.value)}
-                            placeholder="Descrição (opcional)"
-                            className="flex-1 h-8 text-sm"
-                          />
+                          {product.has_sizes && (
+                            <Input
+                              value={product.description || ""}
+                              onChange={(e) => updateProduct(index, "description", e.target.value)}
+                              placeholder="Descrição (opcional)"
+                              className="flex-1 h-8 text-sm"
+                            />
+                          )}
                           <Input
                             value={product.category}
                             onChange={(e) => updateProduct(index, "category", e.target.value)}
                             placeholder="Categoria"
-                            className="w-32 h-8 text-sm"
+                            className={product.has_sizes ? "w-32 h-8 text-sm" : "w-32 h-8 text-sm"}
                           />
                         </div>
                       </div>

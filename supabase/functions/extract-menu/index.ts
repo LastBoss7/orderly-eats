@@ -45,19 +45,23 @@ serve(async (req) => {
             content: `Você é um assistente especializado em extrair informações de cardápios de restaurantes.
 Analise a imagem do cardápio e extraia os produtos visíveis.
 
-REGRAS IMPORTANTES:
-1. Se um produto tem MÚLTIPLOS TAMANHOS/PREÇOS (P, M, G ou 1 pessoa, 2 pessoas, etc), crie APENAS 1 produto com o MENOR preço
-2. Para cada produto, extraia: name, description (opcional), price (número), category
-3. Se o preço tiver "R$" ou "," converta para número decimal com ponto
-4. Retorne APENAS JSON válido, sem markdown, sem \`\`\`, sem explicações
-5. Limite máximo: 50 produtos por imagem`
+REGRAS CRÍTICAS:
+1. Se um produto tem MÚLTIPLOS TAMANHOS/PREÇOS (P, M, G / Pequeno, Médio, Grande / Individual, Casal / 1p, 2p, 3p), agrupe em UM ÚNICO produto com has_sizes=true
+2. Para produtos COM tamanhos: { name, description, category, has_sizes: true, price_small, price_medium, price_large }
+   - price_small = menor tamanho (P, Individual, 1 pessoa)
+   - price_medium = tamanho médio (M, Casal, 2 pessoas) - pode ser null
+   - price_large = maior tamanho (G, Família, 3 pessoas) - pode ser null
+3. Para produtos SEM tamanhos: { name, description, category, has_sizes: false, price }
+4. Se o preço tiver "R$" ou "," converta para número decimal com ponto
+5. Retorne APENAS JSON válido, sem markdown, sem \`\`\`
+6. Limite máximo: 50 produtos`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extraia os produtos e retorne APENAS JSON puro (sem markdown): {\"products\":[{\"name\":\"...\",\"description\":\"...\",\"price\":0.00,\"category\":\"...\"}]}"
+                text: "Extraia os produtos. Retorne APENAS JSON puro: {\"products\":[{\"name\":\"...\",\"description\":\"...\",\"category\":\"...\",\"has_sizes\":false,\"price\":0.00},{\"name\":\"...\",\"description\":\"...\",\"category\":\"...\",\"has_sizes\":true,\"price_small\":0.00,\"price_medium\":0.00,\"price_large\":0.00}]}"
               },
               {
                 type: "image_url",
