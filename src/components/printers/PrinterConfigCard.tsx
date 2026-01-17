@@ -6,11 +6,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Printer as PrinterIcon, ChevronDown, ChevronUp, Loader2, ChefHat, Wine, Receipt, Utensils, AlertCircle, Monitor } from 'lucide-react';
+import { Printer as PrinterIcon, ChevronDown, ChevronUp, Loader2, ChefHat, Wine, Receipt, Utensils, AlertCircle, Monitor, TestTube2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface Category {
   id: string;
@@ -77,12 +78,14 @@ const PRINTER_PRESETS = [
 
 export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps) {
   const { restaurant } = useAuth();
+  const { printCategoryTest } = usePrintToElectron();
   const [expanded, setExpanded] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [availablePrinters, setAvailablePrinters] = useState<AvailablePrinter[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingAvailablePrinters, setLoadingAvailablePrinters] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [testingPrint, setTestingPrint] = useState(false);
   
   // Local state for editing
   const [isActive, setIsActive] = useState(printer.is_active ?? true);
@@ -273,6 +276,26 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
 
   const handleSave = () => {
     saveChanges();
+  };
+
+  const handleTestPrint = async () => {
+    if (!printer.printer_name) {
+      toast.error('Vincule uma impressora do Windows antes de testar');
+      return;
+    }
+
+    setTestingPrint(true);
+    try {
+      await printCategoryTest({
+        printerName: printer.name,
+        printerId: printer.id,
+        categories: categories,
+        linkedCategories: selectedCategories.length === categories.length ? null : selectedCategories,
+        orderTypes: selectedOrderTypes,
+      });
+    } finally {
+      setTestingPrint(false);
+    }
   };
 
   // Get icon for current type
@@ -527,8 +550,20 @@ export function PrinterConfigCard({ printer, onUpdate }: PrinterConfigCardProps)
               )}
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end pt-2">
+            {/* Action Buttons */}
+            <div className="flex justify-between pt-2">
+              <Button 
+                variant="outline"
+                onClick={handleTestPrint} 
+                disabled={testingPrint || !printer.printer_name || selectedCategories.length === 0}
+              >
+                {testingPrint ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <TestTube2 className="w-4 h-4 mr-2" />
+                )}
+                Testar Impressão
+              </Button>
               <Button onClick={handleSave} disabled={saving || selectedOrderTypes.length === 0}>
                 {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Salvar Configuração
