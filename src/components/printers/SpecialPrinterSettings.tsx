@@ -115,14 +115,14 @@ export function SpecialPrinterSettings({ printers, loading }: SpecialPrinterSett
                 Usada para imprimir contas de mesa, comandas e conferências.
               </p>
               <Select
-                value={conferencePrinterId}
-                onValueChange={setConferencePrinterId}
+                value={conferencePrinterId || 'none'}
+                onValueChange={(value) => setConferencePrinterId(value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma impressora..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma (usar padrão do sistema)</SelectItem>
+                  <SelectItem value="none">Nenhuma (usar padrão do sistema)</SelectItem>
                   {activePrinters.map((printer) => (
                     <SelectItem key={printer.id} value={printer.id}>
                       {printer.name}
@@ -147,14 +147,14 @@ export function SpecialPrinterSettings({ printers, loading }: SpecialPrinterSett
                 Usada para imprimir relatórios de fechamento de caixa diário.
               </p>
               <Select
-                value={closingPrinterId}
-                onValueChange={setClosingPrinterId}
+                value={closingPrinterId || 'none'}
+                onValueChange={(value) => setClosingPrinterId(value === 'none' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione uma impressora..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma (usar padrão do sistema)</SelectItem>
+                  <SelectItem value="none">Nenhuma (usar padrão do sistema)</SelectItem>
                   {activePrinters.map((printer) => (
                     <SelectItem key={printer.id} value={printer.id}>
                       {printer.name}

@@ -14,20 +14,30 @@ interface ReprintOrderOptions {
   orderNumber?: number | string | null;
 }
 
+interface UsePrintToElectronOptions {
+  restaurantId?: string;
+}
+
 /**
  * Hook para enviar impressões para o app Electron
  * Em vez de usar window.print(), este hook marca o pedido como pendente
  * para que o app Electron possa buscá-lo e imprimir na impressora térmica
+ * 
+ * @param options - Opções do hook
+ * @param options.restaurantId - ID do restaurante (opcional, usa o do auth se não fornecido)
  */
-export function usePrintToElectron() {
+export function usePrintToElectron(options?: UsePrintToElectronOptions) {
   const { restaurant } = useAuth();
+  
+  // Use provided restaurantId or fall back to auth restaurant
+  const effectiveRestaurantId = options?.restaurantId || restaurant?.id;
 
   /**
    * Marca um pedido para impressão (print_status = 'pending')
    * O app Electron vai buscar e imprimir automaticamente
    */
   const printOrder = useCallback(async ({ orderId, orderNumber, showToast = true }: PrintOrderOptions) => {
-    if (!restaurant?.id) {
+    if (!effectiveRestaurantId) {
       toast.error('Restaurante não identificado');
       return false;
     }
@@ -46,7 +56,7 @@ export function usePrintToElectron() {
 
       // Log the print request
       await supabase.from('print_logs').insert({
-        restaurant_id: restaurant.id,
+        restaurant_id: effectiveRestaurantId,
         order_id: orderId,
         order_number: orderNumber?.toString() || null,
         event_type: 'print',
@@ -68,13 +78,13 @@ export function usePrintToElectron() {
       });
       return false;
     }
-  }, [restaurant?.id]);
+  }, [effectiveRestaurantId]);
 
   /**
    * Reimprime um pedido (marca novamente como pending)
    */
   const reprintOrder = useCallback(async ({ orderId, orderNumber }: ReprintOrderOptions) => {
-    if (!restaurant?.id) {
+    if (!effectiveRestaurantId) {
       toast.error('Restaurante não identificado');
       return false;
     }
@@ -102,7 +112,7 @@ export function usePrintToElectron() {
 
       // Log the reprint request
       await supabase.from('print_logs').insert({
-        restaurant_id: restaurant.id,
+        restaurant_id: effectiveRestaurantId,
         order_id: orderId,
         order_number: orderNumber?.toString() || null,
         event_type: 'reprint',
@@ -122,7 +132,7 @@ export function usePrintToElectron() {
       });
       return false;
     }
-  }, [restaurant?.id]);
+  }, [effectiveRestaurantId]);
 
   /**
    * Imprime conferência/conta de mesa ou comanda
@@ -147,8 +157,12 @@ export function usePrintToElectron() {
     }>;
     isFinalReceipt?: boolean;
   }) => {
-    if (!restaurant?.id) {
+    if (!effectiveRestaurantId) {
       toast.error('Restaurante não identificado');
+      console.error('printConference: No restaurant ID available', { 
+        optionsRestaurantId: options?.restaurantId,
+        authRestaurantId: restaurant?.id 
+      });
       return false;
     }
 
@@ -157,7 +171,7 @@ export function usePrintToElectron() {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          restaurant_id: restaurant.id,
+          restaurant_id: effectiveRestaurantId,
           order_type: 'conference',
           customer_name: params.customerName || `${params.entityType === 'table' ? 'Mesa' : 'Comanda'} ${params.entityNumber}`,
           total: params.total,
@@ -183,7 +197,7 @@ export function usePrintToElectron() {
       if (params.items.length > 0) {
         const itemsToInsert = params.items.map(item => ({
           order_id: order.id,
-          restaurant_id: restaurant.id,
+          restaurant_id: effectiveRestaurantId,
           product_name: item.product_name,
           product_price: item.product_price,
           quantity: item.quantity,
@@ -198,7 +212,7 @@ export function usePrintToElectron() {
 
       // Log the conference print
       await supabase.from('print_logs').insert({
-        restaurant_id: restaurant.id,
+        restaurant_id: effectiveRestaurantId,
         order_id: order.id,
         order_number: order.order_number?.toString() || null,
         event_type: 'print',
@@ -227,7 +241,7 @@ export function usePrintToElectron() {
       });
       return false;
     }
-  }, [restaurant?.id]);
+  }, [effectiveRestaurantId, options?.restaurantId, restaurant?.id]);
 
   return {
     printOrder,

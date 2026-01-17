@@ -49,14 +49,16 @@ interface WaiterTabOrdersProps {
   tab: Tab;
   onBack: () => void;
   onTabClosed: () => void;
+  restaurantId?: string; // Optional: for waiter PIN access
 }
 
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 type SplitMode = 'none' | 'equal';
 
-export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersProps) {
+export function WaiterTabOrders({ tab, onBack, onTabClosed, restaurantId: propRestaurantId }: WaiterTabOrdersProps) {
   const { restaurant } = useAuth();
-  const { printConference } = usePrintToElectron();
+  const effectiveRestaurantId = propRestaurantId || restaurant?.id;
+  const { printConference } = usePrintToElectron({ restaurantId: effectiveRestaurantId });
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
   const [cashReceived, setCashReceived] = useState(0);
 
   const fetchOrders = useCallback(async () => {
-    if (!restaurant?.id) return;
+    if (!effectiveRestaurantId) return;
 
     try {
       const { data, error } = await supabase
@@ -88,7 +90,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
     } finally {
       setLoading(false);
     }
-  }, [restaurant?.id, tab.id]);
+  }, [effectiveRestaurantId, tab.id]);
 
   useEffect(() => {
     fetchOrders();
@@ -96,7 +98,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed }: WaiterTabOrdersPro
 
   // Realtime subscription
   useEffect(() => {
-    if (!restaurant?.id) return;
+    if (!effectiveRestaurantId) return;
 
     const channel = supabase
       .channel(`waiter-tab-${tab.id}`)
