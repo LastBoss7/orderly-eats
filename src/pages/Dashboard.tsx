@@ -1048,8 +1048,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Driver selector for delivery orders - compact */}
         {order.order_type === 'delivery' && (
-          <div className="px-3 pb-2 space-y-1.5" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
+          <div 
+            className="px-3 pb-2 space-y-1.5" 
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
@@ -1059,6 +1064,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : 'border-dashed'
                   }`}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <span className="flex items-center gap-1.5">
                     <Bike className="w-3 h-3" />
@@ -1077,7 +1083,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     {drivers.map((driver) => (
                       <DropdownMenuItem
                         key={driver.id}
-                        onClick={() => updateOrderDriver(order.id, driver.id, order)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateOrderDriver(order.id, driver.id, order);
+                        }}
                         className={`text-xs ${order.driver_id === driver.id ? 'bg-accent' : ''}`}
                       >
                         <Bike className="w-3 h-3 mr-1.5" />
@@ -1088,7 +1097,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={() => updateOrderDriver(order.id, null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateOrderDriver(order.id, null);
+                          }}
                           className="text-destructive text-xs"
                         >
                           <X className="w-3 h-3 mr-1.5" />
@@ -1135,8 +1147,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
 
         {/* Delivery Status Dropdown - compact */}
         {order.order_type === 'delivery' && order.status !== 'pending' && (
-          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
+          <div 
+            className="px-3 pb-2" 
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="outline" 
@@ -1146,6 +1163,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
                       : ''
                   }`}
+                  onPointerDown={(e) => e.stopPropagation()}
                 >
                   <span className="flex items-center gap-1.5">
                     {order.status === 'preparing' && '🔥 Preparando'}
@@ -1162,19 +1180,19 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[160px]">
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')} className="text-xs">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'preparing'); }} className="text-xs">
                   🔥 Preparando
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')} className="text-xs">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'ready'); }} className="text-xs">
                   ✅ Pronto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')} className="text-xs">
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'out_for_delivery'); }} className="text-xs">
                   <Truck className="w-3 h-3 mr-1.5" />
                   Em entrega
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => updateOrderStatus(order.id, 'delivered')}
+                  onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'delivered'); }}
                   className="text-green-600 text-xs"
                 >
                   <CheckCircle className="w-3 h-3 mr-1.5" />
