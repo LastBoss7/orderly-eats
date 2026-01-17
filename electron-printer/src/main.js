@@ -48,6 +48,7 @@ const defaultLayout = {
 let cachedRestaurantInfo = null;
 let cachedPrintLayout = null;
 let cachedDbPrinters = [];
+let cachedCategories = [];
 let cachedSpecialPrinters = { conference: null, closing: null };
 
 // Configuração persistente
@@ -546,6 +547,21 @@ async function refreshRestaurantConfig(restaurantId) {
     if (data.printers) {
       cachedDbPrinters = data.printers;
       sendToRenderer('log', `✓ ${data.printers.length} impressora(s) configurada(s) no servidor`);
+      
+      // Log category filters for each printer
+      for (const p of data.printers) {
+        if (p.linked_categories && p.linked_categories.length > 0) {
+          sendToRenderer('log', `  → ${p.name}: ${p.linked_categories.length} categoria(s)`);
+        } else {
+          sendToRenderer('log', `  → ${p.name}: todas as categorias`);
+        }
+      }
+    }
+
+    // Cache categories
+    if (data.categories) {
+      cachedCategories = data.categories;
+      sendToRenderer('log', `✓ ${data.categories.length} categoria(s) no cardápio`);
     }
 
     // Cache special printer assignments
@@ -623,7 +639,45 @@ function getOrderTypeLabel(orderType) {
 }
 
 /**
- * Print order - Tries all matching printers
+ * Filter order items by category for a specific printer
+ * Returns order items that match the printer's linked categories
+ */
+function filterItemsByCategory(orderItems, dbPrinter, allCategoriesIds) {
+  // If linked_categories is null or empty array, print ALL items (cashier/general printer)
+  const linkedCategories = dbPrinter?.linked_categories;
+  
+  if (!linkedCategories || linkedCategories.length === 0) {
+    console.log(`[CategoryFilter] Printer has no category filter - printing all items`);
+    return orderItems;
+  }
+  
+  // If all categories are selected, print all items
+  if (allCategoriesIds && linkedCategories.length === allCategoriesIds.length) {
+    console.log(`[CategoryFilter] All categories selected - printing all items`);
+    return orderItems;
+  }
+  
+  // Filter items by category_id
+  const filteredItems = orderItems.filter(item => {
+    const categoryId = item.category_id;
+    
+    // If item has no category, include it (safety measure)
+    if (!categoryId) {
+      console.log(`[CategoryFilter] Item "${item.product_name}" has no category - including`);
+      return true;
+    }
+    
+    const included = linkedCategories.includes(categoryId);
+    console.log(`[CategoryFilter] Item "${item.product_name}" category ${categoryId}: ${included ? 'INCLUDED' : 'EXCLUDED'}`);
+    return included;
+  });
+  
+  console.log(`[CategoryFilter] Filtered ${orderItems.length} -> ${filteredItems.length} items`);
+  return filteredItems;
+}
+
+/**
+ * Print order - Sends to ALL matching printers with category filtering
  */
 async function printOrderToAllPrinters(order, dbPrinters) {
   const orderType = order.order_type || 'counter';
@@ -644,153 +698,221 @@ async function printOrderToAllPrinters(order, dbPrinters) {
   
   const systemPrinterNames = systemPrinters.map(p => p.name);
   console.log(`[PrintOrder] System printers available:`, systemPrinterNames);
+  console.log(`[PrintOrder] Order items:`, order.order_items?.map(i => `${i.product_name} (cat: ${i.category_id})`));
   
-  // Collect all printers to try, in order of priority
-  const printersToTry = [];
+  // Get all category IDs for checking "all categories selected"
+  const allCategoryIds = cachedCategories?.map(c => c.id) || [];
   
-  // 0. Special printer for conference/closing types (HIGHEST PRIORITY)
-  if (orderType === 'conference' && cachedSpecialPrinters.conference) {
-    printersToTry.push({
-      name: cachedSpecialPrinters.conference,
-      source: 'special_conference',
-      paperWidth: null, // Will use default
-    });
-    console.log(`[PrintOrder] Using conference printer: ${cachedSpecialPrinters.conference}`);
-  } else if (orderType === 'closing' && cachedSpecialPrinters.closing) {
-    printersToTry.push({
-      name: cachedSpecialPrinters.closing,
-      source: 'special_closing',
-      paperWidth: null,
-    });
-    console.log(`[PrintOrder] Using closing printer: ${cachedSpecialPrinters.closing}`);
-  }
-  
-  // 1. DB printers matching order type
-  if (dbPrinters && dbPrinters.length > 0) {
-    for (const dbPrinter of dbPrinters) {
-      if (!dbPrinter.is_active) continue;
+  // Special handling for conference/closing - use special printer, no category filtering
+  if (orderType === 'conference' || orderType === 'closing') {
+    const specialPrinterName = orderType === 'conference' 
+      ? cachedSpecialPrinters.conference 
+      : cachedSpecialPrinters.closing;
+    
+    if (specialPrinterName) {
+      const exists = systemPrinterNames.some(sp => 
+        sp === specialPrinterName || sp.toLowerCase() === specialPrinterName.toLowerCase()
+      );
       
-      const types = dbPrinter.linked_order_types || ['counter', 'table', 'delivery'];
-      if (types.includes(orderType) && dbPrinter.printer_name) {
-        // Don't add if already added as special printer
-        if (!printersToTry.some(p => p.name === dbPrinter.printer_name)) {
-          printersToTry.push({
-            name: dbPrinter.printer_name,
-            source: 'db_type_match',
-            paperWidth: dbPrinter.paper_width,
+      if (exists) {
+        const baseLayout = cachedPrintLayout || defaultLayout;
+        const restaurantInfo = cachedRestaurantInfo || { name: '', phone: '', address: '', cnpj: '' };
+        
+        try {
+          sendToRenderer('log', `🖨️ ${orderLabel} -> ${specialPrinterName} (${orderType})`);
+          
+          const success = await printerService.printOrder(order, {
+            layout: baseLayout,
+            restaurantInfo,
+            printerName: specialPrinterName,
           });
+          
+          if (success) {
+            await markOrderPrinted(order);
+            printedCount++;
+            updateTrayMenu();
+            sendToRenderer('print-success', { orderId: order.id, orderType });
+            sendToRenderer('stats', { printedCount });
+            return true;
+          }
+        } catch (error) {
+          sendToRenderer('log', `⚠ ${specialPrinterName}: ${error.message}`);
         }
       }
     }
     
-    // 2. All other DB printers (fallback)
-    for (const dbPrinter of dbPrinters) {
-      if (!dbPrinter.is_active || !dbPrinter.printer_name) continue;
-      if (!printersToTry.some(p => p.name === dbPrinter.printer_name)) {
-        printersToTry.push({
-          name: dbPrinter.printer_name,
-          source: 'db_fallback',
-          paperWidth: dbPrinter.paper_width,
+    // Fallback to default printer for special types
+    const defaultPrinter = getLocalPrinterForOrder(order);
+    if (defaultPrinter) {
+      try {
+        const success = await printerService.printOrder(order, {
+          layout: cachedPrintLayout || defaultLayout,
+          restaurantInfo: cachedRestaurantInfo || {},
+          printerName: defaultPrinter,
         });
+        if (success) {
+          await markOrderPrinted(order);
+          printedCount++;
+          updateTrayMenu();
+          return true;
+        }
+      } catch (e) {
+        // Ignore
       }
     }
-  }
-  
-  // 3. Local config printers
-  const localPrinter = getLocalPrinterForOrder(order);
-  if (localPrinter && !printersToTry.some(p => p.name === localPrinter)) {
-    printersToTry.push({ name: localPrinter, source: 'local_config' });
-  }
-  
-  // 4. Default system printer
-  const defaultSystemPrinter = systemPrinters.find(p => p.isDefault);
-  if (defaultSystemPrinter && !printersToTry.some(p => p.name === defaultSystemPrinter.name)) {
-    printersToTry.push({ name: defaultSystemPrinter.name, source: 'system_default' });
-  }
-  
-  // 5. Any system printer (last resort)
-  for (const sp of systemPrinters) {
-    if (!printersToTry.some(p => p.name === sp.name)) {
-      printersToTry.push({ name: sp.name, source: 'system_any' });
-    }
-  }
-  
-  // Validate printers exist on system
-  const validPrinters = printersToTry.filter(p => {
-    const exists = systemPrinterNames.includes(p.name) || 
-                   systemPrinterNames.some(sp => sp.toLowerCase() === p.name.toLowerCase());
-    if (!exists) {
-      console.log(`[PrintOrder] Printer "${p.name}" (${p.source}) not found on system`);
-    }
-    return exists;
-  });
-  
-  if (validPrinters.length === 0) {
-    sendToRenderer('log', `✗ ${orderLabel}: Nenhuma impressora válida encontrada!`);
-    sendToRenderer('log', `   Impressoras disponíveis: ${systemPrinterNames.join(', ') || 'nenhuma'}`);
-    sendToRenderer('log', `   Impressoras configuradas: ${printersToTry.map(p => p.name).join(', ') || 'nenhuma'}`);
     return false;
   }
   
-  console.log(`[PrintOrder] Will try ${validPrinters.length} printer(s): ${validPrinters.map(p => p.name).join(', ')}`);
+  // Regular orders - print to ALL matching printers with category filtering
+  let anyPrinterSucceeded = false;
+  const printersAttempted = [];
   
-  // Build layout
-  const baseLayout = cachedPrintLayout || defaultLayout;
-  const restaurantInfo = cachedRestaurantInfo || { name: '', phone: '', address: '', cnpj: '' };
-  
-  // Try each printer until one succeeds
-  for (const printer of validPrinters) {
-    const layout = printer.paperWidth 
-      ? { ...baseLayout, paperWidth: printer.paperWidth }
-      : baseLayout;
-    
-    try {
-      console.log(`[PrintOrder] Trying printer: "${printer.name}" (${printer.source})`);
-      sendToRenderer('log', `🖨️ ${orderLabel} -> ${printer.name}`);
+  // 1. Process DB printers with category filtering
+  if (dbPrinters && dbPrinters.length > 0) {
+    for (const dbPrinter of dbPrinters) {
+      if (!dbPrinter.is_active || !dbPrinter.printer_name) continue;
       
-      const success = await printerService.printOrder(order, {
-        layout,
-        restaurantInfo,
-        printerName: printer.name,
-      });
-      
-      if (success) {
-        // Mark as printed
-        await markOrderPrinted(order);
-        
-        // Update stats
-        printedCount++;
-        updateTrayMenu();
-        sendToRenderer('print-success', { orderId: order.id, orderType });
-        sendToRenderer('stats', { printedCount });
-        
-        // Log success
-        try {
-          await supabase?.from('print_logs').insert({
-            restaurant_id: store.get('restaurantId'),
-            order_id: order.id,
-            order_number: String(orderNum),
-            event_type: 'auto_print',
-            status: 'success',
-            printer_name: printer.name,
-            items_count: order.order_items?.length || 0,
-          });
-        } catch (e) {
-          // Ignore log errors
-        }
-        
-        return true;
+      // Check if this printer handles this order type
+      const types = dbPrinter.linked_order_types || ['counter', 'table', 'delivery'];
+      if (!types.includes(orderType)) {
+        console.log(`[PrintOrder] Printer "${dbPrinter.name}" skipped - doesn't handle ${orderType}`);
+        continue;
       }
-    } catch (error) {
-      console.log(`[PrintOrder] Printer "${printer.name}" failed:`, error.message);
-      sendToRenderer('log', `⚠ ${printer.name}: ${error.message}`);
       
-      // Continue to next printer
+      // Validate printer exists on system
+      const printerExists = systemPrinterNames.some(sp => 
+        sp === dbPrinter.printer_name || sp.toLowerCase() === dbPrinter.printer_name.toLowerCase()
+      );
+      
+      if (!printerExists) {
+        console.log(`[PrintOrder] Printer "${dbPrinter.printer_name}" not found on system`);
+        continue;
+      }
+      
+      // Filter items by category for this printer
+      const filteredItems = filterItemsByCategory(
+        order.order_items || [], 
+        dbPrinter, 
+        allCategoryIds
+      );
+      
+      // Skip if no items match this printer's categories
+      if (filteredItems.length === 0) {
+        console.log(`[PrintOrder] Printer "${dbPrinter.name}" skipped - no matching items for categories`);
+        sendToRenderer('log', `⏭️ ${dbPrinter.name}: sem itens para imprimir`);
+        continue;
+      }
+      
+      // Create a copy of the order with filtered items
+      const filteredOrder = {
+        ...order,
+        order_items: filteredItems,
+      };
+      
+      const layout = dbPrinter.paper_width 
+        ? { ...(cachedPrintLayout || defaultLayout), paperWidth: dbPrinter.paper_width }
+        : (cachedPrintLayout || defaultLayout);
+      const restaurantInfo = cachedRestaurantInfo || { name: '', phone: '', address: '', cnpj: '' };
+      
+      try {
+        console.log(`[PrintOrder] Printing to "${dbPrinter.name}" with ${filteredItems.length}/${order.order_items?.length || 0} items`);
+        sendToRenderer('log', `🖨️ ${orderLabel} -> ${dbPrinter.name} (${filteredItems.length} itens)`);
+        
+        const success = await printerService.printOrder(filteredOrder, {
+          layout,
+          restaurantInfo,
+          printerName: dbPrinter.printer_name,
+        });
+        
+        if (success) {
+          anyPrinterSucceeded = true;
+          printersAttempted.push({ name: dbPrinter.printer_name, success: true, items: filteredItems.length });
+          sendToRenderer('log', `✓ ${dbPrinter.name}: ${filteredItems.length} itens impressos`);
+          
+          // Log success for this printer
+          try {
+            await supabase?.from('print_logs').insert({
+              restaurant_id: store.get('restaurantId'),
+              order_id: order.id,
+              order_number: String(orderNum),
+              event_type: 'auto_print',
+              status: 'success',
+              printer_name: dbPrinter.printer_name,
+              items_count: filteredItems.length,
+            });
+          } catch (e) {
+            // Ignore log errors
+          }
+        } else {
+          printersAttempted.push({ name: dbPrinter.printer_name, success: false });
+        }
+      } catch (error) {
+        console.log(`[PrintOrder] Printer "${dbPrinter.name}" failed:`, error.message);
+        sendToRenderer('log', `⚠ ${dbPrinter.name}: ${error.message}`);
+        printersAttempted.push({ name: dbPrinter.printer_name, success: false, error: error.message });
+      }
     }
   }
   
+  // 2. If no DB printers succeeded, try local/system printers with full order
+  if (!anyPrinterSucceeded) {
+    const fallbackPrinters = [];
+    
+    // Local config printer
+    const localPrinter = getLocalPrinterForOrder(order);
+    if (localPrinter && !printersAttempted.some(p => p.name === localPrinter)) {
+      fallbackPrinters.push({ name: localPrinter, source: 'local_config' });
+    }
+    
+    // Default system printer
+    const defaultSystemPrinter = systemPrinters.find(p => p.isDefault);
+    if (defaultSystemPrinter && !printersAttempted.some(p => p.name === defaultSystemPrinter.name)) {
+      fallbackPrinters.push({ name: defaultSystemPrinter.name, source: 'system_default' });
+    }
+    
+    for (const printer of fallbackPrinters) {
+      const exists = systemPrinterNames.some(sp => 
+        sp === printer.name || sp.toLowerCase() === printer.name.toLowerCase()
+      );
+      if (!exists) continue;
+      
+      try {
+        sendToRenderer('log', `🖨️ ${orderLabel} -> ${printer.name} (fallback)`);
+        
+        const success = await printerService.printOrder(order, {
+          layout: cachedPrintLayout || defaultLayout,
+          restaurantInfo: cachedRestaurantInfo || {},
+          printerName: printer.name,
+        });
+        
+        if (success) {
+          anyPrinterSucceeded = true;
+          printersAttempted.push({ name: printer.name, success: true });
+          break;
+        }
+      } catch (error) {
+        sendToRenderer('log', `⚠ ${printer.name}: ${error.message}`);
+        printersAttempted.push({ name: printer.name, success: false });
+      }
+    }
+  }
+  
+  // Mark order as printed if at least one printer succeeded
+  if (anyPrinterSucceeded) {
+    await markOrderPrinted(order);
+    printedCount++;
+    updateTrayMenu();
+    sendToRenderer('print-success', { orderId: order.id, orderType });
+    sendToRenderer('stats', { printedCount });
+    
+    const successCount = printersAttempted.filter(p => p.success).length;
+    sendToRenderer('log', `✓ Pedido ${orderLabel} impresso em ${successCount} impressora(s)`);
+    
+    return true;
+  }
+  
   // All printers failed
-  sendToRenderer('log', `✗ ${orderLabel}: Todas as impressoras falharam!`);
+  sendToRenderer('log', `✗ ${orderLabel}: Nenhuma impressora conseguiu imprimir!`);
   
   // Log failure
   try {
@@ -800,8 +922,8 @@ async function printOrderToAllPrinters(order, dbPrinters) {
       order_number: String(orderNum),
       event_type: 'auto_print',
       status: 'error',
-      error_message: 'Todas as impressoras falharam',
-      printer_name: validPrinters.map(p => p.name).join(', '),
+      error_message: 'Nenhuma impressora conseguiu imprimir',
+      printer_name: printersAttempted.map(p => p.name).join(', '),
       items_count: order.order_items?.length || 0,
     });
   } catch (e) {
