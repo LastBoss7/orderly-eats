@@ -14,6 +14,14 @@ import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { useWaiterData } from '@/hooks/useWaiterData';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 import logoGamakoWhite from '@/assets/logo-gamako-white.png';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  AnimatedCard, 
+  AnimatedModal, 
+  StaggeredContainer, 
+  staggerItemVariants,
+  PageSlide,
+} from '@/components/waiter/WaiterViewTransition';
 import { 
   ArrowLeft,
   Search, 
@@ -1168,19 +1176,50 @@ export default function WaiterApp({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d1b2a]">
-        <div className="text-center">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="min-h-screen flex items-center justify-center bg-[#0d1b2a]"
+      >
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="text-center"
+        >
           <Loader2 className="w-10 h-10 animate-spin text-white mx-auto mb-4" />
           <p className="text-white/80">Carregando...</p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     );
   }
+
+  // Animation variants for page transitions
+  const pageVariants = {
+    initial: { opacity: 0, x: 50 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -50 },
+  };
+
+  const pageTransition = {
+    type: "spring" as const,
+    stiffness: 300,
+    damping: 30,
+  };
 
   // Table Orders View (like image 3)
   if (view === 'table-orders' && selectedTable) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col">
+      <motion.div 
+        key="table-orders"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col"
+      >
         {/* Header */}
         <header className="sticky top-0 bg-gradient-to-r from-primary to-primary/90 text-white p-4 z-10 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
@@ -1456,14 +1495,21 @@ export default function WaiterApp({
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   // Login / PIN Entry View
   if (view === 'login') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary/20 to-slate-900 flex flex-col relative overflow-hidden">
+      <motion.div 
+        key="login"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={pageTransition}
+        className="min-h-screen bg-gradient-to-br from-slate-900 via-primary/20 to-slate-900 flex flex-col relative overflow-hidden"
+      >
         {/* Decorative elements */}
         <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
@@ -1582,14 +1628,22 @@ export default function WaiterApp({
             Sair
           </Button>
         </footer>
-      </div>
+      </motion.div>
     );
   }
 
   // Delivery Form View
   if (view === 'delivery') {
     return (
-      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+      <motion.div 
+        key="delivery"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="min-h-screen bg-[#f5f5f5] flex flex-col"
+      >
         <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
@@ -1730,14 +1784,22 @@ export default function WaiterApp({
             <ArrowLeft className="w-5 h-5 ml-2 rotate-180" />
           </Button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Delivery Order View
   if (view === 'delivery-order') {
     return (
-      <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
+      <motion.div 
+        key="delivery-order"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="min-h-screen bg-[#f5f5f5] flex flex-col"
+      >
         <header className="sticky top-0 bg-[#0d1b2a] text-white p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
@@ -1847,7 +1909,7 @@ export default function WaiterApp({
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   }
 
@@ -1858,7 +1920,15 @@ export default function WaiterApp({
       : `Mesa ${selectedTable?.number}`;
       
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <motion.div 
+        key="order"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+        transition={pageTransition}
+        className="min-h-screen bg-background flex flex-col"
+      >
         <header className="sticky top-0 bg-primary text-primary-foreground p-4 z-10">
           <div className="flex items-center gap-3">
             <Button
@@ -2171,13 +2241,20 @@ export default function WaiterApp({
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   // Main View - Tables/Comandas
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 flex flex-col">
+    <motion.div 
+      key="main-tables"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 flex flex-col"
+    >
       {/* Header */}
       <header className="bg-gradient-to-r from-primary via-primary to-primary/90 text-primary-foreground shadow-lg">
         <div className="flex items-center justify-between p-4">
@@ -2229,7 +2306,11 @@ export default function WaiterApp({
               Mesas
             </span>
             {activeTab === 'mesas' && (
-              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" />
+              <motion.div 
+                layoutId="activeTabIndicator"
+                className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" 
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
             )}
           </button>
           <button
@@ -2245,7 +2326,11 @@ export default function WaiterApp({
               Comandas
             </span>
             {activeTab === 'comandas' && (
-              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" />
+              <motion.div 
+                layoutId="activeTabIndicator"
+                className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" 
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
             )}
           </button>
         </div>
@@ -2283,15 +2368,42 @@ export default function WaiterApp({
       {/* Content */}
       <ScrollArea className="flex-1">
         {activeTab === 'mesas' ? (
-          <div className="p-4 grid grid-cols-3 gap-3">
-            {filteredTables.map((table) => {
+          <motion.div 
+            key="tables-grid"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: { staggerChildren: 0.03 },
+              },
+            }}
+            className="p-4 grid grid-cols-3 gap-3"
+          >
+            {filteredTables.map((table, index) => {
               const hasReadyOrder = tableReadyOrders[table.id];
               
               return (
-                <button
+                <motion.button
                   key={table.id}
+                  variants={{
+                    hidden: { opacity: 0, y: 20, scale: 0.9 },
+                    visible: { 
+                      opacity: 1, 
+                      y: 0, 
+                      scale: 1,
+                      transition: {
+                        type: "spring",
+                        stiffness: 400,
+                        damping: 25,
+                      },
+                    },
+                  }}
+                  whileHover={{ scale: 1.05, y: -4 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => handleTableClick(table)}
-                  className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left transition-all duration-200 active:scale-95 shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${
+                  className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left shadow-lg ${
                     table.status === 'available' 
                       ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-emerald-500/25' 
                       : table.status === 'closing' 
@@ -2302,47 +2414,102 @@ export default function WaiterApp({
                   <div className="flex items-start justify-between">
                     <span className="font-bold text-lg drop-shadow-sm">Mesa {table.number}</span>
                     {table.status !== 'available' && (
-                      <div className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+                      <motion.div 
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="w-2 h-2 rounded-full bg-white/80"
+                      />
                     )}
                   </div>
                   {hasReadyOrder && (
-                    <Badge className="bg-white text-emerald-700 text-xs font-bold w-fit shadow-sm animate-pulse">
-                      🔔 Pronto!
-                    </Badge>
+                    <motion.div
+                      animate={{ scale: [1, 1.05, 1] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                    >
+                      <Badge className="bg-white text-emerald-700 text-xs font-bold w-fit shadow-sm">
+                        🔔 Pronto!
+                      </Badge>
+                    </motion.div>
                   )}
                   {table.status === 'available' && (
                     <span className="text-xs text-white/80 font-medium">Disponível</span>
                   )}
-                </button>
+                </motion.button>
               );
             })}
-          </div>
+          </motion.div>
         ) : (
-          <div className="p-4 grid grid-cols-3 gap-3">
+          <motion.div 
+            key="tabs-grid"
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: { staggerChildren: 0.03 },
+              },
+            }}
+            className="p-4 grid grid-cols-3 gap-3"
+          >
             {/* Create New Tab Button */}
-            <button
+            <motion.button
+              variants={{
+                hidden: { opacity: 0, y: 20, scale: 0.9 },
+                visible: { 
+                  opacity: 1, 
+                  y: 0, 
+                  scale: 1,
+                  transition: {
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 25,
+                  },
+                },
+              }}
+              whileHover={{ scale: 1.05, y: -4 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setNewTabCustomerName('');
                 setNewTabCustomerPhone('');
                 setShowCreateTabModal(true);
               }}
-              className="relative rounded-2xl p-4 min-h-[100px] flex flex-col items-center justify-center text-center transition-all duration-200 active:scale-95 border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 hover:-translate-y-0.5"
+              className="relative rounded-2xl p-4 min-h-[100px] flex flex-col items-center justify-center text-center border-2 border-dashed border-primary/40 bg-primary/5"
             >
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
+              <motion.div 
+                whileHover={{ rotate: 90 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2"
+              >
                 <Plus className="w-6 h-6 text-primary" />
-              </div>
+              </motion.div>
               <span className="font-semibold text-sm text-primary">Nova</span>
-            </button>
+            </motion.button>
             
             {tabs.filter(tab => {
               if (!tableSearchTerm) return true;
               return tab.number.toString().includes(tableSearchTerm) ||
                 tab.customer_name?.toLowerCase().includes(tableSearchTerm.toLowerCase());
-            }).map((tab) => (
-              <button
+            }).map((tab, index) => (
+              <motion.button
                 key={tab.id}
+                variants={{
+                  hidden: { opacity: 0, y: 20, scale: 0.9 },
+                  visible: { 
+                    opacity: 1, 
+                    y: 0, 
+                    scale: 1,
+                    transition: {
+                      type: "spring",
+                      stiffness: 400,
+                      damping: 25,
+                    },
+                  },
+                }}
+                whileHover={{ scale: 1.05, y: -4 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => handleTabClick(tab)}
-                className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left transition-all duration-200 active:scale-95 shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${
+                className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left shadow-lg ${
                   tab.status === 'available' 
                     ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-emerald-500/25' 
                     : tab.status === 'closing' 
@@ -2353,7 +2520,11 @@ export default function WaiterApp({
                 <div className="flex items-start justify-between">
                   <span className="font-bold text-lg drop-shadow-sm">#{tab.number}</span>
                   {tab.status !== 'available' && (
-                    <div className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+                    <motion.div 
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="w-2 h-2 rounded-full bg-white/80"
+                    />
                   )}
                 </div>
                 {tab.customer_name && (
@@ -2365,9 +2536,9 @@ export default function WaiterApp({
                 {tab.status === 'available' && !tab.customer_name && (
                   <span className="text-xs text-white/80 font-medium">Disponível</span>
                 )}
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
         )}
       </ScrollArea>
 
@@ -2385,72 +2556,103 @@ export default function WaiterApp({
       </div>
 
       {/* Table Action Modal */}
-      {showTableModal && modalTable && (
-        <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
-          <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold">Mesa {modalTable.number}</h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowTableModal(false)}>
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            <div className="p-4 flex items-center gap-3 border-b">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-primary" />
+      <AnimatePresence>
+        {showTableModal && modalTable && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 flex items-end justify-center z-50"
+            onClick={() => setShowTableModal(false)}
+          >
+            <motion.div 
+              initial={{ y: 300, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 300, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-bold">Mesa {modalTable.number}</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowTableModal(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
               </div>
-              <div>
-                <span className="text-muted-foreground text-sm">Total: </span>
-                <span className="text-lg font-bold">{formatCurrency(tableTotal)}</span>
+              
+              <div className="p-4 flex items-center gap-3 border-b">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <span className="text-muted-foreground text-sm">Total: </span>
+                  <span className="text-lg font-bold">{formatCurrency(tableTotal)}</span>
+                </div>
               </div>
-            </div>
-            
-            <div className="p-4 space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full h-12 justify-start gap-3"
-                onClick={() => handleViewOrders(modalTable)}
-              >
-                <Eye className="w-4 h-4" />
-                Ver pedidos
-              </Button>
               
-              <Button 
-                variant="outline" 
-                className="w-full h-12 justify-start gap-3"
-                onClick={() => {
-                  handleViewOrders(modalTable);
-                  setTimeout(() => handlePrintReceipt(), 500);
+              <motion.div 
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
                 }}
+                className="p-4 space-y-2"
               >
-                <Printer className="w-4 h-4" />
-                Imprimir conferência
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                className="w-full h-12 justify-start gap-3"
-                onClick={async () => {
-                  await handleViewOrders(modalTable);
-                  setTableTotal(tableTotal);
-                  setShowCloseModal(true);
-                }}
-              >
-                <DollarSign className="w-4 h-4" />
-                Fechar conta
-              </Button>
-              
-              <Button 
-                className="w-full h-12 justify-start gap-3"
-                onClick={() => handleNewOrder(modalTable)}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Novo pedido
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+                <motion.div variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 justify-start gap-3"
+                    onClick={() => handleViewOrders(modalTable)}
+                  >
+                    <Eye className="w-4 h-4" />
+                    Ver pedidos
+                  </Button>
+                </motion.div>
+                
+                <motion.div variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 justify-start gap-3"
+                    onClick={() => {
+                      handleViewOrders(modalTable);
+                      setTimeout(() => handlePrintReceipt(), 500);
+                    }}
+                  >
+                    <Printer className="w-4 h-4" />
+                    Imprimir conferência
+                  </Button>
+                </motion.div>
+                
+                <motion.div variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}>
+                  <Button 
+                    variant="outline" 
+                    className="w-full h-12 justify-start gap-3"
+                    onClick={async () => {
+                      await handleViewOrders(modalTable);
+                      setTableTotal(tableTotal);
+                      setShowCloseModal(true);
+                    }}
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Fechar conta
+                  </Button>
+                </motion.div>
+                
+                <motion.div variants={{ hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0 } }}>
+                  <Button 
+                    className="w-full h-12 justify-start gap-3"
+                    onClick={() => handleNewOrder(modalTable)}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Novo pedido
+                  </Button>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Size Modal */}
       {sizeModalProduct && (
@@ -2646,6 +2848,6 @@ export default function WaiterApp({
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
