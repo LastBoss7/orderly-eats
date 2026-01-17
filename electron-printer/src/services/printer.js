@@ -1,1314 +1,221 @@
-const { exec } = require('child_process');
+/**
+ * PrinterService - Impressão Térmica Profissional
+ * 
+ * Este serviço usa o Windows Spooler com ESC/POS para impressão térmica.
+ * Similar ao iFood, Saipos, Anota AI.
+ */
+
+const { exec, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { ESCPOS, textCommand, lineFeed } = require('./escpos-commands');
-const NetworkPrinterService = require('./network-printer');
-
-// Try to load USB module (optional but preferred for direct printing)
-let USBPrinterService = null;
-let usbAvailable = false;
-try {
-  USBPrinterService = require('./usb-printer');
-  usbAvailable = true;
-  console.log('[PrinterService] USB module loaded - Direct USB printing available!');
-} catch (e) {
-  console.log('[PrinterService] USB module not available, using spooler fallback');
-}
 
 class PrinterService {
   constructor() {
     this.platform = os.platform();
-    this.usbPrinter = usbAvailable ? new USBPrinterService() : null;
-    this.networkPrinter = new NetworkPrinterService();
-    this.useEscPos = false;
-    this.connectedPrinter = null;
-    this.cachedUsbPrinters = null;
-    this.cachedNetworkPrinters = [];
-    this.lastUsbScan = 0;
-    this.lastNetworkScan = 0;
+    console.log('[PrinterService] Platform:', this.platform);
   }
 
+  // ============================================
+  // PRINT ORDER - Entry Point
+  // ============================================
+  
   /**
-   * Get all available printers (system + USB)
-   */
-  async getAvailablePrinters() {
-    const printers = [];
-    
-    // Get system printers
-    const systemPrinters = await this.getSystemPrinters();
-    printers.push(...systemPrinters.map(name => ({
-      name,
-      type: 'system',
-      path: name,
-    })));
-    
-    // Get USB printers
-    if (this.usbPrinter) {
-      try {
-        const usbPrinters = this.usbPrinter.listPrinters();
-        printers.push(...usbPrinters.map(p => ({
-          name: p.name,
-          type: 'usb',
-          path: p.path,
-          vendorId: p.vendorId,
-          productId: p.productId,
-        })));
-      } catch (e) {
-        console.error('Error listing USB printers:', e);
-      }
-    }
-    
-    return printers;
-  }
-
-  /**
-   * Get system printers
-   */
-  async getSystemPrinters() {
-    return new Promise((resolve) => {
-      if (this.platform === 'win32') {
-        exec('wmic printer get name', (error, stdout) => {
-          if (error) {
-            resolve([]);
-            return;
-          }
-          const printers = stdout
-            .split('\n')
-            .slice(1)
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
-          resolve(printers);
-        });
-      } else if (this.platform === 'darwin' || this.platform === 'linux') {
-        exec('lpstat -p', (error, stdout) => {
-          if (error) {
-            resolve([]);
-            return;
-          }
-          const printers = stdout
-            .split('\n')
-            .filter(line => line.startsWith('printer'))
-            .map(line => line.split(' ')[1]);
-          resolve(printers);
-        });
-      } else {
-        resolve([]);
-      }
-    });
-  }
-
-  /**
-   * Connect to USB printer for ESC/POS printing
-   */
-  async connectUSB(vendorId, productId) {
-    if (!this.usbPrinter) {
-      throw new Error('Módulo USB não disponível');
-    }
-    
-    await this.usbPrinter.connect(vendorId, productId);
-    this.useEscPos = true;
-    this.connectedPrinter = { vendorId, productId };
-    
-    return true;
-  }
-
-  /**
-   * Disconnect USB printer
-   */
-  disconnectUSB() {
-    if (this.usbPrinter) {
-      this.usbPrinter.disconnect();
-    }
-    this.useEscPos = false;
-    this.connectedPrinter = null;
-  }
-
-  /**
-   * Print order - Uses Windows Spooler with ESC/POS RAW commands
-   * This is the most reliable method for thermal printers installed on Windows
+   * Print an order
    */
   async printOrder(order, options = {}) {
     const { layout = {}, restaurantInfo = {}, printerName = '' } = options;
-    
-    // Check if this is a conference/receipt print
     const isConference = order.order_type === 'conference';
     
-    // Use ESC/POS via Windows Spooler (RAW mode) - most reliable
-    console.log(`[PrintOrder] Using Windows Spooler RAW for: ${printerName}`);
+    console.log(`[PrintOrder] Order: #${order.order_number || order.id?.slice(0, 8)}`);
+    console.log(`[PrintOrder] Printer: "${printerName}"`);
+    console.log(`[PrintOrder] Type: ${order.order_type}`);
     
+    // Format receipt
+    let receipt;
     if (isConference) {
-      const receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
-      return this.printText(receipt, printerName, layout);
+      receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
+    } else {
+      receipt = this.formatReceipt(order, layout, restaurantInfo);
     }
     
-    const receipt = this.formatReceipt(order, layout, restaurantInfo);
+    // Print
     return this.printText(receipt, printerName, layout);
   }
 
-  /**
-   * Try to print via Network TCP/IP (Port 9100)
-   * This is the standard method for network thermal printers like Epson TM-T20X, Elgin i9, Tectoy C3
-   */
-  async tryNetworkPrint(order, layout, restaurantInfo, isConference, networkConfig) {
-    const { ip, port = 9100 } = networkConfig;
-    
-    if (!ip) {
-      return { success: false, reason: 'No IP address configured' };
-    }
-
-    try {
-      // Build ESC/POS commands
-      let commands;
-      if (isConference) {
-        commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
-      } else {
-        commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
-      }
-
-      // Send via TCP/IP
-      const result = await this.networkPrinter.printEscPos(ip, port, commands);
-      
-      if (result.success) {
-        console.log(`[Network Print] Sent ${result.bytesSent} bytes to ${ip}:${port}`);
-        return { success: true, bytesSent: result.bytesSent };
-      }
-
-      console.log(`[Network Print] Failed: ${result.error}`);
-      return { success: false, reason: result.error };
-
-    } catch (error) {
-      console.log('[Network Print] Error:', error.message);
-      return { success: false, reason: error.message };
-    }
-  }
-
-  /**
-   * Test network printer connection
-   */
-  async testNetworkPrinter(ip, port = 9100) {
-    return this.networkPrinter.testConnection(ip, port);
-  }
-
-  /**
-   * Scan for network printers on common IPs
-   */
-  async scanNetworkPrinters() {
-    return this.networkPrinter.quickScan();
-  }
-
-  /**
-   * Full network scan for printers
-   */
-  async fullNetworkScan(subnet) {
-    return this.networkPrinter.scanNetwork(subnet);
-  }
-
-  /**
-   * Print test page to network printer
-   */
-  async testNetworkPrint(ip, port = 9100, layout = {}) {
-    const width = layout.paperWidth || 48;
-    
-    // Build test receipt
-    const buffers = [];
-    
-    // Initialize
-    buffers.push(ESCPOS.HW_INIT);
-    buffers.push(ESCPOS.TXT_FONT_A);
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    
-    // Title
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(ESCPOS.TXT_SIZE_2H);
-    buffers.push(Buffer.from('TESTE DE REDE\n', 'cp860'));
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(width) + '\n', 'cp860'));
-    buffers.push(lineFeed(1));
-    
-    // Info
-    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-    buffers.push(Buffer.from(`IP: ${ip}\n`, 'cp860'));
-    buffers.push(Buffer.from(`Porta: ${port}\n`, 'cp860'));
-    buffers.push(Buffer.from(`Metodo: TCP/IP Direto\n`, 'cp860'));
-    buffers.push(Buffer.from(`Protocolo: ESC/POS RAW\n`, 'cp860'));
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('-'.repeat(width) + '\n', 'cp860'));
-    
-    // Models supported
-    buffers.push(Buffer.from('Modelos compativeis:\n', 'cp860'));
-    buffers.push(Buffer.from('- Epson TM-T20X\n', 'cp860'));
-    buffers.push(Buffer.from('- Elgin i9\n', 'cp860'));
-    buffers.push(Buffer.from('- Tectoy C3\n', 'cp860'));
-    buffers.push(Buffer.from('- Techa POS80\n', 'cp860'));
-    buffers.push(Buffer.from('- Bematech MP-4200\n', 'cp860'));
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from('='.repeat(width) + '\n', 'cp860'));
-    
-    // Date/time
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('pt-BR');
-    const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    buffers.push(Buffer.from(`${dateStr} ${timeStr}\n`, 'cp860'));
-    
-    buffers.push(lineFeed(1));
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(Buffer.from('Impressora de Rede OK!\n', 'cp860'));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    
-    // Feed and cut
-    buffers.push(lineFeed(4));
-    buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
-    
-    const data = Buffer.concat(buffers);
-    
-    return this.networkPrinter.print(ip, port, data);
-  }
-
-  /**
-   * Try to print directly via USB (bypasses Windows spooler completely)
-   * This is the FASTEST method - like professional POS systems
-   */
-  async tryUsbDirectPrint(order, layout, restaurantInfo, isConference) {
-    if (!this.usbPrinter) {
-      return { success: false, reason: 'USB module not available' };
-    }
-
-    try {
-      // Scan for USB printers (cache for 30 seconds)
-      const now = Date.now();
-      if (!this.cachedUsbPrinters || (now - this.lastUsbScan > 30000)) {
-        this.cachedUsbPrinters = this.usbPrinter.listPrinters();
-        this.lastUsbScan = now;
-      }
-
-      if (this.cachedUsbPrinters.length === 0) {
-        return { success: false, reason: 'No USB printers found' };
-      }
-
-      // Use first available USB printer
-      const printer = this.cachedUsbPrinters[0];
-      console.log(`[USB Direct] Found printer: ${printer.name} (${printer.vendorId}:${printer.productId})`);
-
-      // Connect if not connected
-      if (!this.usbPrinter.isConnected) {
-        await this.usbPrinter.connect(printer.vendorId, printer.productId);
-        console.log('[USB Direct] Connected to printer');
-      }
-
-      // Build ESC/POS commands
-      let commands;
-      if (isConference) {
-        commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
-      } else {
-        commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
-      }
-
-      // Send directly to USB (NO SPOOLER!)
-      await this.usbPrinter.write(commands);
-      console.log(`[USB Direct] Sent ${commands.length} bytes directly to printer`);
-
-      return { success: true };
-
-    } catch (error) {
-      console.log('[USB Direct] Failed:', error.message);
-      
-      // Disconnect on error to allow reconnection
-      try {
-        this.usbPrinter.disconnect();
-      } catch (e) {}
-      
-      return { success: false, reason: error.message };
-    }
-  }
-
-  /**
-   * Print order using ESC/POS commands
-   */
-  async printOrderEscPos(order, layout, restaurantInfo, printerInfo) {
-    if (!this.usbPrinter) {
-      throw new Error('Módulo USB não disponível');
-    }
-
-    // Connect if not connected
-    if (!this.usbPrinter.isConnected) {
-      await this.usbPrinter.connect(printerInfo.vendorId, printerInfo.productId);
-    }
-
-    const commands = this.buildEscPosReceipt(order, layout, restaurantInfo);
-    await this.usbPrinter.write(commands);
-    
-    return true;
-  }
-
-  /**
-   * Build ESC/POS receipt commands
-   */
-  buildEscPosReceipt(order, layout, restaurantInfo = {}) {
-    const buffers = [];
-    const width = layout.paperWidth || 48; // Fixed 80mm = 48 chars
-    const encoding = 'cp860'; // Portuguese encoding
-    
-    // Initialize printer
-    buffers.push(ESCPOS.HW_INIT);
-    
-    // Set default font
-    buffers.push(ESCPOS.TXT_FONT_A);
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    
-    // Header - Restaurant info
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    
-    if (layout.showRestaurantName && restaurantInfo.name) {
-      buffers.push(ESCPOS.TXT_SIZE_2H);
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.name.toUpperCase()) + '\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    }
-    
-    if (layout.showAddress && restaurantInfo.address) {
-      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.address) + '\n', encoding));
-    }
-    
-    if (layout.showPhone && restaurantInfo.phone) {
-      buffers.push(Buffer.from('Tel: ' + restaurantInfo.phone + '\n', encoding));
-    }
-    
-    if (layout.showCnpj && restaurantInfo.cnpj) {
-      buffers.push(Buffer.from('CNPJ: ' + restaurantInfo.cnpj + '\n', encoding));
-    }
-    
-    buffers.push(lineFeed(1));
-    
-    // Title
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(ESCPOS.TXT_SIZE_2H);
-    buffers.push(Buffer.from((layout.receiptTitle || '*** PEDIDO ***') + '\n', encoding));
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    
-    // Divider
-    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-    
-    // Order number - LARGE and BOLD
-    if (layout.showOrderNumber) {
-      buffers.push(ESCPOS.TXT_SIZE_2X);
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
-      buffers.push(Buffer.from(`#${orderNum}\n`, encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-      buffers.push(lineFeed(1));
-    }
-    
-    // Order info - left aligned
-    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-    
-    if (layout.showOrderType) {
-      const orderTypeLabels = {
-        'counter': 'BALCAO',
-        'table': 'MESA',
-        'delivery': 'ENTREGA'
-      };
-      buffers.push(Buffer.from(`Tipo: ${orderTypeLabels[order.order_type] || order.order_type}\n`, encoding));
-    }
-    
-    if (layout.showTable && (order.table_number || order.table_id)) {
-      buffers.push(Buffer.from(`Mesa: ${order.table_number || order.table_id}\n`, encoding));
-    }
-
-    if (layout.showWaiter && order.waiter_name) {
-      buffers.push(Buffer.from(`Garcom: ${this.removeAccents(order.waiter_name)}\n`, encoding));
-    }
-    
-    // Customer info
-    if (layout.showCustomerName && order.customer_name) {
-      buffers.push(Buffer.from(`Cliente: ${this.removeAccents(order.customer_name)}\n`, encoding));
-    }
-    
-    if (layout.showCustomerPhone && order.delivery_phone) {
-      buffers.push(Buffer.from(`Tel: ${order.delivery_phone}\n`, encoding));
-    }
-    
-    if (layout.showDeliveryAddress && order.delivery_address) {
-      const addr = this.removeAccents(order.delivery_address);
-      if (addr.length > width - 5) {
-        buffers.push(Buffer.from(`End: ${addr.slice(0, width - 5)}\n`, encoding));
-        buffers.push(Buffer.from(`     ${addr.slice(width - 5)}\n`, encoding));
-      } else {
-        buffers.push(Buffer.from(`End: ${addr}\n`, encoding));
-      }
-    }
-    
-    // Divider
-    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-    buffers.push(lineFeed(1));
-    
-    // Items header
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(Buffer.from('ITENS:\n', encoding));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
-    
-    // Items
-    if (order.order_items && order.order_items.length > 0) {
-      for (const item of order.order_items) {
-        const qty = item.quantity || 1;
-        let itemName = this.removeAccents(item.product_name);
-        
-        // Add size if enabled
-        if (layout.showItemSize && item.product_size) {
-          itemName += ` (${this.removeAccents(item.product_size)})`;
-        }
-        
-        // Item line - normal size for better readability
-        if (layout.boldItems) {
-          buffers.push(ESCPOS.TXT_BOLD_ON);
-        }
-        
-        // Use normal size to fit more characters per line
-        const itemLine = `${qty}x ${itemName}`;
-        // Use width - 4 for margin, no truncation unless really needed
-        const maxItemLen = width - 4;
-        if (itemLine.length > maxItemLen) {
-          buffers.push(Buffer.from(`${itemLine.slice(0, maxItemLen - 3)}...\n`, encoding));
-        } else {
-          buffers.push(Buffer.from(`${itemLine}\n`, encoding));
-        }
-        
-        if (layout.boldItems) {
-          buffers.push(ESCPOS.TXT_BOLD_OFF);
-        }
-        
-        if (layout.showItemPrices) {
-          const price = (item.product_price * qty).toFixed(2);
-          buffers.push(ESCPOS.TXT_ALIGN_RIGHT);
-          buffers.push(Buffer.from(`R$ ${price}\n`, encoding));
-          buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-        }
-        
-        if (layout.showItemNotes && item.notes) {
-          buffers.push(Buffer.from(`   -> ${this.removeAccents(item.notes)}\n`, encoding));
-        }
-        
-        buffers.push(lineFeed(1));
-      }
-    }
-    
-    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
-    
-    // Notes
-    if (order.notes) {
-      buffers.push(lineFeed(1));
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from('OBS: ', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(Buffer.from(this.removeAccents(order.notes) + '\n', encoding));
-      buffers.push(lineFeed(1));
-    }
-    
-    // Totals
-    if (layout.showTotals) {
-      if (layout.showDeliveryFee && order.delivery_fee && order.delivery_fee > 0) {
-        const line = this.formatLineItem('Taxa entrega:', `R$ ${order.delivery_fee.toFixed(2)}`, width);
-        buffers.push(Buffer.from(line + '\n', encoding));
-      }
-      
-      // Total with larger font
-      buffers.push(lineFeed(1));
-      if (layout.boldTotal) {
-        buffers.push(ESCPOS.TXT_BOLD_ON);
-      }
-      buffers.push(ESCPOS.TXT_SIZE_2X);
-      const totalLine = this.formatLineItem('TOTAL:', `R$ ${(order.total || 0).toFixed(2)}`, Math.floor(width / 2));
-      buffers.push(Buffer.from(totalLine + '\n', encoding));
-      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-      if (layout.boldTotal) {
-        buffers.push(ESCPOS.TXT_BOLD_OFF);
-      }
-    }
-
-    // Payment method
-    if (layout.showPaymentMethod && order.payment_method) {
-      const paymentLabels = {
-        'cash': 'Dinheiro',
-        'credit': 'Credito',
-        'debit': 'Debito',
-        'pix': 'PIX',
-      };
-      buffers.push(Buffer.from(this.formatLineItem('Pagamento:', paymentLabels[order.payment_method] || order.payment_method, width) + '\n', encoding));
-    }
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-    
-    // Footer
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    
-    if (layout.showDateTime) {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      buffers.push(Buffer.from(`${dateStr} ${timeStr}\n`, encoding));
-    }
-    
-    if (layout.footerMessage) {
-      buffers.push(lineFeed(1));
-      buffers.push(Buffer.from(this.removeAccents(layout.footerMessage) + '\n', encoding));
-    }
-    
-    // Feed and cut based on layout setting
-    buffers.push(lineFeed(4));
-    
-    // Paper cut command based on setting
-    const cutType = layout.paperCut || 'partial';
-    if (cutType === 'full') {
-      buffers.push(ESCPOS.PAPER_FULL_CUT);
-    } else if (cutType === 'partial') {
-      buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
-    }
-    // If 'none', don't send any cut command
-    
-    return Buffer.concat(buffers);
-  }
-
-  /**
-   * Remove accents for better thermal printer compatibility
-   */
-  removeAccents(str) {
-    if (!str) return '';
-    return str
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/ç/g, 'c')
-      .replace(/Ç/g, 'C');
-  }
-
-  /**
-   * Format a line item with left and right text
-   */
-  formatLineItem(left, right, width) {
-    const totalLen = left.length + right.length;
-    if (totalLen >= width) return left + right;
-    const padding = width - totalLen;
-    return left + ' '.repeat(padding) + right;
-  }
-
-  /**
-   * Create a line using a single character repeated
-   * This ensures consistent character output for thermal printers
-   */
-  createLine(char, width) {
-    // Use simple ASCII characters for maximum compatibility
-    const safeChar = char === '=' ? '=' : '-';
-    return safeChar.repeat(width);
-  }
-
-  /**
-   * Print test page
-   */
+  // ============================================
+  // PRINT TEST - Test page
+  // ============================================
+  
   async printTest(options = {}) {
-    const { layout = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
-    
-    // Debug log
-    console.log('[PrintTest] Layout paperWidth:', layout.paperWidth);
-    
-    if (useEscPos && printerInfo && printerInfo.type === 'usb') {
-      return this.printTestEscPos(layout, printerInfo);
-    }
-    
-    const testText = this.formatTestReceipt(layout);
-    console.log('[PrintTest] Generated text length per line:', testText.split('\n').map(l => l.length).join(', '));
-    return this.printText(testText, printerName);
-  }
-
-  /**
-   * Print test using ESC/POS
-   */
-  async printTestEscPos(layout, printerInfo) {
-    if (!this.usbPrinter) {
-      throw new Error('Módulo USB não disponível');
-    }
-
-    if (!this.usbPrinter.isConnected) {
-      await this.usbPrinter.connect(printerInfo.vendorId, printerInfo.productId);
-    }
-
+    const { layout = {}, printerName = '' } = options;
     const width = layout.paperWidth || 48;
-    const encoding = 'cp860';
-    const buffers = [];
-    
-    // Initialize
-    buffers.push(ESCPOS.HW_INIT);
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    
-    // Title
-    buffers.push(ESCPOS.TXT_SIZE_2X);
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(Buffer.from('TESTE DE IMPRESSAO\n', encoding));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
-    buffers.push(lineFeed(1));
-    
-    buffers.push(Buffer.from('Impressora ESC/POS\n', encoding));
-    buffers.push(Buffer.from('configurada com sucesso!\n', encoding));
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
-    buffers.push(lineFeed(1));
-    
-    // Test font sizes
-    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-    buffers.push(Buffer.from('Tamanhos de fonte:\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(Buffer.from('Normal\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_SIZE_2H);
-    buffers.push(Buffer.from('Altura 2x\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_SIZE_2W);
-    buffers.push(Buffer.from('Largura 2x\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_SIZE_2X);
-    buffers.push(Buffer.from('2x2\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(lineFeed(1));
-    
-    // Test styles
-    buffers.push(Buffer.from('Estilos:\n', encoding));
-    
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(Buffer.from('Texto em negrito\n', encoding));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    
-    buffers.push(ESCPOS.TXT_UNDERL_ON);
-    buffers.push(Buffer.from('Texto sublinhado\n', encoding));
-    buffers.push(ESCPOS.TXT_UNDERL_OFF);
-    
-    buffers.push(lineFeed(1));
-    buffers.push(Buffer.from(this.createLine('=', Math.min(width, 32)) + '\n', encoding));
-    
-    // Date/time
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    const now = new Date();
-    buffers.push(Buffer.from(now.toLocaleString('pt-BR') + '\n', encoding));
-    
-    // Feed and cut
-    buffers.push(lineFeed(4));
-    buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
-    
-    await this.usbPrinter.write(Buffer.concat(buffers));
-    return true;
-  }
-
-  /**
-   * Print test with custom layout
-   */
-  async printTestWithLayout(options = {}) {
-    const { layout = {}, printerName = '', useEscPos = false, printerInfo = null } = options;
-    
-    // Create sample order
-    const sampleOrder = {
-      id: 'PREVIEW123456789',
-      order_type: 'delivery',
-      table_id: null,
-      customer_name: 'Joao Silva',
-      delivery_phone: '(11) 98888-7777',
-      delivery_address: 'Av. Brasil, 456, Ap 12',
-      delivery_fee: 8.00,
-      total: 98.30,
-      notes: 'Tocar campainha 2x',
-      order_items: [
-        { quantity: 2, product_name: 'X-Burguer Especial', product_price: 29.90, notes: null },
-        { quantity: 1, product_name: 'Batata Frita Grande', product_price: 18.50, notes: 'Sem sal' },
-        { quantity: 2, product_name: 'Refrigerante 350ml', product_price: 6.00, notes: null },
-      ]
-    };
-    
-    return this.printOrder(sampleOrder, { layout, printerName, useEscPos, printerInfo });
-  }
-
-  // ============================================
-  // TEXT PRINTING (Fallback) - FIXED WORD WRAP
-  // ============================================
-
-  /**
-   * Word wrap text to fit width - NEVER breaks words in the middle
-   */
-  wrapText(text, width) {
-    if (!text) return [''];
-    
-    const cleanText = String(text).trim();
-    if (cleanText.length <= width) return [cleanText];
-    
-    const words = cleanText.split(/\s+/);
-    const lines = [];
-    let currentLine = '';
-    
-    for (const word of words) {
-      // If word itself is longer than width, we must break it
-      if (word.length > width) {
-        // Push current line if exists
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = '';
-        }
-        // Break long word into chunks
-        for (let i = 0; i < word.length; i += width) {
-          lines.push(word.slice(i, i + width));
-        }
-        continue;
-      }
-      
-      // Check if word fits in current line
-      const testLine = currentLine ? currentLine + ' ' + word : word;
-      if (testLine.length <= width) {
-        currentLine = testLine;
-      } else {
-        // Word doesn't fit - push current line and start new one
-        if (currentLine) {
-          lines.push(currentLine);
-        }
-        currentLine = word;
-      }
-    }
-    
-    // Don't forget the last line
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    
-    return lines.length > 0 ? lines : [''];
-  }
-
-  /**
-   * Pad line to exact width (fill with spaces on the right)
-   */
-  padLine(text, width) {
-    if (!text) return ' '.repeat(width);
-    const str = String(text);
-    if (str.length >= width) return str.slice(0, width);
-    return str + ' '.repeat(width - str.length);
-  }
-
-  /**
-   * Center text with padding on both sides
-   */
-  center(text, width) {
-    if (!text) return ' '.repeat(width);
-    const str = String(text);
-    if (str.length >= width) return str.slice(0, width);
-    const leftPad = Math.floor((width - str.length) / 2);
-    const rightPad = width - str.length - leftPad;
-    return ' '.repeat(leftPad) + str + ' '.repeat(rightPad);
-  }
-
-  /**
-   * Align text to the right
-   */
-  alignRight(text, width) {
-    const str = String(text || '');
-    if (str.length >= width) return str.slice(0, width);
-    return ' '.repeat(width - str.length) + str;
-  }
-
-  /**
-   * Align left and right text on the same line
-   */
-  alignBoth(left, right, width) {
-    const leftStr = String(left || '');
-    const rightStr = String(right || '');
-    
-    // Minimum 1 space between left and right
-    const minGap = 1;
-    const maxLeftLen = width - rightStr.length - minGap;
-    
-    if (maxLeftLen <= 0) {
-      // Right text is too long, just return it
-      return rightStr.slice(0, width);
-    }
-    
-    // Truncate left if needed
-    const finalLeft = leftStr.length > maxLeftLen ? leftStr.slice(0, maxLeftLen) : leftStr;
-    const gap = width - finalLeft.length - rightStr.length;
-    
-    return finalLeft + ' '.repeat(gap) + rightStr;
-  }
-
-  /**
-   * Format receipt following proper structure with word wrapping
-   */
-  formatReceipt(order, layout, restaurantInfo = {}) {
-    // Paper width in characters - default 48 for 80mm thermal
-    const width = parseInt(layout.paperWidth, 10) || 48;
-    const divider = this.createLine('-', width);
     
     const lines = [];
+    const div = '='.repeat(width);
+    const divSmall = '-'.repeat(width);
     
-    // Helper to add a single line (padded to width)
-    const addLine = (text) => {
-      lines.push(this.padLine(text || '', width));
-    };
-    
-    // Helper to add centered text with word wrap
-    const addCentered = (text) => {
-      const wrapped = this.wrapText(this.removeAccents(text), width);
-      wrapped.forEach(line => {
-        lines.push(this.center(line, width));
-      });
-    };
-    
-    // Helper to add left-aligned text with word wrap
-    const addLeft = (text) => {
-      const wrapped = this.wrapText(this.removeAccents(text), width);
-      wrapped.forEach(line => {
-        lines.push(this.padLine(line, width));
-      });
-    };
-    
-    // Helper to add divider
-    const addDivider = () => {
-      lines.push(divider);
-    };
-    
-    // ============================================
-    // HEADER - Date/Time
-    // ============================================
-    if (layout.showDateTime !== false) {
-      const now = new Date(order.created_at || Date.now());
-      const dateStr = now.toLocaleDateString('pt-BR');
-      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      lines.push(this.center(dateStr + ' ' + timeStr, width));
-    }
-    
-    // Restaurant Name (with word wrap for long names)
-    if (layout.showRestaurantName !== false && restaurantInfo.name) {
-      addCentered(restaurantInfo.name.toUpperCase());
-    }
-    
-    addDivider();
-    
-    // ============================================
-    // ORDER NUMBER (centered)
-    // ============================================
-    if (layout.showOrderNumber !== false) {
-      const orderNum = order.order_number || (order.id ? order.id.slice(0, 8).toUpperCase() : '0');
-      lines.push(this.center('Pedido ' + orderNum, width));
-    }
-    
-    addLine('');
-    
-    // ============================================
-    // ITEMS SECTION
-    // ============================================
-    if (layout.showItems !== false) {
-      addLine('Itens:');
-      
-      if (order.order_items && order.order_items.length > 0) {
-        for (let i = 0; i < order.order_items.length; i++) {
-          const item = order.order_items[i];
-          const qty = item.quantity || 1;
-          const name = this.removeAccents(item.product_name || 'Item');
-          const size = item.product_size ? ' (' + item.product_size + ')' : '';
-          const price = item.product_price || 0;
-          
-          // Item name with quantity - may need word wrap
-          const itemName = '(' + qty + ') ' + name + size;
-          const priceStr = layout.showItemPrices !== false ? 'R$ ' + (price * qty).toFixed(2).replace('.', ',') : '';
-          
-          // If item name + price fits in one line
-          if (itemName.length + priceStr.length + 1 <= width) {
-            lines.push(this.alignBoth(itemName, priceStr, width));
-          } else {
-            // Item name on first line(s), price on last line aligned right
-            const wrappedName = this.wrapText(itemName, width - (priceStr ? 1 : 0));
-            wrappedName.forEach((line, idx) => {
-              if (idx === wrappedName.length - 1 && priceStr) {
-                // Last line with price
-                if (line.length + priceStr.length + 1 <= width) {
-                  lines.push(this.alignBoth(line, priceStr, width));
-                } else {
-                  lines.push(this.padLine(line, width));
-                  lines.push(this.alignRight(priceStr, width));
-                }
-              } else {
-                lines.push(this.padLine(line, width));
-              }
-            });
-          }
-          
-          // Observation (OBS:)
-          if (layout.showItemNotes !== false && item.notes) {
-            addLeft('  OBS: ' + item.notes);
-          }
-          
-          // Separator between items (except last)
-          if (i < order.order_items.length - 1) {
-            addDivider();
-          }
-        }
-      }
-    }
-    
-    addLine('');
-    
-    // ============================================
-    // CUSTOMER / DELIVERY INFO
-    // ============================================
-    if (layout.showCustomerName !== false && order.customer_name) {
-      addLeft('Cliente: ' + order.customer_name);
-    }
-    
-    if (layout.showCustomerPhone !== false && order.delivery_phone) {
-      addLeft('Tel: ' + order.delivery_phone);
-    }
-    
-    // Order type / Delivery info
-    if (layout.showOrderType !== false) {
-      if (order.order_type === 'delivery' && order.delivery_address) {
-        addLeft('Entrega: ' + order.delivery_address);
-      } else if (order.order_type === 'table' && (order.table_number || order.table_id)) {
-        addLeft('Mesa: ' + (order.table_number || order.table_id));
-      } else if (order.order_type === 'takeaway' || order.order_type === 'counter') {
-        addLeft('Entrega: Retirada no balcao');
-      }
-    }
-    
-    addLine('');
-    
-    // ============================================
-    // PAYMENT METHOD
-    // ============================================
-    if (layout.showPaymentMethod !== false && order.payment_method) {
-      addDivider();
-      const paymentLabels = {
-        'cash': 'Dinheiro',
-        'credit': 'Cartao Credito',
-        'debit': 'Cartao Debito',
-        'pix': 'PIX',
-      };
-      const paymentLabel = paymentLabels[order.payment_method] || order.payment_method;
-      addLeft('Pagamento: ' + paymentLabel);
-      addLine('');
-    }
-    
-    // ============================================
-    // TOTALS
-    // ============================================
-    if (layout.showTotals !== false) {
-      addDivider();
-      
-      // Calculate subtotal
-      let subtotal = 0;
-      if (order.order_items) {
-        for (const item of order.order_items) {
-          subtotal += (item.product_price || 0) * (item.quantity || 1);
-        }
-      }
-      
-      // Delivery fee
-      if (layout.showDeliveryFee !== false && order.delivery_fee && order.delivery_fee > 0) {
-        lines.push(this.alignBoth('Taxa Entrega:', 'R$ ' + order.delivery_fee.toFixed(2).replace('.', ','), width));
-      }
-      
-      // Subtotal
-      lines.push(this.alignBoth('Subtotal:', 'R$ ' + subtotal.toFixed(2).replace('.', ','), width));
-      
-      // Total
-      const total = order.total || (subtotal + (order.delivery_fee || 0));
-      lines.push(this.alignBoth('Total:', 'R$ ' + total.toFixed(2).replace('.', ','), width));
-    }
-    
-    addLine('');
-    addDivider();
-    
-    // ============================================
-    // FOOTER
-    // ============================================
-    if (layout.footerMessage) {
-      addCentered(layout.footerMessage);
-    } else {
-      lines.push(this.center('Obrigado pela preferencia!', width));
-    }
-    
-    // Extra line feeds for paper feed
-    addLine('');
-    addLine('');
-    addLine('');
-    addLine('');
-
-    // Use LF only for thermal printers (they don't need CR)
-    return lines.join('\n');
-  }
-
-  formatTestReceipt(layout) {
-    // Default 48 chars for 80mm thermal printers
-    const width = parseInt(layout.paperWidth, 10) || 48;
-    const divider = this.createLine('-', width);
-    const lines = [];
-    
-    lines.push(divider);
     lines.push(this.center('TESTE DE IMPRESSAO', width));
-    lines.push(divider);
-    lines.push(this.padLine('', width));
-    lines.push(this.center('Impressora OK!', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.alignBoth('Largura:', width + ' chars', width));
-    lines.push(this.padLine('', width));
-    
-    // Test alignment
-    lines.push(divider);
+    lines.push(div);
+    lines.push('');
+    lines.push(this.center('Impressora configurada!', width));
+    lines.push('');
+    lines.push(`Largura: ${width} caracteres`);
+    lines.push(`Impressora: ${printerName || 'padrao'}`);
+    lines.push('');
+    lines.push(divSmall);
     lines.push(this.alignBoth('(2) X-Burguer', 'R$ 29,90', width));
     lines.push(this.alignBoth('(1) Batata Frita', 'R$ 12,50', width));
     lines.push(this.alignBoth('(1) Refrigerante', 'R$ 6,00', width));
-    lines.push(divider);
-    lines.push(this.alignBoth('Subtotal:', 'R$ 48,40', width));
-    lines.push(this.alignBoth('Taxa:', 'R$ 5,00', width));
+    lines.push(divSmall);
     lines.push(this.alignBoth('Total:', 'R$ 53,40', width));
-    lines.push(divider);
-    lines.push(this.padLine('', width));
+    lines.push(div);
+    lines.push('');
+    lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
+    lines.push('');
+    lines.push(this.center('Gamako Print Service', width));
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    lines.push('');
     
-    const now = new Date();
-    lines.push(this.center(now.toLocaleString('pt-BR'), width));
-    lines.push(this.padLine('', width));
-    lines.push(this.center('Powered By: Gamako', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
-
-    // Use LF only for thermal printers
-    return lines.join('\n');
+    return this.printText(lines.join('\n'), printerName, layout);
   }
 
+  // ============================================
+  // PRINT TEXT - Core printing function
+  // ============================================
+  
   /**
-   * Print text to thermal printer using RAW ESC/POS mode
-   * This method sends bytes DIRECTLY to the printer port - like Anota AI, Saipos, iFood
-   * The printer uses its internal fonts (super sharp!)
+   * Print text to thermal printer
+   * Uses multiple methods for maximum compatibility
    */
   async printText(text, printerName = '', layout = {}) {
-    console.log('[PrintText] ========================================');
-    console.log('[PrintText] RAW ESC/POS PRINTING (Professional Mode)');
+    console.log('[PrintText] =====================================');
+    console.log('[PrintText] Starting print job');
     console.log('[PrintText] Printer:', printerName || 'default');
-    console.log('[PrintText] Platform:', this.platform);
+    console.log('[PrintText] Text length:', text.length, 'chars');
     
-    // Build raw ESC/POS data (pure bytes)
-    const rawData = this.buildRawEscPosData(text, layout);
+    if (!printerName) {
+      console.log('[PrintText] ERROR: No printer specified');
+      throw new Error('Nenhuma impressora especificada');
+    }
     
-    console.log('[PrintText] Data size:', rawData.length, 'bytes');
+    // Build ESC/POS data
+    const data = this.buildEscPosData(text, layout);
+    console.log('[PrintText] ESC/POS data size:', data.length, 'bytes');
     
     if (this.platform === 'win32') {
-      return this.printRawWindows(rawData, printerName, layout);
+      return this.printWindows(data, printerName);
     } else {
-      return this.printRawUnix(rawData, printerName);
+      return this.printUnix(data, printerName);
     }
   }
 
-  /**
-   * Build RAW ESC/POS data buffer - Pure bytes for thermal printer
-   * This is what makes the print SHARP - uses printer's internal font
-   */
-  buildRawEscPosData(text, layout = {}) {
+  // ============================================
+  // ESC/POS DATA BUILDER
+  // ============================================
+  
+  buildEscPosData(text, layout = {}) {
     const buffers = [];
-    const width = layout.paperWidth || 48;
     
-    // ESC/POS Commands (pure bytes)
+    // ESC/POS commands
     const ESC = 0x1B;
     const GS = 0x1D;
     const LF = 0x0A;
     
-    // Initialize printer (ESC @)
-    buffers.push(Buffer.from([ESC, 0x40]));
+    // Initialize printer
+    buffers.push(Buffer.from([ESC, 0x40])); // ESC @ - Initialize
     
-    // Select character code table: PC850 Multilingual (ESC t n)
-    buffers.push(Buffer.from([ESC, 0x74, 0x02]));
+    // Set character code table to PC850 (better Portuguese support)
+    buffers.push(Buffer.from([ESC, 0x74, 0x02])); // ESC t 2
     
-    // Set line spacing to default (ESC 2)
-    buffers.push(Buffer.from([ESC, 0x32]));
-    
-    // Convert text lines to ESC/POS
+    // Convert text to printer-safe format
     const lines = text.split('\n');
     for (const line of lines) {
-      // Remove accents for thermal printer compatibility
-      const cleanLine = this.removeAccentsForPrinter(line);
-      
-      // Convert to buffer with proper encoding
-      const lineBuffer = Buffer.from(cleanLine, 'latin1');
-      buffers.push(lineBuffer);
-      buffers.push(Buffer.from([LF])); // Line feed
+      const cleanLine = this.sanitizeText(line);
+      buffers.push(Buffer.from(cleanLine, 'latin1'));
+      buffers.push(Buffer.from([LF]));
     }
     
-    // Feed paper before cut
+    // Paper feed before cut
     buffers.push(Buffer.from([LF, LF, LF, LF]));
     
-    // Paper cut command
+    // Partial cut
     const cutType = layout.paperCut || 'partial';
     if (cutType === 'full') {
-      // GS V 0 - Full cut
       buffers.push(Buffer.from([GS, 0x56, 0x00]));
     } else if (cutType === 'partial') {
-      // GS V 1 - Partial cut
       buffers.push(Buffer.from([GS, 0x56, 0x01]));
     }
-    // If 'none', no cut command
     
     return Buffer.concat(buffers);
   }
 
-  /**
-   * Remove accents - optimized for thermal printer code pages
-   */
-  removeAccentsForPrinter(str) {
-    if (!str) return '';
-    return str
-      .replace(/[áàâãä]/g, 'a')
-      .replace(/[ÁÀÂÃÄ]/g, 'A')
-      .replace(/[éèêë]/g, 'e')
-      .replace(/[ÉÈÊË]/g, 'E')
-      .replace(/[íìîï]/g, 'i')
-      .replace(/[ÍÌÎÏ]/g, 'I')
-      .replace(/[óòôõö]/g, 'o')
-      .replace(/[ÓÒÔÕÖ]/g, 'O')
-      .replace(/[úùûü]/g, 'u')
-      .replace(/[ÚÙÛÜ]/g, 'U')
-      .replace(/ç/g, 'c')
-      .replace(/Ç/g, 'C')
-      .replace(/ñ/g, 'n')
-      .replace(/Ñ/g, 'N')
-      .replace(/[^\x00-\x7F]/g, ''); // Remove any other non-ASCII
-  }
-
-  /**
-   * Print RAW data on Windows - Direct port communication
-   * This is how professional POS systems work!
-   */
-  async printRawWindows(rawData, printerName, layout = {}) {
-    const tmpFile = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
+  // ============================================
+  // WINDOWS PRINTING - Multiple methods
+  // ============================================
+  
+  async printWindows(data, printerName) {
+    const tmpFile = path.join(os.tmpdir(), `gamako_print_${Date.now()}.bin`);
     
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Write raw binary data
-        fs.writeFileSync(tmpFile, rawData);
-        console.log('[PrintText] Binary file created:', tmpFile, '- Size:', rawData.length, 'bytes');
-        
-        const escapedPrinter = printerName ? printerName.replace(/"/g, '').replace(/'/g, '') : '';
-        
-        if (!escapedPrinter) {
-          console.log('[PrintText] ERROR: No printer specified!');
-          this.cleanupFile(tmpFile);
-          reject(new Error('Nenhuma impressora especificada'));
-          return;
+    try {
+      // Write binary data to temp file
+      fs.writeFileSync(tmpFile, data);
+      console.log('[PrintText] Temp file:', tmpFile);
+      
+      // Escape printer name for commands
+      const safePrinter = printerName.replace(/"/g, '').replace(/'/g, '');
+      
+      // Try methods in order of reliability
+      const methods = [
+        () => this.printWin32Api(tmpFile, safePrinter),
+        () => this.printCopyToShare(tmpFile, safePrinter),
+        () => this.printLpr(tmpFile, safePrinter),
+      ];
+      
+      for (let i = 0; i < methods.length; i++) {
+        try {
+          console.log(`[PrintText] Method ${i + 1}/${methods.length}...`);
+          await methods[i]();
+          console.log('[PrintText] SUCCESS!');
+          this.cleanup(tmpFile);
+          return true;
+        } catch (err) {
+          console.log(`[PrintText] Method ${i + 1} failed:`, err.message);
         }
-        
-        console.log('[PrintText] Target printer:', escapedPrinter);
-        
-        // Try RAW printing methods in order of reliability
-        // These methods send bytes DIRECTLY to the printer port
-        const methods = [
-          // Method 1: PowerShell RawPrinterHelper (most reliable for RAW)
-          {
-            name: 'PowerShell RAW Direct',
-            fn: () => this.printRawPowerShell(tmpFile, escapedPrinter),
-          },
-          // Method 2: Direct file write to printer share
-          {
-            name: 'UNC Share Copy',
-            fn: () => this.execWithTimeout(
-              `copy /b "${tmpFile}" "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 
-              10000
-            ),
-          },
-          // Method 3: Type redirect
-          {
-            name: 'Type Redirect',
-            fn: () => this.execWithTimeout(
-              `type "${tmpFile}" > "\\\\%COMPUTERNAME%\\${escapedPrinter}"`, 
-              10000
-            ),
-          },
-          // Method 4: Net use + copy (for network printers)
-          {
-            name: 'NET USE + LPT1',
-            fn: () => this.printViaNetUse(tmpFile, escapedPrinter),
-          },
-          // Method 5: PowerShell Out-Printer (last resort - may not be truly RAW)
-          {
-            name: 'PowerShell Out-Printer',
-            fn: () => this.execWithTimeout(
-              `powershell -Command "Get-Content -Path '${tmpFile}' -Encoding Byte -ReadCount 0 | ` +
-              `Set-Content -Path '\\\\localhost\\${escapedPrinter}' -Encoding Byte"`,
-              15000
-            ),
-          },
-        ];
-        
-        let success = false;
-        let lastError = null;
-        
-        for (const method of methods) {
-          try {
-            console.log(`[PrintText] Trying: ${method.name}...`);
-            await method.fn();
-            console.log(`[PrintText] SUCCESS with: ${method.name}`);
-            success = true;
-            break;
-          } catch (error) {
-            console.log(`[PrintText] FAILED: ${method.name} -`, error.message);
-            lastError = error;
-          }
-        }
-        
-        this.cleanupFile(tmpFile);
-        
-        if (success) {
-          resolve(true);
-        } else {
-          reject(new Error(`Falha em todos os métodos. Último: ${lastError?.message || 'desconhecido'}`));
-        }
-        
-      } catch (error) {
-        this.cleanupFile(tmpFile);
-        reject(error);
       }
-    });
+      
+      this.cleanup(tmpFile);
+      throw new Error('Todos os métodos de impressão falharam');
+      
+    } catch (error) {
+      this.cleanup(tmpFile);
+      throw error;
+    }
   }
 
   /**
-   * Print using PowerShell RawPrinterHelper (TRUE RAW printing)
-   * This sends bytes directly to the printer spooler in RAW mode
+   * Method 1: Windows Print API via PowerShell (most reliable)
    */
-  async printRawPowerShell(filePath, printerName) {
-    // This PowerShell script sends RAW bytes to the printer
-    // It's equivalent to what professional POS systems do
-    const psScript = `
+  async printWin32Api(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      // PowerShell script that uses Windows API for RAW printing
+      const psScript = `
+$ErrorActionPreference = 'Stop'
 $printerName = '${printerName}'
-$filePath = '${filePath}'
+$filePath = '${filePath.replace(/\\/g, '\\\\')}'
 
-# Read raw bytes
+# Read the binary data
 $bytes = [System.IO.File]::ReadAllBytes($filePath)
 
-# Open printer in RAW mode
-$printerHandle = [System.Runtime.InteropServices.Marshal]::StringToHGlobalUni($printerName)
-
+# Add the required type for RAW printing
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 
-public class RawPrinter {
-    [StructLayout(LayoutKind.Sequential)]
+public class RawPrinterHelper {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct DOCINFO {
         [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
         [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
@@ -1318,7 +225,7 @@ public class RawPrinter {
     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
 
-    [DllImport("winspool.drv", SetLastError = true)]
+    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool StartDocPrinter(IntPtr hPrinter, int Level, ref DOCINFO pDocInfo);
 
     [DllImport("winspool.drv", SetLastError = true)]
@@ -1336,522 +243,484 @@ public class RawPrinter {
     [DllImport("winspool.drv", SetLastError = true)]
     public static extern bool ClosePrinter(IntPtr hPrinter);
 
-    public static bool SendRawData(string printerName, byte[] data) {
+    public static void SendRawData(string printerName, byte[] data) {
         IntPtr hPrinter;
         if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {
-            throw new Exception("Falha ao abrir impressora: " + Marshal.GetLastWin32Error());
+            throw new Exception("Erro ao abrir impressora: " + Marshal.GetLastWin32Error());
         }
 
-        var docInfo = new DOCINFO { 
-            pDocName = "RAW Document", 
-            pOutputFile = null, 
-            pDataType = "RAW" 
-        };
+        try {
+            var docInfo = new DOCINFO { 
+                pDocName = "Pedido", 
+                pOutputFile = null, 
+                pDataType = "RAW" 
+            };
 
-        if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {
+            if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {
+                throw new Exception("Erro StartDoc: " + Marshal.GetLastWin32Error());
+            }
+
+            try {
+                if (!StartPagePrinter(hPrinter)) {
+                    throw new Exception("Erro StartPage: " + Marshal.GetLastWin32Error());
+                }
+
+                try {
+                    int written;
+                    if (!WritePrinter(hPrinter, data, data.Length, out written)) {
+                        throw new Exception("Erro Write: " + Marshal.GetLastWin32Error());
+                    }
+                } finally {
+                    EndPagePrinter(hPrinter);
+                }
+            } finally {
+                EndDocPrinter(hPrinter);
+            }
+        } finally {
             ClosePrinter(hPrinter);
-            throw new Exception("Falha ao iniciar documento: " + Marshal.GetLastWin32Error());
         }
-
-        if (!StartPagePrinter(hPrinter)) {
-            EndDocPrinter(hPrinter);
-            ClosePrinter(hPrinter);
-            throw new Exception("Falha ao iniciar pagina: " + Marshal.GetLastWin32Error());
-        }
-
-        int written;
-        if (!WritePrinter(hPrinter, data, data.Length, out written)) {
-            EndPagePrinter(hPrinter);
-            EndDocPrinter(hPrinter);
-            ClosePrinter(hPrinter);
-            throw new Exception("Falha ao escrever: " + Marshal.GetLastWin32Error());
-        }
-
-        EndPagePrinter(hPrinter);
-        EndDocPrinter(hPrinter);
-        ClosePrinter(hPrinter);
-        return true;
     }
 }
 "@
 
-[RawPrinter]::SendRawData($printerName, $bytes)
-Write-Output "RAW print successful"
+[RawPrinterHelper]::SendRawData($printerName, $bytes)
+Write-Host "OK"
 `;
 
-    // Write PS script to temp file
-    const psFile = path.join(os.tmpdir(), `rawprint_${Date.now()}.ps1`);
-    fs.writeFileSync(psFile, psScript);
+      // Save script to temp file
+      const psFile = path.join(os.tmpdir(), `gamako_ps_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+
+      exec(
+        `powershell -ExecutionPolicy Bypass -File "${psFile}"`,
+        { timeout: 30000, windowsHide: true },
+        (error, stdout, stderr) => {
+          this.cleanup(psFile);
+          
+          if (error) {
+            reject(new Error(stderr || error.message));
+          } else if (stdout.includes('OK')) {
+            resolve(true);
+          } else {
+            reject(new Error(stderr || 'Unknown error'));
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Method 2: Copy to printer share
+   */
+  async printCopyToShare(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      // Get computer name
+      const computerName = process.env.COMPUTERNAME || 'localhost';
+      const sharePath = `\\\\${computerName}\\${printerName}`;
+      
+      console.log('[PrintText] Copy to:', sharePath);
+      
+      exec(
+        `copy /b "${filePath}" "${sharePath}"`,
+        { timeout: 15000, shell: 'cmd.exe', windowsHide: true },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(stderr || error.message));
+          } else {
+            resolve(true);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * Method 3: LPR command (requires LPR feature enabled)
+   */
+  async printLpr(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      exec(
+        `lpr -S localhost -P "${printerName}" "${filePath}"`,
+        { timeout: 15000, windowsHide: true },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(new Error(stderr || error.message));
+          } else {
+            resolve(true);
+          }
+        }
+      );
+    });
+  }
+
+  // ============================================
+  // UNIX PRINTING (Linux/Mac)
+  // ============================================
+  
+  async printUnix(data, printerName) {
+    const tmpFile = path.join(os.tmpdir(), `gamako_print_${Date.now()}.bin`);
     
     try {
-      await this.execWithTimeout(
-        `powershell -ExecutionPolicy Bypass -File "${psFile}"`,
-        20000
-      );
-      this.cleanupFile(psFile);
-      return true;
+      fs.writeFileSync(tmpFile, data);
+      
+      const printerArg = printerName ? `-d "${printerName}"` : '';
+      
+      return new Promise((resolve, reject) => {
+        exec(
+          `lp -o raw ${printerArg} "${tmpFile}"`,
+          { timeout: 15000 },
+          (error, stdout, stderr) => {
+            this.cleanup(tmpFile);
+            
+            if (error) {
+              reject(new Error(stderr || error.message));
+            } else {
+              resolve(true);
+            }
+          }
+        );
+      });
     } catch (error) {
-      this.cleanupFile(psFile);
+      this.cleanup(tmpFile);
       throw error;
     }
   }
 
-  /**
-   * Print via NET USE (maps printer to LPT port)
-   */
-  async printViaNetUse(filePath, printerName) {
-    // First, disconnect any existing LPT1 mapping
-    try {
-      await this.execWithTimeout('net use LPT1: /delete /y', 3000);
-    } catch (e) {
-      // Ignore - might not be mapped
-    }
-    
-    // Map printer to LPT1
-    await this.execWithTimeout(
-      `net use LPT1: "\\\\%COMPUTERNAME%\\${printerName}"`,
-      5000
-    );
-    
-    // Copy to LPT1 (direct port)
-    await this.execWithTimeout(
-      `copy /b "${filePath}" LPT1:`,
-      10000
-    );
-    
-    // Cleanup mapping
-    try {
-      await this.execWithTimeout('net use LPT1: /delete /y', 3000);
-    } catch (e) {
-      // Ignore
-    }
-    
-    return true;
-  }
-
-  /**
-   * Print RAW data on Unix (Linux/Mac) - Direct to device
-   */
-  async printRawUnix(rawData, printerName) {
-    const tmpFile = path.join(os.tmpdir(), `escpos_${Date.now()}.bin`);
-    
-    return new Promise(async (resolve, reject) => {
-      try {
-        fs.writeFileSync(tmpFile, rawData);
-        
-        // lp with -o raw sends data directly without processing
-        const printerParam = printerName ? `-d "${printerName}"` : '';
-        await this.execWithTimeout(`lp -o raw ${printerParam} "${tmpFile}"`, 10000);
-        
-        this.cleanupFile(tmpFile);
-        resolve(true);
-      } catch (error) {
-        this.cleanupFile(tmpFile);
-        reject(error);
-      }
-    });
-  }
-
-  /**
-   * Execute command with timeout
-   */
-  execWithTimeout(command, timeout) {
-    return new Promise((resolve, reject) => {
-      const shortCmd = command.length > 80 ? command.substring(0, 80) + '...' : command;
-      console.log('[PrintText] Exec:', shortCmd);
-      
-      const proc = exec(command, { 
-        shell: this.platform === 'win32' ? 'cmd.exe' : '/bin/sh', 
-        encoding: 'buffer',
-        timeout: timeout,
-        windowsHide: true,
-      }, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(true);
-        }
-      });
-      
-      // Force timeout
-      setTimeout(() => {
-        try { proc.kill(); } catch (e) {}
-        reject(new Error('Timeout'));
-      }, timeout);
-    });
-  }
-
-  /**
-   * Cleanup temp file after delay
-   */
-  cleanupFile(filePath) {
-    setTimeout(() => {
-      try { 
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath); 
-        }
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }, 5000);
-  }
-
   // ============================================
-  // CONFERENCE / RECEIPT PRINTING
+  // RECEIPT FORMATTING
   // ============================================
-
-  /**
-   * Print conference using ESC/POS
-   */
-  async printConferenceEscPos(order, layout, restaurantInfo, printerInfo) {
-    if (!this.usbPrinter) {
-      throw new Error('Módulo USB não disponível');
-    }
-
-    if (!this.usbPrinter.isConnected) {
-      await this.usbPrinter.connect(printerInfo.vendorId, printerInfo.productId);
-    }
-
-    const commands = this.buildConferenceEscPos(order, layout, restaurantInfo);
-    await this.usbPrinter.write(commands);
-    
-    return true;
-  }
-
-  /**
-   * Build ESC/POS commands for conference receipt
-   */
-  buildConferenceEscPos(order, layout, restaurantInfo = {}) {
-    const buffers = [];
-    const width = layout.paperWidth || 48;
-    const encoding = 'cp860';
-    
-    // Parse notes for conference data
-    let conferenceData = {};
-    try {
-      conferenceData = JSON.parse(order.notes || '{}');
-    } catch (e) {
-      conferenceData = {};
-    }
-    
-    const isFinalReceipt = conferenceData.isFinalReceipt || false;
-    const payments = conferenceData.payments || [];
-    const discount = conferenceData.discount || 0;
-    const addition = conferenceData.addition || 0;
-    const splitCount = conferenceData.splitCount || 1;
-    const entityType = conferenceData.entityType || 'table';
-    const entityNumber = conferenceData.entityNumber || '';
-    
-    // Initialize printer
-    buffers.push(ESCPOS.HW_INIT);
-    buffers.push(ESCPOS.TXT_FONT_A);
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    
-    // Header
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    
-    if (restaurantInfo.name) {
-      buffers.push(ESCPOS.TXT_SIZE_2H);
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from(this.removeAccents(restaurantInfo.name.toUpperCase()) + '\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    }
-    
-    buffers.push(lineFeed(1));
-    
-    // Title - Different for conference vs final receipt
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(ESCPOS.TXT_SIZE_2H);
-    if (isFinalReceipt) {
-      buffers.push(Buffer.from('*** CONTA PAGA ***\n', encoding));
-    } else {
-      buffers.push(Buffer.from('*** CONFERENCIA ***\n', encoding));
-    }
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    
-    // Entity (Table/Tab)
-    buffers.push(ESCPOS.TXT_SIZE_2X);
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
-    buffers.push(Buffer.from(`${entityLabel} ${entityNumber}\n`, encoding));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    
-    // Customer name
-    if (order.customer_name) {
-      buffers.push(Buffer.from(this.removeAccents(order.customer_name) + '\n', encoding));
-    }
-    
-    // Date/Time
-    const now = new Date();
-    buffers.push(Buffer.from(now.toLocaleString('pt-BR') + '\n', encoding));
-    
-    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-    buffers.push(lineFeed(1));
-    
-    // Items
-    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(Buffer.from('ITENS:\n', encoding));
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
-    
-    if (order.order_items && order.order_items.length > 0) {
-      for (const item of order.order_items) {
-        const qty = item.quantity || 1;
-        const name = this.removeAccents(item.product_name);
-        const price = (item.product_price * qty).toFixed(2);
-        
-        // Item line
-        const itemLine = `${qty}x ${name}`;
-        const maxLen = width - 12;
-        const displayName = itemLine.length > maxLen ? itemLine.slice(0, maxLen - 3) + '...' : itemLine;
-        
-        buffers.push(Buffer.from(displayName + '\n', encoding));
-        buffers.push(ESCPOS.TXT_ALIGN_RIGHT);
-        buffers.push(Buffer.from(`R$ ${price}\n`, encoding));
-        buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-      }
-    }
-    
-    buffers.push(Buffer.from(this.createLine('-', width) + '\n', encoding));
-    buffers.push(lineFeed(1));
-    
-    // Subtotal, discount, addition
-    let subtotal = 0;
-    if (order.order_items) {
-      for (const item of order.order_items) {
-        subtotal += (item.product_price || 0) * (item.quantity || 1);
-      }
-    }
-    
-    buffers.push(Buffer.from(this.formatLineItem('Subtotal:', `R$ ${subtotal.toFixed(2)}`, width) + '\n', encoding));
-    
-    if (discount > 0) {
-      buffers.push(Buffer.from(this.formatLineItem('Desconto:', `-R$ ${discount.toFixed(2)}`, width) + '\n', encoding));
-    }
-    
-    if (addition > 0) {
-      buffers.push(Buffer.from(this.formatLineItem('Acrescimo:', `+R$ ${addition.toFixed(2)}`, width) + '\n', encoding));
-    }
-    
-    buffers.push(lineFeed(1));
-    
-    // Total
-    buffers.push(ESCPOS.TXT_BOLD_ON);
-    buffers.push(ESCPOS.TXT_SIZE_2X);
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    const total = order.total || 0;
-    buffers.push(Buffer.from(`TOTAL: R$ ${total.toFixed(2)}\n`, encoding));
-    buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    buffers.push(ESCPOS.TXT_BOLD_OFF);
-    buffers.push(ESCPOS.TXT_ALIGN_LEFT);
-    
-    // Split info
-    if (splitCount > 1) {
-      const perPerson = (total / splitCount).toFixed(2);
-      buffers.push(Buffer.from(this.formatLineItem(`Por pessoa (${splitCount}):`, `R$ ${perPerson}`, width) + '\n', encoding));
-    }
-    
-    buffers.push(lineFeed(1));
-    
-    // Payments (only for final receipt)
-    if (isFinalReceipt && payments.length > 0) {
-      buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from('PAGAMENTOS:\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      
-      for (const payment of payments) {
-        const method = this.removeAccents(payment.method || 'Dinheiro');
-        const amount = (payment.amount || 0).toFixed(2);
-        buffers.push(Buffer.from(this.formatLineItem(method + ':', `R$ ${amount}`, width) + '\n', encoding));
-      }
-      
-      buffers.push(lineFeed(1));
-    }
-    
-    buffers.push(Buffer.from(this.createLine('=', width) + '\n', encoding));
-    
-    // Footer
-    buffers.push(ESCPOS.TXT_ALIGN_CENTER);
-    buffers.push(lineFeed(1));
-    
-    if (isFinalReceipt) {
-      buffers.push(ESCPOS.TXT_SIZE_2H);
-      buffers.push(ESCPOS.TXT_BOLD_ON);
-      buffers.push(Buffer.from('OBRIGADO!\n', encoding));
-      buffers.push(ESCPOS.TXT_BOLD_OFF);
-      buffers.push(ESCPOS.TXT_SIZE_NORMAL);
-    } else {
-      buffers.push(Buffer.from('Aguardando pagamento\n', encoding));
-    }
-    
-    buffers.push(Buffer.from(layout.footerMessage || 'Obrigado pela preferencia!' + '\n', encoding));
-    
-    // Feed and cut
-    buffers.push(lineFeed(4));
-    const cutType = layout.paperCut || 'partial';
-    if (cutType === 'full') {
-      buffers.push(ESCPOS.PAPER_FULL_CUT);
-    } else if (cutType === 'partial') {
-      buffers.push(ESCPOS.PAPER_PARTIAL_CUT);
-    }
-    
-    return Buffer.concat(buffers);
-  }
-
-  /**
-   * Format conference receipt for text printing
-   */
-  formatConferenceReceipt(order, layout, restaurantInfo = {}) {
+  
+  formatReceipt(order, layout, restaurantInfo = {}) {
     const width = parseInt(layout.paperWidth, 10) || 48;
-    const divider = this.createLine('-', width);
-    const doubleDivider = this.createLine('=', width);
+    const div = '='.repeat(width);
+    const divSmall = '-'.repeat(width);
     const lines = [];
     
-    // Parse notes for conference data
-    let conferenceData = {};
-    try {
-      conferenceData = JSON.parse(order.notes || '{}');
-    } catch (e) {
-      conferenceData = {};
+    // Date/Time
+    if (layout.showDateTime !== false) {
+      const now = new Date(order.created_at || Date.now());
+      lines.push(this.center(
+        now.toLocaleDateString('pt-BR') + ' ' + 
+        now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        width
+      ));
     }
     
-    const isFinalReceipt = conferenceData.isFinalReceipt || false;
-    const payments = conferenceData.payments || [];
-    const discount = conferenceData.discount || 0;
-    const addition = conferenceData.addition || 0;
-    const splitCount = conferenceData.splitCount || 1;
-    const entityType = conferenceData.entityType || 'table';
-    const entityNumber = conferenceData.entityNumber || '';
-    
-    // Header
-    if (restaurantInfo.name) {
-      lines.push(this.center(this.removeAccents(restaurantInfo.name.toUpperCase()), width));
+    // Restaurant name
+    if (layout.showRestaurantName !== false && restaurantInfo.name) {
+      lines.push(this.center(this.sanitizeText(restaurantInfo.name.toUpperCase()), width));
     }
     
-    lines.push(this.padLine('', width));
+    lines.push(div);
     
-    // Title
-    if (isFinalReceipt) {
-      lines.push(this.center('*** CONTA PAGA ***', width));
-    } else {
-      lines.push(this.center('*** CONFERENCIA ***', width));
+    // Order number - BIG
+    if (layout.showOrderNumber !== false) {
+      const num = order.order_number || (order.id ? order.id.slice(0, 8).toUpperCase() : '0');
+      lines.push(this.center('Pedido #' + num, width));
     }
     
-    // Entity
-    const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
-    lines.push(this.center(`${entityLabel} ${entityNumber}`, width));
+    lines.push('');
+    
+    // Order type
+    if (layout.showOrderType !== false) {
+      const typeLabels = {
+        counter: 'BALCAO',
+        table: 'MESA',
+        delivery: 'ENTREGA',
+        takeaway: 'RETIRADA',
+      };
+      lines.push('Tipo: ' + (typeLabels[order.order_type] || order.order_type || 'N/A'));
+    }
+    
+    // Table
+    if (layout.showTable !== false && (order.table_number || order.table_id)) {
+      lines.push('Mesa: ' + (order.table_number || order.table_id));
+    }
+    
+    // Waiter
+    if (layout.showWaiter !== false && order.waiter_name) {
+      lines.push('Garcom: ' + this.sanitizeText(order.waiter_name));
+    }
     
     // Customer
-    if (order.customer_name) {
-      lines.push(this.center(this.removeAccents(order.customer_name), width));
+    if (layout.showCustomerName !== false && order.customer_name) {
+      lines.push('Cliente: ' + this.sanitizeText(order.customer_name));
     }
     
-    // Date/Time
-    const now = new Date();
-    lines.push(this.center(now.toLocaleString('pt-BR'), width));
+    // Phone
+    if (layout.showCustomerPhone !== false && order.delivery_phone) {
+      lines.push('Tel: ' + order.delivery_phone);
+    }
     
-    lines.push(doubleDivider);
-    lines.push(this.padLine('', width));
+    // Address
+    if (layout.showDeliveryAddress !== false && order.delivery_address) {
+      const addr = this.sanitizeText(order.delivery_address);
+      this.wrapText(addr, width - 5).forEach((line, i) => {
+        lines.push((i === 0 ? 'End: ' : '     ') + line);
+      });
+    }
+    
+    lines.push('');
+    lines.push(div);
+    lines.push('ITENS:');
+    lines.push(divSmall);
     
     // Items
-    lines.push(this.padLine('ITENS:', width));
-    lines.push(divider);
-    
-    let subtotal = 0;
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
         const qty = item.quantity || 1;
-        const name = this.removeAccents(item.product_name);
-        const price = item.product_price * qty;
-        subtotal += price;
+        let name = this.sanitizeText(item.product_name || 'Item');
         
-        const itemLine = `${qty}x ${name}`;
-        const priceStr = `R$ ${price.toFixed(2).replace('.', ',')}`;
+        if (layout.showItemSize !== false && item.product_size) {
+          name += ' (' + item.product_size + ')';
+        }
         
-        if (itemLine.length + priceStr.length + 1 <= width) {
-          lines.push(this.alignBoth(itemLine, priceStr, width));
+        const itemText = '(' + qty + ') ' + name;
+        const price = layout.showItemPrices !== false 
+          ? 'R$ ' + (item.product_price * qty).toFixed(2).replace('.', ',')
+          : '';
+        
+        if (itemText.length + price.length + 1 <= width) {
+          lines.push(this.alignBoth(itemText, price, width));
         } else {
-          const wrapped = this.wrapText(itemLine, width - 1);
-          wrapped.forEach((line, idx) => {
-            if (idx === wrapped.length - 1) {
-              if (line.length + priceStr.length + 1 <= width) {
-                lines.push(this.alignBoth(line, priceStr, width));
-              } else {
-                lines.push(this.padLine(line, width));
-                lines.push(this.alignRight(priceStr, width));
-              }
+          // Wrap long item names
+          const wrapped = this.wrapText(itemText, width - (price.length > 0 ? price.length + 1 : 0));
+          wrapped.forEach((line, i) => {
+            if (i === wrapped.length - 1 && price) {
+              lines.push(this.alignBoth(line, price, width));
             } else {
-              lines.push(this.padLine(line, width));
+              lines.push(line);
             }
           });
         }
+        
+        // Item notes
+        if (layout.showItemNotes !== false && item.notes) {
+          lines.push('  OBS: ' + this.sanitizeText(item.notes));
+        }
       }
     }
     
-    lines.push(divider);
-    lines.push(this.padLine('', width));
+    lines.push(divSmall);
+    
+    // Notes
+    if (order.notes) {
+      lines.push('');
+      lines.push('OBS: ' + this.sanitizeText(order.notes));
+      lines.push('');
+    }
     
     // Totals
-    lines.push(this.alignBoth('Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`, width));
-    
-    if (discount > 0) {
-      lines.push(this.alignBoth('Desconto:', `-R$ ${discount.toFixed(2).replace('.', ',')}`, width));
-    }
-    
-    if (addition > 0) {
-      lines.push(this.alignBoth('Acrescimo:', `+R$ ${addition.toFixed(2).replace('.', ',')}`, width));
-    }
-    
-    lines.push(this.padLine('', width));
-    
-    const total = order.total || 0;
-    lines.push(this.alignBoth('TOTAL:', `R$ ${total.toFixed(2).replace('.', ',')}`, width));
-    
-    if (splitCount > 1) {
-      const perPerson = (total / splitCount).toFixed(2).replace('.', ',');
-      lines.push(this.alignBoth(`Por pessoa (${splitCount}):`, `R$ ${perPerson}`, width));
-    }
-    
-    lines.push(this.padLine('', width));
-    
-    // Payments (only for final receipt)
-    if (isFinalReceipt && payments.length > 0) {
-      lines.push(doubleDivider);
-      lines.push(this.padLine('PAGAMENTOS:', width));
-      
-      for (const payment of payments) {
-        const method = this.removeAccents(payment.method || 'Dinheiro');
-        const amount = (payment.amount || 0).toFixed(2).replace('.', ',');
-        lines.push(this.alignBoth(method + ':', `R$ ${amount}`, width));
+    if (layout.showTotals !== false) {
+      if (layout.showDeliveryFee !== false && order.delivery_fee && order.delivery_fee > 0) {
+        lines.push(this.alignBoth('Taxa entrega:', 'R$ ' + order.delivery_fee.toFixed(2).replace('.', ','), width));
       }
       
-      lines.push(this.padLine('', width));
+      lines.push(this.alignBoth('TOTAL:', 'R$ ' + (order.total || 0).toFixed(2).replace('.', ','), width));
     }
     
-    lines.push(doubleDivider);
-    lines.push(this.padLine('', width));
+    // Payment
+    if (layout.showPaymentMethod !== false && order.payment_method) {
+      const paymentLabels = {
+        cash: 'Dinheiro',
+        credit: 'Cartao Credito',
+        debit: 'Cartao Debito',
+        pix: 'PIX',
+        voucher: 'Voucher',
+      };
+      lines.push('Pagamento: ' + (paymentLabels[order.payment_method] || order.payment_method));
+    }
+    
+    lines.push('');
+    lines.push(div);
     
     // Footer
-    if (isFinalReceipt) {
-      lines.push(this.center('*** OBRIGADO! ***', width));
+    if (layout.footerMessage) {
+      lines.push(this.center(this.sanitizeText(layout.footerMessage), width));
     } else {
-      lines.push(this.center('Aguardando pagamento', width));
+      lines.push(this.center('Obrigado pela preferencia!', width));
     }
     
-    lines.push(this.center(this.removeAccents(layout.footerMessage || 'Obrigado pela preferencia!'), width));
-    
     // Extra lines for paper feed
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
-    lines.push(this.padLine('', width));
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    lines.push('');
     
     return lines.join('\n');
+  }
+
+  formatConferenceReceipt(order, layout, restaurantInfo = {}) {
+    const width = parseInt(layout.paperWidth, 10) || 48;
+    const div = '='.repeat(width);
+    const divSmall = '-'.repeat(width);
+    const lines = [];
+    
+    // Parse conference data from notes
+    let conf = {};
+    try {
+      conf = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      conf = {};
+    }
+    
+    const isFinal = conf.isFinalReceipt || false;
+    const entityType = conf.entityType || 'table';
+    const entityNumber = conf.entityNumber || '';
+    const discount = conf.discount || 0;
+    const addition = conf.addition || 0;
+    const payments = conf.payments || [];
+    
+    // Header
+    if (restaurantInfo.name) {
+      lines.push(this.center(this.sanitizeText(restaurantInfo.name.toUpperCase()), width));
+    }
+    
+    lines.push('');
+    lines.push(this.center(isFinal ? '*** CONTA PAGA ***' : '*** CONFERENCIA ***', width));
+    
+    const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
+    lines.push(this.center(entityLabel + ' ' + entityNumber, width));
+    
+    if (order.customer_name) {
+      lines.push(this.center(this.sanitizeText(order.customer_name), width));
+    }
+    
+    lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
+    
+    lines.push(div);
+    lines.push('ITENS:');
+    lines.push(divSmall);
+    
+    // Items
+    let subtotal = 0;
+    if (order.order_items && order.order_items.length > 0) {
+      for (const item of order.order_items) {
+        const qty = item.quantity || 1;
+        const price = item.product_price || 0;
+        subtotal += price * qty;
+        
+        const name = this.sanitizeText(item.product_name || 'Item');
+        const priceStr = 'R$ ' + (price * qty).toFixed(2).replace('.', ',');
+        
+        lines.push(this.alignBoth('(' + qty + ') ' + name, priceStr, width));
+      }
+    }
+    
+    lines.push(divSmall);
+    
+    // Subtotal
+    lines.push(this.alignBoth('Subtotal:', 'R$ ' + subtotal.toFixed(2).replace('.', ','), width));
+    
+    // Discount
+    if (discount > 0) {
+      lines.push(this.alignBoth('Desconto:', '-R$ ' + discount.toFixed(2).replace('.', ','), width));
+    }
+    
+    // Addition
+    if (addition > 0) {
+      lines.push(this.alignBoth('Acrescimo:', '+R$ ' + addition.toFixed(2).replace('.', ','), width));
+    }
+    
+    // Total
+    lines.push(div);
+    lines.push(this.alignBoth('TOTAL:', 'R$ ' + (order.total || 0).toFixed(2).replace('.', ','), width));
+    lines.push(div);
+    
+    // Payments (for final receipt)
+    if (isFinal && payments.length > 0) {
+      lines.push('');
+      lines.push('PAGAMENTOS:');
+      for (const pay of payments) {
+        const methodLabels = {
+          cash: 'Dinheiro',
+          credit: 'Credito',
+          debit: 'Debito',
+          pix: 'PIX',
+        };
+        const method = methodLabels[pay.method] || pay.method;
+        lines.push(this.alignBoth(method + ':', 'R$ ' + (pay.amount || 0).toFixed(2).replace('.', ','), width));
+      }
+    }
+    
+    lines.push('');
+    lines.push(this.center('Obrigado pela preferencia!', width));
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    
+    return lines.join('\n');
+  }
+
+  // ============================================
+  // HELPER FUNCTIONS
+  // ============================================
+  
+  sanitizeText(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/[áàâãä]/g, 'a')
+      .replace(/[ÁÀÂÃÄ]/g, 'A')
+      .replace(/[éèêë]/g, 'e')
+      .replace(/[ÉÈÊË]/g, 'E')
+      .replace(/[íìîï]/g, 'i')
+      .replace(/[ÍÌÎÏ]/g, 'I')
+      .replace(/[óòôõö]/g, 'o')
+      .replace(/[ÓÒÔÕÖ]/g, 'O')
+      .replace(/[úùûü]/g, 'u')
+      .replace(/[ÚÙÛÜ]/g, 'U')
+      .replace(/ç/g, 'c')
+      .replace(/Ç/g, 'C')
+      .replace(/ñ/g, 'n')
+      .replace(/Ñ/g, 'N')
+      .replace(/[^\x20-\x7E]/g, ''); // Keep only printable ASCII
+  }
+
+  center(text, width) {
+    const str = String(text || '');
+    if (str.length >= width) return str.slice(0, width);
+    const left = Math.floor((width - str.length) / 2);
+    return ' '.repeat(left) + str + ' '.repeat(width - left - str.length);
+  }
+
+  alignBoth(left, right, width) {
+    const leftStr = String(left || '');
+    const rightStr = String(right || '');
+    const gap = width - leftStr.length - rightStr.length;
+    if (gap <= 0) return (leftStr + ' ' + rightStr).slice(0, width);
+    return leftStr + ' '.repeat(gap) + rightStr;
+  }
+
+  wrapText(text, maxWidth) {
+    if (!text) return [''];
+    const words = String(text).split(/\s+/);
+    const lines = [];
+    let current = '';
+    
+    for (const word of words) {
+      if (current.length + word.length + 1 <= maxWidth) {
+        current = current ? current + ' ' + word : word;
+      } else {
+        if (current) lines.push(current);
+        current = word;
+      }
+    }
+    if (current) lines.push(current);
+    
+    return lines.length > 0 ? lines : [''];
+  }
+
+  cleanup(filePath) {
+    setTimeout(() => {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }, 5000);
   }
 }
 
