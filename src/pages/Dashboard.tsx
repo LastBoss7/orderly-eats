@@ -927,46 +927,22 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     };
 
     return (
-      <motion.div 
+      <div 
         ref={setNodeRef} 
         style={style}
-        layout
-        animate={{ 
-          opacity: isDragging ? 0.6 : 1, 
-          scale: isDragging ? 1.02 : 1,
-          boxShadow: isDragging 
-            ? '0 20px 40px -12px rgba(0, 0, 0, 0.25)' 
-            : isRecentlyUpdated
-              ? '0 0 20px 4px rgba(34, 197, 94, 0.5)'
-              : '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-        }}
-        whileHover={{ 
-          y: -2, 
-          scale: 1.01,
-          boxShadow: '0 8px 25px -8px rgba(0, 0, 0, 0.15)',
-        }}
-        whileTap={{ scale: 0.98 }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 400, 
-          damping: 30,
-          layout: { duration: 0.2 }
-        }}
         className={`bg-card rounded-lg border overflow-hidden relative cursor-pointer ${getCardBorderClass()} ${
           delayed && order.status !== 'delivered' ? 'ring-1 ring-destructive' : ''
-        } ${isDragging ? 'z-50 rotate-2' : ''} ${isRecentlyUpdated ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30' : ''}`}
+        } ${isDragging ? 'z-50 opacity-50' : ''} ${isRecentlyUpdated ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30' : ''}`}
       >
-        {/* Drag Handle with enhanced feedback */}
-        <motion.div 
+        {/* Drag Handle */}
+        <div 
           {...listeners} 
           {...attributes}
-          className="absolute top-1.5 right-1.5 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted/50 rounded transition-colors z-10"
+          className="absolute top-1.5 right-1.5 p-1 cursor-grab active:cursor-grabbing text-muted-foreground/40 z-10"
           onClick={(e) => e.stopPropagation()}
-          whileHover={{ scale: 1.15, rotate: 15 }}
-          whileTap={{ scale: 0.9 }}
         >
           <GripVertical className="w-3.5 h-3.5" />
-        </motion.div>
+        </div>
 
         {/* Card Content - Clickable area */}
         <div 
@@ -1294,7 +1270,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             </button>
           </div>
         )}
-      </motion.div>
+      </div>
     );
   };
 
