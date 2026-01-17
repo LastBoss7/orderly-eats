@@ -9,6 +9,7 @@ import { PrinterModal } from '@/components/printers/PrinterModal';
 import { PrinterConfigCard } from '@/components/printers/PrinterConfigCard';
 import { ReceiptLayoutEditor } from '@/components/printers/ReceiptLayoutEditor';
 import { SpecialPrinterSettings } from '@/components/printers/SpecialPrinterSettings';
+import { PrinterAppDownload } from '@/components/printers/PrinterAppDownload';
 import {
   Copy,
   CheckCircle2,
@@ -18,6 +19,7 @@ import {
   AlertTriangle,
   LayoutTemplate,
   Settings,
+  Download,
 } from 'lucide-react';
 
 export default function Printers() {
@@ -25,7 +27,7 @@ export default function Printers() {
   const { printers, loading: loadingPrinters, addPrinter, updatePrinter, deletePrinter, refetch } = usePrinters();
   
   const [copiedId, setCopiedId] = useState(false);
-  const [activeTab, setActiveTab] = useState<'config' | 'layout'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'layout' | 'download'>('config');
   
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
@@ -104,6 +106,19 @@ export default function Printers() {
             <span className="flex items-center gap-2">
               <LayoutTemplate className="w-4 h-4" />
               Layout do Cupom
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('download')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === 'download'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Baixar App
             </span>
           </button>
         </div>
@@ -210,6 +225,10 @@ export default function Printers() {
 
         {activeTab === 'layout' && (
           <ReceiptLayoutEditor />
+        )}
+
+        {activeTab === 'download' && (
+          <PrinterAppDownload />
         )}
 
         {/* Add Printer Modal */}
