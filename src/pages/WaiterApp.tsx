@@ -187,7 +187,7 @@ export default function WaiterApp({
   const { restaurant: authRestaurant, signOut } = useAuth();
   const restaurant = externalRestaurant || authRestaurant;
   const { shouldAutoPrint } = usePrintSettings();
-  const { printConference, reprintOrder } = usePrintToElectron();
+  const { printConference, reprintOrder } = usePrintToElectron({ restaurantId: restaurant?.id });
   const isPublicAccess = !!externalRestaurant;
   
   // Data fetching hook
