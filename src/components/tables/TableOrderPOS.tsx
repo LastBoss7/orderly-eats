@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { ProductSizeModal } from './ProductSizeModal';
+import { SelectedAddon } from '@/components/products/ProductAddonSelector';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,7 @@ interface CartItem {
   size?: string | null;
   unitPrice: number;
   cartKey: string; // Unique key for same product with different sizes
+  addons?: SelectedAddon[];
 }
 
 interface Table {
@@ -200,7 +202,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
     product: Product, 
     size: string | null, 
     price: number, 
-    notes: string
+    notes: string,
+    addons?: SelectedAddon[]
   ) => {
     // Ensure price is never 0 for products with sizes
     let finalPrice = price;
@@ -216,7 +219,11 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       finalPrice = product.price || 0;
     }
 
-    const cartKey = `${product.id}-${size || 'default'}`;
+    // Create unique cart key including addons
+    const addonsKey = addons && addons.length > 0 
+      ? addons.map(a => a.id).sort().join('-') 
+      : '';
+    const cartKey = `${product.id}-${size || 'default'}-${addonsKey}`;
     
     setCart(prev => {
       const existing = prev.find(item => item.cartKey === cartKey);
@@ -233,7 +240,8 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         size, 
         unitPrice: finalPrice, 
         notes: notes || undefined,
-        cartKey 
+        cartKey,
+        addons: addons || undefined,
       }];
     });
   };
@@ -326,16 +334,31 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       if (orderError) throw orderError;
 
       // Create order items
-      const orderItems = cart.map(item => ({
-        restaurant_id: restaurant?.id,
-        order_id: order.id,
-        product_id: item.product.id,
-        product_name: item.size ? `${item.product.name} (${item.size})` : item.product.name,
-        product_price: item.unitPrice,
-        product_size: item.size || null,
-        quantity: item.quantity,
-        notes: item.notes || null,
-      }));
+      const orderItems = cart.map(item => {
+        // Build product name with size and addons
+        let productName = item.product.name;
+        if (item.size) {
+          productName = `${productName} (${item.size})`;
+        }
+        
+        // Build notes including addons
+        let itemNotes = item.notes || '';
+        if (item.addons && item.addons.length > 0) {
+          const addonsList = item.addons.map(a => a.name).join(', ');
+          itemNotes = itemNotes ? `${itemNotes} | Adicionais: ${addonsList}` : `Adicionais: ${addonsList}`;
+        }
+        
+        return {
+          restaurant_id: restaurant?.id,
+          order_id: order.id,
+          product_id: item.product.id,
+          product_name: productName,
+          product_price: item.unitPrice,
+          product_size: item.size || null,
+          quantity: item.quantity,
+          notes: itemNotes || null,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
@@ -639,6 +662,16 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
                               <p className="text-xs text-muted-foreground">
                                 {formatCurrency(item.unitPrice)} cada
                               </p>
+                              {/* Show selected addons */}
+                              {item.addons && item.addons.length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                  {item.addons.map(addon => (
+                                    <p key={addon.id} className="text-xs text-primary/80">
+                                      + {addon.name} {addon.price > 0 && `(${formatCurrency(addon.price)})`}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <p className="font-semibold text-primary">
                               {formatCurrency(item.unitPrice * item.quantity)}
@@ -787,6 +820,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           setSelectedProduct(null);
         }}
         onConfirm={addToCartWithDetails}
+        restaurantId={restaurant?.id}
       />
 
       {/* Close Confirmation Dialog */}
