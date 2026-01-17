@@ -163,36 +163,109 @@ class PrinterService {
       // Write binary data to temp file
       fs.writeFileSync(tmpFile, data);
       console.log('[PrintText] Temp file:', tmpFile);
+      console.log('[PrintText] Target printer:', printerName);
       
       // Escape printer name for commands
       const safePrinter = printerName.replace(/"/g, '').replace(/'/g, '');
       
       // Try methods in order of reliability
       const methods = [
-        () => this.printWin32Api(tmpFile, safePrinter),
-        () => this.printCopyToShare(tmpFile, safePrinter),
-        () => this.printLpr(tmpFile, safePrinter),
+        { name: 'RawPrint (PowerShell)', fn: () => this.printRawSimple(tmpFile, safePrinter) },
+        { name: 'Win32 API', fn: () => this.printWin32Api(tmpFile, safePrinter) },
+        { name: 'Copy Share', fn: () => this.printCopyToShare(tmpFile, safePrinter) },
+        { name: 'LPR', fn: () => this.printLpr(tmpFile, safePrinter) },
       ];
+      
+      const errors = [];
       
       for (let i = 0; i < methods.length; i++) {
         try {
-          console.log(`[PrintText] Method ${i + 1}/${methods.length}...`);
-          await methods[i]();
-          console.log('[PrintText] SUCCESS!');
+          console.log(`[PrintText] Method ${i + 1}/${methods.length}: ${methods[i].name}...`);
+          await methods[i].fn();
+          console.log('[PrintText] SUCCESS with', methods[i].name);
           this.cleanup(tmpFile);
           return true;
         } catch (err) {
-          console.log(`[PrintText] Method ${i + 1} failed:`, err.message);
+          const errMsg = `${methods[i].name}: ${err.message}`;
+          console.log(`[PrintText] ${errMsg}`);
+          errors.push(errMsg);
         }
       }
       
       this.cleanup(tmpFile);
-      throw new Error('Todos os métodos de impressão falharam');
+      throw new Error(`Todos falharam - ${errors.join('; ')}`);
       
     } catch (error) {
       this.cleanup(tmpFile);
       throw error;
     }
+  }
+
+  /**
+   * Method 0: Simple RAW print via PowerShell Out-Printer (most compatible)
+   */
+  async printRawSimple(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      // Use simpler PowerShell approach without Add-Type
+      const psScript = `
+$ErrorActionPreference = 'Stop'
+$printerName = "${printerName}"
+$filePath = "${filePath.replace(/\\/g, '\\\\')}"
+
+# Read binary data
+$bytes = [System.IO.File]::ReadAllBytes($filePath)
+
+# Get printer
+$printerPath = Get-Printer -Name "$printerName" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PortName
+
+if (-not $printerPath) {
+    # Try direct port
+    $printerPath = (Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Name='$printerName'" | Select-Object -First 1).PortName
+}
+
+if (-not $printerPath) {
+    throw "Impressora '$printerName' não encontrada"
+}
+
+# Write directly to port if it's a file-like port (LPT, COM, or USB)
+if ($printerPath -match '^(LPT|COM|USB)') {
+    [System.IO.File]::WriteAllBytes($printerPath, $bytes)
+    Write-Host "OK"
+    exit 0
+}
+
+# Otherwise use .NET printing
+$printJob = [System.Drawing.Printing.PrintDocument]::new()
+$printJob.PrinterSettings.PrinterName = $printerName
+
+# Create a raw print job using the spooler
+$null = & cmd.exe /c "copy /b `"$filePath`" `"\\\\localhost\\$printerName`"" 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "OK"
+} else {
+    throw "Falha ao enviar para spooler"
+}
+`;
+      
+      const psFile = path.join(os.tmpdir(), `gamako_simple_${Date.now()}.ps1`);
+      fs.writeFileSync(psFile, psScript, 'utf8');
+
+      exec(
+        `powershell -NoProfile -ExecutionPolicy Bypass -File "${psFile}"`,
+        { timeout: 20000, windowsHide: true },
+        (error, stdout, stderr) => {
+          this.cleanup(psFile);
+          
+          if (error) {
+            reject(new Error(stderr?.trim() || error.message));
+          } else if (stdout.includes('OK')) {
+            resolve(true);
+          } else {
+            reject(new Error(stderr?.trim() || stdout?.trim() || 'Erro desconhecido'));
+          }
+        }
+      );
+    });
   }
 
   /**
