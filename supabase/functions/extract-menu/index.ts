@@ -43,26 +43,21 @@ serve(async (req) => {
           {
             role: "system",
             content: `Você é um assistente especializado em extrair informações de cardápios de restaurantes.
-Analise a imagem do cardápio e extraia TODOS os produtos visíveis.
-Para cada produto, extraia:
-- name: nome do produto (obrigatório)
-- description: descrição se houver (opcional)
-- price: preço em número (obrigatório, ex: 25.90)
-- category: categoria inferida do produto (ex: "Lanches", "Bebidas", "Pizzas", "Sobremesas", etc.)
+Analise a imagem do cardápio e extraia os produtos visíveis.
 
-IMPORTANTE:
-- Extraia TODOS os produtos visíveis na imagem
-- Se o preço tiver "R$" ou "," remova e converta para número decimal com ponto
-- Se não conseguir ler o preço claramente, coloque 0
-- Agrupe os produtos por categoria quando possível
-- Retorne APENAS o JSON, sem explicações`
+REGRAS IMPORTANTES:
+1. Se um produto tem MÚLTIPLOS TAMANHOS/PREÇOS (P, M, G ou 1 pessoa, 2 pessoas, etc), crie APENAS 1 produto com o MENOR preço
+2. Para cada produto, extraia: name, description (opcional), price (número), category
+3. Se o preço tiver "R$" ou "," converta para número decimal com ponto
+4. Retorne APENAS JSON válido, sem markdown, sem \`\`\`, sem explicações
+5. Limite máximo: 50 produtos por imagem`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extraia todos os produtos deste cardápio e retorne como JSON no formato: { \"products\": [{ \"name\": \"...\", \"description\": \"...\", \"price\": 0.00, \"category\": \"...\" }] }"
+                text: "Extraia os produtos e retorne APENAS JSON puro (sem markdown): {\"products\":[{\"name\":\"...\",\"description\":\"...\",\"price\":0.00,\"category\":\"...\"}]}"
               },
               {
                 type: "image_url",
@@ -73,7 +68,7 @@ IMPORTANTE:
             ]
           }
         ],
-        max_tokens: 4096,
+        max_tokens: 8192,
       }),
     });
 
@@ -111,20 +106,43 @@ IMPORTANTE:
     // Parse the JSON from the response
     let products = [];
     try {
-      // Try to extract JSON from the response (it might be wrapped in markdown code blocks)
-      let jsonStr = content;
-      if (content.includes("```json")) {
-        jsonStr = content.split("```json")[1].split("```")[0].trim();
-      } else if (content.includes("```")) {
-        jsonStr = content.split("```")[1].split("```")[0].trim();
+      let jsonStr = content.trim();
+      
+      // Remove markdown code blocks if present
+      if (jsonStr.includes("```json")) {
+        jsonStr = jsonStr.split("```json")[1].split("```")[0].trim();
+      } else if (jsonStr.includes("```")) {
+        jsonStr = jsonStr.split("```")[1].split("```")[0].trim();
+      }
+      
+      // Try to fix incomplete JSON by finding the last complete object
+      if (!jsonStr.endsWith("}")) {
+        // Find the last complete product object
+        const lastBracket = jsonStr.lastIndexOf("}");
+        if (lastBracket > 0) {
+          jsonStr = jsonStr.substring(0, lastBracket + 1);
+          // Close the array and object
+          if (!jsonStr.endsWith("]}")) {
+            jsonStr += "]}";
+          }
+        }
       }
       
       const parsed = JSON.parse(jsonStr);
       products = parsed.products || parsed;
+      
+      // Validate products array
+      if (!Array.isArray(products)) {
+        throw new Error("Products is not an array");
+      }
+      
+      // Filter valid products only
+      products = products.filter(p => p && typeof p.name === 'string' && p.name.length > 0);
+      
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("Failed to parse AI response:", content.substring(0, 500));
       return new Response(
-        JSON.stringify({ success: false, error: "Erro ao interpretar produtos do cardápio", rawContent: content }),
+        JSON.stringify({ success: false, error: "Erro ao interpretar produtos. Tente com uma imagem mais clara ou menor." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
