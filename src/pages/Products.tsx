@@ -19,16 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles, CirclePlus } from 'lucide-react';
 import { MenuImportModal } from '@/components/products/MenuImportModal';
@@ -563,7 +554,7 @@ export default function Products() {
           </Dialog>
         </div>
 
-        {/* Products Table */}
+        {/* Products Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center space-y-4">
@@ -580,87 +571,133 @@ export default function Products() {
             <p className="text-sm">Clique em "Novo Produto" para começar</p>
           </div>
         ) : (
-          <div className="rounded-lg border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Foto</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Disponível</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      {product.image_url ? (
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name}
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                          <Package className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {product.name}
-                        {product.has_sizes && (
-                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                            P/M/G
-                          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {products.map((product) => (
+              <div 
+                key={product.id} 
+                className={`group relative bg-card rounded-xl border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
+                  !product.is_available ? 'opacity-60' : ''
+                }`}
+              >
+                {/* Product Image */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+                  {product.image_url ? (
+                    <img 
+                      src={product.image_url} 
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="w-12 h-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  
+                  {/* Overlay badges */}
+                  <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
+                    {product.has_sizes && (
+                      <span className="text-xs font-medium bg-primary text-primary-foreground px-2 py-1 rounded-full shadow-sm">
+                        P/M/G
+                      </span>
+                    )}
+                    {productAddonCounts[product.id] > 0 && (
+                      <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
+                        <CirclePlus className="w-3 h-3" />
+                        {productAddonCounts[product.id]}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Availability indicator */}
+                  <div className="absolute top-2 right-2">
+                    <div 
+                      className={`w-3 h-3 rounded-full shadow-sm ${
+                        product.is_available 
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      }`}
+                      title={product.is_available ? 'Disponível' : 'Indisponível'}
+                    />
+                  </div>
+
+                  {/* Edit button overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg"
+                      onClick={() => openEditDialog(product)}
+                    >
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Editar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Product Info */}
+                <div className="p-4 space-y-3">
+                  {/* Category */}
+                  {product.category_id && (
+                    <span className="text-xs font-medium text-primary/80 uppercase tracking-wide">
+                      {getCategoryName(product.category_id)}
+                    </span>
+                  )}
+
+                  {/* Name */}
+                  <h3 className="font-semibold text-foreground line-clamp-2 leading-tight">
+                    {product.name}
+                  </h3>
+
+                  {/* Description */}
+                  {product.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {product.description}
+                    </p>
+                  )}
+
+                  {/* Price */}
+                  <div className="pt-2 border-t border-border/50">
+                    {product.has_sizes ? (
+                      <div className="flex flex-wrap gap-2 text-sm">
+                        {product.price_small != null && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">P:</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(product.price_small)}</span>
+                          </div>
                         )}
-                        {productAddonCounts[product.id] > 0 && (
-                          <Badge variant="outline" className="text-xs gap-1">
-                            <CirclePlus className="w-3 h-3" />
-                            {productAddonCounts[product.id]}
-                          </Badge>
+                        {product.price_medium != null && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">M:</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(product.price_medium)}</span>
+                          </div>
+                        )}
+                        {product.price_large != null && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">G:</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(product.price_large)}</span>
+                          </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>{getCategoryName(product.category_id)}</TableCell>
-                    <TableCell>
-                      {product.has_sizes ? (
-                        <div className="text-xs space-y-0.5">
-                          {product.price_small != null && (
-                            <div>P: {formatCurrency(product.price_small)}</div>
-                          )}
-                          {product.price_medium != null && (
-                            <div>M: {formatCurrency(product.price_medium)}</div>
-                          )}
-                          {product.price_large != null && (
-                            <div>G: {formatCurrency(product.price_large)}</div>
-                          )}
-                        </div>
-                      ) : (
-                        formatCurrency(product.price)
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={product.is_available}
-                        onCheckedChange={() => toggleAvailability(product)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(product)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    ) : (
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(product.price)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Availability toggle */}
+                  <div className="flex items-center justify-between pt-2">
+                    <span className="text-xs text-muted-foreground">
+                      {product.is_available ? 'Disponível' : 'Indisponível'}
+                    </span>
+                    <Switch
+                      checked={product.is_available}
+                      onCheckedChange={() => toggleAvailability(product)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
