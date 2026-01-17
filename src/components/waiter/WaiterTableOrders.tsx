@@ -22,7 +22,9 @@ import {
   X,
   MoreVertical,
   RotateCcw,
+  Percent,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
@@ -77,6 +79,10 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
   const [numPeople, setNumPeople] = useState(2);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [cashReceived, setCashReceived] = useState(0);
+  const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
+  
+  // Service charge rate (10%)
+  const SERVICE_CHARGE_RATE = 0.10;
 
   // Close order menu when clicking outside
   useEffect(() => {
@@ -153,7 +159,9 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
     }))
   );
 
-  const grandTotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const subtotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const serviceCharge = includeServiceCharge ? subtotal * SERVICE_CHARGE_RATE : 0;
+  const grandTotal = subtotal + serviceCharge;
   const perPersonAmount = splitMode === 'equal' && numPeople > 0 ? grandTotal / numPeople : 0;
   const change = paymentMethod === 'cash' && cashReceived > grandTotal ? cashReceived - grandTotal : 0;
 
@@ -329,6 +337,7 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
           product_price: item.product_price,
         })),
         total: grandTotal,
+        serviceCharge: serviceCharge,
         splitCount: splitMode === 'equal' ? numPeople : 1,
       });
     } catch (error) {
@@ -423,10 +432,38 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
                 <div>
                   <p className="text-sm opacity-80">Total da Mesa</p>
                   <p className="text-3xl font-bold">{formatCurrency(grandTotal)}</p>
+                  {includeServiceCharge && (
+                    <p className="text-xs opacity-70 mt-1">
+                      Inclui 10%: {formatCurrency(serviceCharge)}
+                    </p>
+                  )}
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
                   <Calculator className="w-7 h-7" />
                 </div>
+              </div>
+            </div>
+
+            {/* Service Charge Toggle */}
+            <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <Percent className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm text-gray-900">Taxa de Serviço (10%)</p>
+                    <p className="text-xs text-gray-500">
+                      {includeServiceCharge 
+                        ? `+ ${formatCurrency(serviceCharge)}` 
+                        : 'Não incluída'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={includeServiceCharge}
+                  onCheckedChange={setIncludeServiceCharge}
+                />
               </div>
             </div>
 
