@@ -32,6 +32,7 @@ export interface SelectedAddon {
 
 interface ProductAddonSelectorProps {
   productId: string;
+  productCategoryId?: string | null;
   restaurantId: string;
   selectedAddons: SelectedAddon[];
   onSelectionChange: (addons: SelectedAddon[]) => void;
@@ -39,6 +40,7 @@ interface ProductAddonSelectorProps {
 
 export function ProductAddonSelector({
   productId,
+  productCategoryId,
   restaurantId,
   selectedAddons,
   onSelectionChange,
@@ -55,28 +57,42 @@ export function ProductAddonSelector({
       }
 
       try {
-        // Get linked addon groups for this product
-        const { data: links, error: linksError } = await supabase
+        // Get addon groups linked directly to this product
+        const { data: productLinks, error: productLinksError } = await supabase
           .from('product_addon_groups')
           .select('addon_group_id')
           .eq('product_id', productId);
 
-        if (linksError) throw linksError;
+        if (productLinksError) throw productLinksError;
 
-        if (!links || links.length === 0) {
+        // Get addon groups linked to the product's category
+        let categoryGroupIds: string[] = [];
+        if (productCategoryId) {
+          const { data: categoryLinks, error: categoryLinksError } = await supabase
+            .from('category_addon_groups')
+            .select('addon_group_id')
+            .eq('category_id', productCategoryId);
+
+          if (categoryLinksError) throw categoryLinksError;
+          categoryGroupIds = (categoryLinks || []).map(l => l.addon_group_id);
+        }
+
+        // Combine both sources (remove duplicates)
+        const productGroupIds = (productLinks || []).map(l => l.addon_group_id);
+        const allGroupIds = [...new Set([...productGroupIds, ...categoryGroupIds])];
+
+        if (allGroupIds.length === 0) {
           setAddonGroups([]);
           setAddons([]);
           setLoading(false);
           return;
         }
 
-        const groupIds = links.map(l => l.addon_group_id);
-
         // Fetch the addon groups
         const { data: groups, error: groupsError } = await supabase
           .from('addon_groups')
           .select('id, name, description, is_required, min_selections, max_selections')
-          .in('id', groupIds)
+          .in('id', allGroupIds)
           .eq('is_active', true)
           .order('sort_order');
 
@@ -86,7 +102,7 @@ export function ProductAddonSelector({
         const { data: addonItems, error: addonsError } = await supabase
           .from('addons')
           .select('id, group_id, name, price, is_available')
-          .in('group_id', groupIds)
+          .in('group_id', allGroupIds)
           .eq('is_available', true)
           .order('sort_order');
 
@@ -102,7 +118,7 @@ export function ProductAddonSelector({
     };
 
     fetchAddons();
-  }, [productId, restaurantId]);
+  }, [productId, productCategoryId, restaurantId]);
 
   const handleToggleAddon = (addon: Addon, group: AddonGroup) => {
     const isSelected = selectedAddons.some(a => a.id === addon.id);
