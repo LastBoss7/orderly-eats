@@ -1180,23 +1180,26 @@ export default function WaiterApp({
   // Table Orders View (like image 3)
   if (view === 'table-orders' && selectedTable) {
     return (
-      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col">
         {/* Header */}
-        <header className="sticky top-0 bg-[#1b3a4b] text-white p-4 z-10 flex items-center justify-between">
+        <header className="sticky top-0 bg-gradient-to-r from-primary to-primary/90 text-white p-4 z-10 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/10"
+              className="text-white hover:bg-white/20 rounded-xl"
               onClick={() => { setView('tables'); setSelectedTable(null); setTableOrders([]); }}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <h1 className="font-bold text-lg">Mesa {selectedTable.number}</h1>
+            <div>
+              <h1 className="font-bold text-xl">Mesa {selectedTable.number}</h1>
+              <p className="text-xs text-white/70">{tableOrders.length} pedido(s)</p>
+            </div>
           </div>
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/10">
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
             <Users className="w-5 h-5" />
-          </Button>
+          </div>
         </header>
 
         {/* Orders List */}
@@ -1204,34 +1207,42 @@ export default function WaiterApp({
           <div className="p-4 space-y-4">
             {loadingOrders ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-white" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : tableOrders.length === 0 ? (
-              <div className="text-center py-12 text-white/60">
-                <ClipboardList className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Nenhum pedido ativo</p>
+              <div className="text-center py-16">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/5 flex items-center justify-center">
+                  <ClipboardList className="w-10 h-10 text-white/40" />
+                </div>
+                <p className="text-white/60 font-medium">Nenhum pedido ativo</p>
+                <p className="text-white/40 text-sm mt-1">Adicione um novo pedido</p>
               </div>
             ) : (
               tableOrders.map((order) => (
-                <div key={order.id} className="bg-[#1b3a4b] rounded-lg overflow-hidden">
+                <div key={order.id} className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-2xl overflow-hidden border border-white/5 shadow-xl backdrop-blur-sm">
                   {/* Order Header */}
-                  <div className="flex items-center justify-between p-3 border-b border-white/10">
+                  <div className="flex items-center justify-between p-4 border-b border-white/10">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
+                        <span className="text-white font-bold text-lg">#{order.order_number || '---'}</span>
                         {order.status === 'ready' && (
-                          <Badge className="bg-green-400 text-green-900 text-xs font-semibold px-2 py-0.5">
-                            Pronto
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold px-2 py-0.5">
+                            ✓ Pronto
                           </Badge>
                         )}
                         {order.status === 'preparing' && (
-                          <Badge className="bg-orange-400 text-orange-900 text-xs font-semibold px-2 py-0.5">
-                            Preparando
+                          <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-semibold px-2 py-0.5">
+                            🍳 Preparando
+                          </Badge>
+                        )}
+                        {order.status === 'pending' && (
+                          <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-semibold px-2 py-0.5">
+                            ⏳ Pendente
                           </Badge>
                         )}
                       </div>
                       {order.waiters?.name && (
-                        <p className="text-white/60 text-xs mt-1 flex items-center gap-1">
+                        <p className="text-white/50 text-xs mt-1.5 flex items-center gap-1">
                           <User className="w-3 h-3" />
                           {order.waiters.name}
                         </p>
@@ -1241,7 +1252,7 @@ export default function WaiterApp({
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="text-white/60 hover:text-white hover:bg-white/10"
+                        className="text-white/60 hover:text-white hover:bg-white/10 rounded-xl"
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
@@ -1257,12 +1268,12 @@ export default function WaiterApp({
                       {/* Dropdown Menu */}
                       {openOrderMenu === order.id && (
                         <div 
-                          className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden"
+                          className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-2xl z-50 overflow-hidden"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             onClick={() => handleReprintOrder(order)}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100"
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             <RotateCcw className="w-4 h-4" />
                             <span className="text-sm font-medium">Reimprimir Pedido</span>
@@ -1273,36 +1284,34 @@ export default function WaiterApp({
                   </div>
                   
                   {/* Order Items */}
-                  <div className="p-3 space-y-2">
+                  <div className="p-4 space-y-3">
                     {order.order_items?.map((item) => (
                       <div key={item.id} className="flex items-center justify-between">
-                        <span className="text-white/90">
-                          {item.quantity}x {item.product_name}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-white/90">{formatCurrency(item.product_price * item.quantity)}</span>
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-white/60 hover:text-white hover:bg-white/10">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
+                            <span className="text-primary text-xs font-bold">{item.quantity}x</span>
+                          </div>
+                          <span className="text-white/90 font-medium">{item.product_name}</span>
                         </div>
+                        <span className="text-white font-semibold">{formatCurrency(item.product_price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
                   
                   {/* Order Footer */}
-                  <div className="p-3 border-t border-white/10">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-white font-semibold">Subtotal</span>
-                      <span className="text-white font-semibold">{formatCurrency(order.total || 0)}</span>
+                  <div className="p-4 border-t border-white/10 bg-white/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/70">Subtotal</span>
+                      <span className="text-white font-bold text-lg">{formatCurrency(order.total || 0)}</span>
                     </div>
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 mt-3">
                       <Checkbox 
                         id={`delivered-${order.id}`}
                         checked={deliveredOrders.has(order.id)}
                         onCheckedChange={() => handleMarkDelivered(order.id)}
-                        className="border-white/40 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        className="border-white/40 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
                       />
-                      <label htmlFor={`delivered-${order.id}`} className="text-white/80 text-sm cursor-pointer">
+                      <label htmlFor={`delivered-${order.id}`} className="text-white/70 text-sm cursor-pointer">
                         Marcar como entregue
                       </label>
                     </div>
@@ -1314,21 +1323,21 @@ export default function WaiterApp({
         </ScrollArea>
 
         {/* Footer Totals */}
-        <div className="bg-[#0d1b2a] border-t border-white/10 p-4">
-          <div className="flex justify-between text-white/80 mb-1">
+        <div className="bg-gradient-to-t from-slate-950 to-slate-900 border-t border-white/10 p-4">
+          <div className="flex justify-between text-white/60 mb-2 text-sm">
             <span>Subtotal</span>
             <span>{formatCurrency(tableOrdersTotal)}</span>
           </div>
-          <div className="flex justify-between text-white text-xl font-bold mb-4">
+          <div className="flex justify-between text-white text-2xl font-bold mb-5">
             <span>Total</span>
             <span>{formatCurrency(tableOrdersTotal)}</span>
           </div>
           
           {/* Bottom Actions */}
-          <div className="flex items-center justify-between">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             <Button 
-              variant="ghost" 
-              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              variant="outline" 
+              className="h-14 flex flex-col items-center gap-1 border-white/20 text-white hover:bg-white/10 rounded-xl"
               onClick={handlePrintReceipt}
             >
               <FileText className="w-5 h-5" />
@@ -1336,8 +1345,8 @@ export default function WaiterApp({
             </Button>
             
             <Button 
-              variant="ghost" 
-              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              variant="outline" 
+              className="h-14 flex flex-col items-center gap-1 border-white/20 text-white hover:bg-white/10 rounded-xl"
               onClick={() => toast.info('Função de transferência em breve')}
             >
               <RefreshCw className="w-5 h-5" />
@@ -1345,40 +1354,45 @@ export default function WaiterApp({
             </Button>
             
             <Button 
-              className="w-14 h-14 rounded-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
-              onClick={() => handleNewOrder(selectedTable)}
-            >
-              <Plus className="w-6 h-6" />
-            </Button>
-            
-            <Button 
-              variant="ghost" 
-              className="text-white/80 hover:text-white hover:bg-white/10 flex flex-col items-center gap-1 h-auto py-2"
+              variant="outline" 
+              className="h-14 flex flex-col items-center gap-1 border-white/20 text-white hover:bg-white/10 rounded-xl"
               onClick={() => {
                 setTableTotal(tableOrdersTotal);
                 setShowCloseModal(true);
               }}
             >
               <DollarSign className="w-5 h-5" />
-              <span className="text-xs">Fechar conta</span>
+              <span className="text-xs">Fechar</span>
             </Button>
           </div>
+          
+          <Button 
+            className="w-full h-14 text-base font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 rounded-xl gap-2"
+            onClick={() => {
+              setOrderMode('table');
+              setView('order');
+              setCart([]);
+            }}
+          >
+            <Plus className="w-5 h-5" />
+            Novo Pedido
+          </Button>
         </div>
 
         {/* Close Table Modal */}
-        {showCloseModal && (
+        {showCloseModal && selectedTable && (
           <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
             <div className="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 animate-in slide-in-from-bottom">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Fechar Conta</h3>
+                <h3 className="text-xl font-bold">Fechar Mesa {selectedTable.number}</h3>
                 <Button variant="ghost" size="icon" onClick={() => setShowCloseModal(false)}>
                   <X className="w-5 h-5" />
                 </Button>
               </div>
               
               <div className="text-center py-4">
-                <p className="text-3xl font-bold text-[#0d1b2a]">{formatCurrency(tableOrdersTotal)}</p>
-                <p className="text-gray-500">Mesa {selectedTable.number}</p>
+                <p className="text-3xl font-bold text-slate-900">{formatCurrency(tableOrdersTotal)}</p>
+                <p className="text-slate-500">Mesa {selectedTable.number}</p>
               </div>
               
               {/* Payment Method */}
@@ -1391,14 +1405,14 @@ export default function WaiterApp({
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
-                    className={`p-3 rounded-xl border-2 flex items-center gap-2 ${
+                    className={`p-3 rounded-xl border-2 flex items-center gap-2 transition-all ${
                       paymentMethod === id 
-                        ? 'border-[#0ea5e9] bg-[#0ea5e9]/10' 
-                        : 'border-gray-200'
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-slate-200 hover:border-slate-300'
                     }`}
                     onClick={() => setPaymentMethod(id as PaymentMethod)}
                   >
-                    <Icon className="w-5 h-5 text-[#0d1b2a]" />
+                    <Icon className="w-5 h-5 text-slate-700" />
                     <span className="text-sm font-medium">{label}</span>
                   </button>
                 ))}
@@ -1406,9 +1420,9 @@ export default function WaiterApp({
               
               {paymentMethod === 'cash' && (
                 <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Valor recebido:</label>
+                  <label className="text-sm text-slate-600">Valor recebido:</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">R$</span>
                     <Input
                       type="number"
                       value={cashReceived || ''}
@@ -1418,7 +1432,7 @@ export default function WaiterApp({
                     />
                   </div>
                   {change > 0 && (
-                    <p className="text-green-600 font-semibold">
+                    <p className="text-emerald-600 font-semibold">
                       Troco: {formatCurrency(change)}
                     </p>
                   )}
@@ -1426,7 +1440,7 @@ export default function WaiterApp({
               )}
               
               <Button 
-                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
+                className="w-full h-14 text-lg bg-emerald-600 hover:bg-emerald-700"
                 onClick={handleCloseTable}
                 disabled={closingTable}
               >
@@ -1446,420 +1460,116 @@ export default function WaiterApp({
     );
   }
 
-  // Tab Orders View
-  if (view === 'tab-orders' && selectedTab) {
-    return (
-      <div className="min-h-screen bg-[#0d1b2a] flex flex-col">
-        <header className="sticky top-0 bg-[#1b3a4b] text-white p-4 z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/10"
-              onClick={() => { setView('tables'); setSelectedTab(null); setTableOrders([]); }}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-lg">Comanda #{selectedTab.number}</h1>
-              {selectedTab.customer_name && (
-                <p className="text-sm text-white/70">{selectedTab.customer_name}</p>
-              )}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10"
-            onClick={() => {
-              setEditTabCustomerName(selectedTab.customer_name || '');
-              setEditTabCustomerPhone(selectedTab.customer_phone || '');
-              setShowEditTabCustomerModal(true);
-            }}
-          >
-            <Pencil className="w-5 h-5" />
-          </Button>
-        </header>
-
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
-            {loadingOrders ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-white" />
-              </div>
-            ) : tableOrders.length === 0 ? (
-              <div className="text-center py-12 text-white/60">
-                <ClipboardList className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Nenhum pedido ativo</p>
-              </div>
-            ) : (
-              tableOrders.map((order) => (
-                <div key={order.id} className="bg-[#1b3a4b] rounded-lg overflow-hidden">
-                  <div className="flex items-center justify-between p-3 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-semibold">Pedido #{order.order_number || '---'}</span>
-                      {order.status === 'ready' && (
-                        <Badge className="bg-green-400 text-green-900 text-xs">Pronto</Badge>
-                      )}
-                      {order.status === 'preparing' && (
-                        <Badge className="bg-orange-400 text-orange-900 text-xs">Preparando</Badge>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-white/60 hover:text-white hover:bg-white/10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
-                        }}
-                      >
-                        {reprintingOrder === order.id ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <MoreVertical className="w-5 h-5" />
-                        )}
-                      </Button>
-                      
-                      {openOrderMenu === order.id && (
-                        <div 
-                          className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg z-50 overflow-hidden"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => handleReprintOrder(order)}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-100"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                            <span className="text-sm font-medium">Reimprimir Pedido</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="p-3 space-y-2">
-                    {order.order_items?.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between text-white/90">
-                        <span>{item.quantity}x {item.product_name}</span>
-                        <span>{formatCurrency(item.product_price * item.quantity)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="p-3 border-t border-white/10 flex justify-between text-white font-semibold">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(order.total || 0)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-
-        <div className="bg-[#0d1b2a] border-t border-white/10 p-4">
-          <div className="flex justify-between text-white text-xl font-bold mb-4">
-            <span>Total</span>
-            <span>{formatCurrency(tableOrdersTotal)}</span>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              className="flex-1 h-12 border-white/20 text-white hover:bg-white/10"
-              onClick={handlePrintReceipt}
-            >
-              <FileText className="w-5 h-5 mr-2" />
-              Conferência
-            </Button>
-            <Button 
-              className="flex-1 h-12 bg-[#0ea5e9] hover:bg-[#0284c7]"
-              onClick={() => {
-                setOrderMode('tab');
-                setView('order');
-                setCart([]);
-              }}
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Novo Pedido
-            </Button>
-          </div>
-          <Button 
-            className="w-full h-12 mt-2 bg-green-600 hover:bg-green-700"
-            onClick={() => {
-              setTableTotal(tableOrdersTotal);
-              setShowCloseModal(true);
-            }}
-          >
-            <DollarSign className="w-5 h-5 mr-2" />
-            Fechar Conta
-          </Button>
-        </div>
-
-        {/* Close Tab Modal */}
-        {showCloseModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
-            <div className="bg-white w-full max-w-md rounded-t-3xl p-6 space-y-4 animate-in slide-in-from-bottom">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Fechar Conta</h3>
-                <Button variant="ghost" size="icon" onClick={() => setShowCloseModal(false)}>
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              
-              <div className="text-center py-4">
-                <p className="text-3xl font-bold text-[#0d1b2a]">{formatCurrency(tableOrdersTotal)}</p>
-                <p className="text-gray-500">Comanda #{selectedTab.number}</p>
-              </div>
-              
-              {/* Payment Method */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'cash', label: 'Dinheiro', icon: Banknote },
-                  { id: 'credit', label: 'Crédito', icon: CreditCard },
-                  { id: 'debit', label: 'Débito', icon: CreditCard },
-                  { id: 'pix', label: 'PIX', icon: QrCode },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    className={`p-3 rounded-xl border-2 flex items-center gap-2 ${
-                      paymentMethod === id 
-                        ? 'border-[#0ea5e9] bg-[#0ea5e9]/10' 
-                        : 'border-gray-200'
-                    }`}
-                    onClick={() => setPaymentMethod(id as PaymentMethod)}
-                  >
-                    <Icon className="w-5 h-5 text-[#0d1b2a]" />
-                    <span className="text-sm font-medium">{label}</span>
-                  </button>
-                ))}
-              </div>
-              
-              {paymentMethod === 'cash' && (
-                <div className="space-y-2">
-                  <label className="text-sm text-gray-600">Valor recebido:</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
-                    <Input
-                      type="number"
-                      value={cashReceived || ''}
-                      onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
-                      className="pl-10 h-12 text-lg"
-                      placeholder="0,00"
-                    />
-                  </div>
-                  {change > 0 && (
-                    <p className="text-green-600 font-semibold">
-                      Troco: {formatCurrency(change)}
-                    </p>
-                  )}
-                </div>
-              )}
-              
-              <Button 
-                className="w-full h-14 text-lg bg-green-600 hover:bg-green-700"
-                onClick={handleCloseTab}
-                disabled={closingTable}
-              >
-                {closingTable ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Check className="w-5 h-5 mr-2" />
-                    Confirmar Fechamento
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Tab Customer Modal */}
-        {showEditTabCustomerModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-end justify-center z-50">
-            <div className="bg-background w-full max-w-md rounded-t-2xl overflow-hidden animate-in slide-in-from-bottom">
-              <div className="flex items-center justify-between p-4 border-b">
-                <div>
-                  <h3 className="text-lg font-bold">Editar Cliente</h3>
-                  <p className="text-sm text-muted-foreground">Comanda #{selectedTab.number}</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setShowEditTabCustomerModal(false)}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-              
-              <div className="p-4 space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Nome do Cliente *
-                  </Label>
-                  <Input
-                    placeholder="Nome para identificação"
-                    value={editTabCustomerName}
-                    onChange={(e) => setEditTabCustomerName(e.target.value)}
-                    className="h-12"
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    Telefone (opcional)
-                  </Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={editTabCustomerPhone}
-                    onChange={(e) => setEditTabCustomerPhone(e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-              </div>
-              
-              <div className="p-4 border-t space-y-2">
-                <Button 
-                  className="w-full h-12"
-                  onClick={handleEditTabCustomer}
-                  disabled={savingEditTabCustomer || !editTabCustomerName.trim()}
-                >
-                  {savingEditTabCustomer ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <Check className="w-4 h-4 mr-2" />
-                  )}
-                  Salvar Alterações
-                </Button>
-                <Button 
-                  variant="ghost"
-                  className="w-full"
-                  onClick={() => setShowEditTabCustomerModal(false)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // Login / PIN Entry View
   if (view === 'login') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary/20 to-slate-900 flex flex-col relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+        
         {/* Header */}
-        <header className="pt-8 pb-4 text-center">
-          <img 
-            src={logoGamakoWhite} 
-            alt="Gamako" 
-            className="h-16 mx-auto mb-3 object-contain"
-          />
-          <h1 className="text-lg font-bold text-white">{restaurant?.name}</h1>
-          <p className="text-amber-400/80 mt-1 text-sm font-medium">Acesso do Garçom</p>
+        <header className="pt-10 pb-6 text-center relative z-10">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-xl">
+            <img 
+              src={logoGamakoWhite} 
+              alt="Gamako" 
+              className="h-12 object-contain"
+            />
+          </div>
+          <h1 className="text-xl font-bold text-white tracking-tight">{restaurant?.name}</h1>
+          <p className="text-amber-400 mt-2 text-sm font-semibold flex items-center justify-center gap-2">
+            <ChefHat className="w-4 h-4" />
+            Acesso do Garçom
+          </p>
         </header>
 
         {/* PIN Display */}
-        <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4">
+        <div className="flex-1 flex flex-col items-center justify-start px-6 pt-4 relative z-10">
           <div className="w-full max-w-xs">
-            {/* PIN Icon */}
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-                <KeyRound className="w-6 h-6 text-amber-400" />
-              </div>
-            </div>
-            
-            {/* PIN Dots */}
-            <div className="flex justify-center gap-3 mb-4">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
-                <div
-                  key={i}
-                  className={`w-3.5 h-3.5 rounded-full transition-all duration-200 ${
-                    i < pinInput.length 
-                      ? 'bg-amber-400 scale-110 shadow-lg shadow-amber-400/50' 
-                      : 'bg-white/20 border border-white/30'
-                  }`}
-                />
-              ))}
-            </div>
-
-            {/* Error/Status message */}
-            <div className="h-6 flex items-center justify-center mb-3">
-              {pinAuthenticating ? (
-                <div className="flex items-center gap-2 text-amber-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Verificando...</span>
+            {/* PIN Card */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-6 shadow-2xl border border-white/10">
+              {/* PIN Icon */}
+              <div className="flex justify-center mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                  <KeyRound className="w-7 h-7 text-white" />
                 </div>
-              ) : pinError ? (
-                <p className="text-red-400 text-sm font-medium animate-shake">{pinError}</p>
-              ) : (
-                <p className="text-white/40 text-xs">Digite seu PIN de 4-6 dígitos</p>
-              )}
-            </div>
+              </div>
+              
+              {/* PIN Dots */}
+              <div className="flex justify-center gap-4 mb-5">
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                      i < pinInput.length 
+                        ? 'bg-gradient-to-br from-amber-400 to-amber-500 scale-125 shadow-lg shadow-amber-400/50' 
+                        : 'bg-white/10 border-2 border-white/20'
+                    }`}
+                  />
+                ))}
+              </div>
 
-            {/* Numeric Keypad */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+              {/* Error/Status message */}
+              <div className="h-6 flex items-center justify-center mb-4">
+                {pinAuthenticating ? (
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm font-medium">Verificando...</span>
+                  </div>
+                ) : pinError ? (
+                  <p className="text-rose-400 text-sm font-medium">{pinError}</p>
+                ) : (
+                  <p className="text-white/50 text-xs">Digite seu PIN de 4-6 dígitos</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => handlePinDigit(num.toString())}
+                    disabled={pinAuthenticating || pinInput.length >= 6}
+                    className="aspect-square text-2xl font-bold rounded-2xl bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-amber-500 active:text-white active:border-amber-500 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-95"
+                  >
+                    {num}
+                  </button>
+                ))}
+              
+                {/* Clear button */}
                 <button
-                  key={num}
-                  onClick={() => handlePinDigit(num.toString())}
-                  disabled={pinAuthenticating || pinInput.length >= 6}
-                  className="aspect-square text-xl font-semibold rounded-xl bg-white/10 text-white 
-                           hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
-                           transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                           border border-white/10 hover:border-white/30 active:border-amber-400
-                           shadow-lg backdrop-blur-sm"
+                  onClick={handlePinClear}
+                  disabled={pinAuthenticating || pinInput.length === 0}
+                  className="aspect-square text-xs font-medium rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-rose-500/20 active:text-rose-400 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
                 >
-                  {num}
+                  Limpar
                 </button>
-              ))}
               
-              {/* Clear button */}
-              <button
-                onClick={handlePinClear}
-                disabled={pinAuthenticating || pinInput.length === 0}
-                className="aspect-square text-xs font-medium rounded-xl bg-white/5 text-white/60
-                         hover:bg-white/10 hover:text-white active:bg-red-500/20 active:text-red-400
-                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                         border border-white/10 flex items-center justify-center"
-              >
-                Limpar
-              </button>
+                {/* Zero */}
+                <button
+                  onClick={() => handlePinDigit('0')}
+                  disabled={pinAuthenticating || pinInput.length >= 6}
+                  className="aspect-square text-2xl font-bold rounded-2xl bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-amber-500 active:text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+                >
+                  0
+                </button>
               
-              {/* Zero */}
-              <button
-                onClick={() => handlePinDigit('0')}
-                disabled={pinAuthenticating || pinInput.length >= 6}
-                className="aspect-square text-xl font-semibold rounded-xl bg-white/10 text-white 
-                         hover:bg-white/20 active:bg-amber-400 active:text-slate-900 
-                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                         border border-white/10 hover:border-white/30 active:border-amber-400
-                         shadow-lg backdrop-blur-sm"
-              >
-                0
-              </button>
-              
-              {/* Delete button */}
-              <button
-                onClick={handlePinDelete}
-                disabled={pinAuthenticating || pinInput.length === 0}
-                className="aspect-square rounded-xl bg-white/5 text-white/60
-                         hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400
-                         transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
-                         border border-white/10 flex items-center justify-center"
-              >
-                <Delete className="w-5 h-5" />
-              </button>
+                {/* Delete button */}
+                <button
+                  onClick={handlePinDelete}
+                  disabled={pinAuthenticating || pinInput.length === 0}
+                  className="aspect-square rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
+                >
+                  <Delete className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <footer className="p-4 flex flex-col items-center gap-2">
-          <p className="text-white/30 text-xs">
+        <footer className="p-4 flex flex-col items-center gap-2 relative z-10">
+          <p className="text-white/40 text-xs">
             Fale com seu gerente caso não tenha seu PIN
           </p>
           <Button 
@@ -2467,25 +2177,28 @@ export default function WaiterApp({
 
   // Main View - Tables/Comandas
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 flex flex-col">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground">
+      <header className="bg-gradient-to-r from-primary via-primary to-primary/90 text-primary-foreground shadow-lg">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             {!isPublicAccess && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-primary-foreground hover:bg-primary-foreground/10"
+                className="text-primary-foreground hover:bg-white/20 rounded-xl transition-all"
                 onClick={() => setView('login')}
               >
                 <Menu className="w-5 h-5" />
               </Button>
             )}
             <div>
-              <span className="font-semibold">{restaurant?.name || 'Garçom'}</span>
+              <span className="font-bold text-lg tracking-tight">{restaurant?.name || 'Garçom'}</span>
               {selectedWaiter && (
-                <p className="text-xs opacity-80">{selectedWaiter.name}</p>
+                <p className="text-xs opacity-90 flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  {selectedWaiter.name}
+                </p>
               )}
             </div>
           </div>
@@ -2493,7 +2206,7 @@ export default function WaiterApp({
             <Button
               variant="ghost"
               size="icon"
-              className="text-primary-foreground hover:bg-primary-foreground/10"
+              className="text-primary-foreground hover:bg-white/20 rounded-xl"
               onClick={onExternalLogout}
             >
               <LogOut className="w-5 h-5" />
@@ -2502,59 +2215,75 @@ export default function WaiterApp({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-t border-primary-foreground/20">
+        <div className="flex">
           <button
             onClick={() => setActiveTab('mesas')}
-            className={`flex-1 py-3 text-center font-medium transition-all ${
+            className={`flex-1 py-3.5 text-center font-semibold transition-all relative ${
               activeTab === 'mesas' 
-                ? 'bg-primary-foreground/20 text-primary-foreground' 
-                : 'text-primary-foreground/70 hover:text-primary-foreground'
+                ? 'text-primary-foreground' 
+                : 'text-primary-foreground/60 hover:text-primary-foreground/80'
             }`}
           >
-            Mesas
+            <span className="flex items-center justify-center gap-2">
+              <Users className="w-4 h-4" />
+              Mesas
+            </span>
+            {activeTab === 'mesas' && (
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" />
+            )}
           </button>
           <button
             onClick={() => setActiveTab('comandas')}
-            className={`flex-1 py-3 text-center font-medium transition-all ${
+            className={`flex-1 py-3.5 text-center font-semibold transition-all relative ${
               activeTab === 'comandas' 
-                ? 'bg-primary-foreground/20 text-primary-foreground' 
-                : 'text-primary-foreground/70 hover:text-primary-foreground'
+                ? 'text-primary-foreground' 
+                : 'text-primary-foreground/60 hover:text-primary-foreground/80'
             }`}
           >
-            Comandas
+            <span className="flex items-center justify-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Comandas
+            </span>
+            {activeTab === 'comandas' && (
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-white rounded-full" />
+            )}
           </button>
         </div>
       </header>
 
       {/* Search */}
-      <div className="p-3 bg-muted/50">
+      <div className="p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200/50 dark:border-slate-800/50">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             placeholder={activeTab === 'mesas' ? "Buscar mesa..." : "Buscar comanda..."}
             value={tableSearchTerm}
             onChange={(e) => setTableSearchTerm(e.target.value)}
-            className="pl-10 h-10"
+            className="pl-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border-0 text-base shadow-inner"
           />
         </div>
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 bg-muted/30 flex items-center gap-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-muted-foreground">Livres</span>
+      <div className="px-4 py-3 bg-white/50 dark:bg-slate-900/50 flex items-center justify-center gap-6 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm shadow-emerald-500/30" />
+          <span className="text-slate-600 dark:text-slate-400 font-medium">Livres</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-destructive" />
-          <span className="text-muted-foreground">Ocupadas</span>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 shadow-sm shadow-rose-500/30" />
+          <span className="text-slate-600 dark:text-slate-400 font-medium">Ocupadas</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 shadow-sm shadow-amber-500/30" />
+          <span className="text-slate-600 dark:text-slate-400 font-medium">Fechando</span>
         </div>
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1 bg-background">
+      <ScrollArea className="flex-1">
         {activeTab === 'mesas' ? (
-          <div className="p-3 grid grid-cols-3 gap-2">
+          <div className="p-4 grid grid-cols-3 gap-3">
             {filteredTables.map((table) => {
               const hasReadyOrder = tableReadyOrders[table.id];
               
@@ -2562,26 +2291,34 @@ export default function WaiterApp({
                 <button
                   key={table.id}
                   onClick={() => handleTableClick(table)}
-                  className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left transition-all active:scale-95 shadow-sm ${
+                  className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left transition-all duration-200 active:scale-95 shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${
                     table.status === 'available' 
-                      ? 'bg-green-500/90 text-white' 
+                      ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-emerald-500/25' 
                       : table.status === 'closing' 
-                        ? 'bg-amber-500 text-white' 
-                        : 'bg-destructive text-destructive-foreground'
+                        ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-amber-500/25' 
+                        : 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-rose-500/25'
                   }`}
                 >
-                  <span className="font-bold text-base">Mesa {table.number}</span>
+                  <div className="flex items-start justify-between">
+                    <span className="font-bold text-lg drop-shadow-sm">Mesa {table.number}</span>
+                    {table.status !== 'available' && (
+                      <div className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+                    )}
+                  </div>
                   {hasReadyOrder && (
-                    <Badge className="bg-white text-green-700 text-[10px] font-semibold w-fit">
-                      Pronto!
+                    <Badge className="bg-white text-emerald-700 text-xs font-bold w-fit shadow-sm animate-pulse">
+                      🔔 Pronto!
                     </Badge>
+                  )}
+                  {table.status === 'available' && (
+                    <span className="text-xs text-white/80 font-medium">Disponível</span>
                   )}
                 </button>
               );
             })}
           </div>
         ) : (
-          <div className="p-3 grid grid-cols-3 gap-2">
+          <div className="p-4 grid grid-cols-3 gap-3">
             {/* Create New Tab Button */}
             <button
               onClick={() => {
@@ -2589,10 +2326,12 @@ export default function WaiterApp({
                 setNewTabCustomerPhone('');
                 setShowCreateTabModal(true);
               }}
-              className="relative rounded-xl p-3 min-h-[80px] flex flex-col items-center justify-center text-center transition-all active:scale-95 border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10"
+              className="relative rounded-2xl p-4 min-h-[100px] flex flex-col items-center justify-center text-center transition-all duration-200 active:scale-95 border-2 border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 hover:-translate-y-0.5"
             >
-              <Plus className="w-6 h-6 text-primary mb-1" />
-              <span className="font-medium text-sm text-primary">Criar comanda</span>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
+                <Plus className="w-6 h-6 text-primary" />
+              </div>
+              <span className="font-semibold text-sm text-primary">Nova</span>
             </button>
             
             {tabs.filter(tab => {
@@ -2603,17 +2342,28 @@ export default function WaiterApp({
               <button
                 key={tab.id}
                 onClick={() => handleTabClick(tab)}
-                className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left transition-all active:scale-95 shadow-sm ${
+                className={`relative rounded-2xl p-4 min-h-[100px] flex flex-col justify-between text-left transition-all duration-200 active:scale-95 shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${
                   tab.status === 'available' 
-                    ? 'bg-green-500/90 text-white' 
+                    ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-emerald-500/25' 
                     : tab.status === 'closing' 
-                      ? 'bg-amber-500 text-white' 
-                      : 'bg-destructive text-destructive-foreground'
+                      ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-amber-500/25' 
+                      : 'bg-gradient-to-br from-rose-400 to-rose-600 text-white shadow-rose-500/25'
                 }`}
               >
-                <span className="font-bold">#{tab.number}</span>
+                <div className="flex items-start justify-between">
+                  <span className="font-bold text-lg drop-shadow-sm">#{tab.number}</span>
+                  {tab.status !== 'available' && (
+                    <div className="w-2 h-2 rounded-full bg-white/80 animate-pulse" />
+                  )}
+                </div>
                 {tab.customer_name && (
-                  <p className="text-[10px] opacity-80 truncate">{tab.customer_name}</p>
+                  <p className="text-xs text-white/90 truncate font-medium flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {tab.customer_name}
+                  </p>
+                )}
+                {tab.status === 'available' && !tab.customer_name && (
+                  <span className="text-xs text-white/80 font-medium">Disponível</span>
                 )}
               </button>
             ))}
@@ -2622,12 +2372,14 @@ export default function WaiterApp({
       </ScrollArea>
 
       {/* Bottom Button */}
-      <div className="p-3 border-t bg-background">
+      <div className="p-4 border-t bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
         <Button 
-          className="w-full h-12 gap-2"
+          className="w-full h-14 gap-3 rounded-xl text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all"
           onClick={() => handleStartDelivery('delivery')}
         >
-          <Bike className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+            <Bike className="w-5 h-5" />
+          </div>
           Delivery / Para Levar
         </Button>
       </div>
