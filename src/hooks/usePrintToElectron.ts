@@ -348,10 +348,112 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
     }
   }, [effectiveRestaurantId]);
 
+  /**
+   * Imprime teste de categoria para validar separação de impressoras
+   * Cria um pedido temporário com itens fictícios baseados nas categorias
+   */
+  const printCategoryTest = useCallback(async (params: {
+    printerName: string;
+    printerId: string;
+    categories: Array<{ id: string; name: string }>;
+    linkedCategories: string[] | null;
+    orderTypes: string[];
+  }) => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return false;
+    }
+
+    // Determine which categories will be printed
+    const categoriesToPrint = params.linkedCategories === null || params.linkedCategories.length === 0
+      ? params.categories // All categories if null/empty
+      : params.categories.filter(c => params.linkedCategories!.includes(c.id));
+
+    if (categoriesToPrint.length === 0) {
+      toast.error('Nenhuma categoria configurada para esta impressora');
+      return false;
+    }
+
+    try {
+      // Create a temporary test order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: effectiveRestaurantId,
+          order_type: params.orderTypes[0] || 'counter', // Use first linked order type
+          customer_name: `TESTE - ${params.printerName}`,
+          total: categoriesToPrint.length * 10, // Dummy total
+          status: 'test',
+          print_status: 'pending',
+          notes: JSON.stringify({
+            isTest: true,
+            testType: 'category_validation',
+            printerName: params.printerName,
+            printerId: params.printerId,
+            testedCategories: categoriesToPrint.map(c => c.name),
+          }),
+        })
+        .select('id, order_number')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create test items for each category that should print
+      const testItems = categoriesToPrint.map((category, index) => ({
+        order_id: order.id,
+        restaurant_id: effectiveRestaurantId,
+        product_name: `[TESTE] Item ${category.name}`,
+        product_price: 10,
+        quantity: 1,
+        notes: `Categoria: ${category.name}`,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(testItems);
+
+      if (itemsError) throw itemsError;
+
+      // Log the test print
+      await supabase.from('print_logs').insert({
+        restaurant_id: effectiveRestaurantId,
+        order_id: order.id,
+        order_number: order.order_number?.toString() || null,
+        event_type: 'test',
+        status: 'pending',
+        printer_name: params.printerName,
+        items_count: testItems.length,
+      });
+
+      toast.success('Teste de impressão enviado!', {
+        description: `${categoriesToPrint.length} categoria(s) serão impressas em "${params.printerName}"`,
+      });
+
+      // Delete the test order after 60 seconds
+      setTimeout(async () => {
+        try {
+          await supabase.from('order_items').delete().eq('order_id', order.id);
+          await supabase.from('orders').delete().eq('id', order.id);
+        } catch (e) {
+          console.log('Test order cleanup:', e);
+        }
+      }, 60000);
+
+      return true;
+    } catch (error: any) {
+      console.error('Error sending category test to Electron:', error);
+      toast.error('Erro ao enviar teste', {
+        description: error.message,
+      });
+      return false;
+    }
+  }, [effectiveRestaurantId]);
+
   return {
     printOrder,
     reprintOrder,
     printConference,
     printClosing,
+    printCategoryTest,
   };
 }
