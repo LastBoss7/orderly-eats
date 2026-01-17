@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Package, Check } from 'lucide-react';
+import { ProductAddonSelector, SelectedAddon } from '@/components/products/ProductAddonSelector';
 
 interface Product {
   id: string;
@@ -27,14 +29,25 @@ interface ProductSizeModalProps {
   product: Product | null;
   open: boolean;
   onClose: () => void;
-  onConfirm: (product: Product, size: string | null, price: number, notes: string) => void;
+  onConfirm: (product: Product, size: string | null, price: number, notes: string, addons?: SelectedAddon[]) => void;
+  restaurantId?: string;
 }
 
 type SizeOption = 'small' | 'medium' | 'large';
 
-export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductSizeModalProps) {
+export function ProductSizeModal({ product, open, onClose, onConfirm, restaurantId }: ProductSizeModalProps) {
   const [selectedSize, setSelectedSize] = useState<SizeOption | null>(null);
   const [notes, setNotes] = useState('');
+  const [selectedAddons, setSelectedAddons] = useState<SelectedAddon[]>([]);
+
+  // Reset state when product changes
+  useEffect(() => {
+    if (open) {
+      setSelectedSize(null);
+      setNotes('');
+      setSelectedAddons([]);
+    }
+  }, [open, product?.id]);
 
   if (!product) return null;
 
@@ -55,7 +68,7 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
     }).format(value);
   };
 
-  const getSelectedPrice = (): number => {
+  const getBasePrice = (): number => {
     if (!hasSizes) return product.price;
     
     switch (selectedSize) {
@@ -64,6 +77,14 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
       case 'large': return product.price_large || 0;
       default: return 0;
     }
+  };
+
+  const getAddonsTotal = (): number => {
+    return selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
+  };
+
+  const getTotalPrice = (): number => {
+    return getBasePrice() + getAddonsTotal();
   };
 
   const getSizeLabel = (size: SizeOption): string => {
@@ -75,15 +96,16 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
   };
 
   const handleConfirm = () => {
-    const price = getSelectedPrice();
+    const basePrice = getBasePrice();
     const sizeLabel = selectedSize ? getSizeLabel(selectedSize) : null;
-    onConfirm(product, sizeLabel, price, notes.trim());
+    onConfirm(product, sizeLabel, basePrice + getAddonsTotal(), notes.trim(), selectedAddons);
     handleClose();
   };
 
   const handleClose = () => {
     setSelectedSize(null);
     setNotes('');
+    setSelectedAddons([]);
     onClose();
   };
 
@@ -91,7 +113,7 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             {product.image_url ? (
@@ -109,66 +131,98 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 pt-4">
-          {/* Size Selection */}
-          {hasSizes && sizeOptions.length > 0 ? (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Escolha o tamanho *</Label>
-              <div className="grid gap-2">
-                {sizeOptions.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => setSelectedSize(option.key)}
-                    className={`
-                      flex items-center justify-between p-4 rounded-xl border-2 transition-all
-                      ${selectedSize === option.key 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-primary/50'
-                      }
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`
-                        w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="space-y-4 pt-4 pb-2">
+            {/* Size Selection */}
+            {hasSizes && sizeOptions.length > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Escolha o tamanho *</Label>
+                <div className="grid gap-2">
+                  {sizeOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setSelectedSize(option.key)}
+                      className={`
+                        flex items-center justify-between p-4 rounded-xl border-2 transition-all
                         ${selectedSize === option.key 
-                          ? 'border-primary bg-primary text-primary-foreground' 
-                          : 'border-muted-foreground/30'
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
                         }
-                      `}>
-                        {selectedSize === option.key && <Check className="w-4 h-4" />}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`
+                          w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all
+                          ${selectedSize === option.key 
+                            ? 'border-primary bg-primary text-primary-foreground' 
+                            : 'border-muted-foreground/30'
+                          }
+                        `}>
+                          {selectedSize === option.key && <Check className="w-4 h-4" />}
+                        </div>
+                        <span className="font-medium">{option.label}</span>
                       </div>
-                      <span className="font-medium">{option.label}</span>
-                    </div>
-                    <span className="text-lg font-bold text-primary">
-                      {formatCurrency(option.price as number)}
-                    </span>
-                  </button>
-                ))}
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(option.price as number)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-muted/50 text-center">
+                <p className="text-2xl font-bold text-primary">
+                  {formatCurrency(product.price)}
+                </p>
+              </div>
+            )}
+
+            {/* Addons Selection */}
+            {restaurantId && (
+              <ProductAddonSelector
+                productId={product.id}
+                restaurantId={restaurantId}
+                selectedAddons={selectedAddons}
+                onSelectionChange={setSelectedAddons}
+              />
+            )}
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Observação (opcional)</Label>
+              <Textarea
+                placeholder="Ex: Sem cebola, bem passado..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="resize-none"
+                rows={2}
+              />
             </div>
-          ) : (
-            <div className="p-4 rounded-xl bg-muted/50 text-center">
-              <p className="text-2xl font-bold text-primary">
-                {formatCurrency(product.price)}
-              </p>
+          </div>
+        </ScrollArea>
+
+        {/* Summary & Actions */}
+        <div className="border-t pt-4 space-y-3">
+          {/* Addons Summary */}
+          {selectedAddons.length > 0 && (
+            <div className="text-sm space-y-1 p-2 bg-muted/50 rounded-lg">
+              <p className="font-medium text-xs text-muted-foreground">Adicionais selecionados:</p>
+              {selectedAddons.map(addon => (
+                <div key={addon.id} className="flex justify-between text-xs">
+                  <span>{addon.name}</span>
+                  {addon.price > 0 && <span>+{formatCurrency(addon.price)}</span>}
+                </div>
+              ))}
+              <div className="flex justify-between font-medium pt-1 border-t border-border/50">
+                <span>Subtotal adicionais:</span>
+                <span>+{formatCurrency(getAddonsTotal())}</span>
+              </div>
             </div>
           )}
 
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Observação (opcional)</Label>
-            <Textarea
-              placeholder="Ex: Sem cebola, bem passado..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="resize-none"
-              rows={2}
-            />
-          </div>
-
           {/* Actions */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3">
             <Button variant="outline" onClick={handleClose} className="flex-1">
               Cancelar
             </Button>
@@ -177,7 +231,7 @@ export function ProductSizeModal({ product, open, onClose, onConfirm }: ProductS
               disabled={!canConfirm}
               className="flex-1"
             >
-              Adicionar {getSelectedPrice() > 0 && formatCurrency(getSelectedPrice())}
+              Adicionar {getTotalPrice() > 0 && formatCurrency(getTotalPrice())}
             </Button>
           </div>
         </div>

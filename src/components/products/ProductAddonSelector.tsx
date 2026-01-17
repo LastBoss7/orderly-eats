@@ -1,0 +1,233 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Loader2 } from 'lucide-react';
+
+interface AddonGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  is_required: boolean;
+  min_selections: number;
+  max_selections: number;
+}
+
+interface Addon {
+  id: string;
+  group_id: string;
+  name: string;
+  price: number;
+  is_available: boolean;
+}
+
+export interface SelectedAddon {
+  id: string;
+  name: string;
+  price: number;
+  groupId: string;
+  groupName: string;
+}
+
+interface ProductAddonSelectorProps {
+  productId: string;
+  restaurantId: string;
+  selectedAddons: SelectedAddon[];
+  onSelectionChange: (addons: SelectedAddon[]) => void;
+}
+
+export function ProductAddonSelector({
+  productId,
+  restaurantId,
+  selectedAddons,
+  onSelectionChange,
+}: ProductAddonSelectorProps) {
+  const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
+  const [addons, setAddons] = useState<Addon[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAddons = async () => {
+      if (!productId || !restaurantId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Get linked addon groups for this product
+        const { data: links, error: linksError } = await supabase
+          .from('product_addon_groups')
+          .select('addon_group_id')
+          .eq('product_id', productId);
+
+        if (linksError) throw linksError;
+
+        if (!links || links.length === 0) {
+          setAddonGroups([]);
+          setAddons([]);
+          setLoading(false);
+          return;
+        }
+
+        const groupIds = links.map(l => l.addon_group_id);
+
+        // Fetch the addon groups
+        const { data: groups, error: groupsError } = await supabase
+          .from('addon_groups')
+          .select('id, name, description, is_required, min_selections, max_selections')
+          .in('id', groupIds)
+          .eq('is_active', true)
+          .order('sort_order');
+
+        if (groupsError) throw groupsError;
+
+        // Fetch all addons for these groups
+        const { data: addonItems, error: addonsError } = await supabase
+          .from('addons')
+          .select('id, group_id, name, price, is_available')
+          .in('group_id', groupIds)
+          .eq('is_available', true)
+          .order('sort_order');
+
+        if (addonsError) throw addonsError;
+
+        setAddonGroups(groups || []);
+        setAddons(addonItems || []);
+      } catch (error) {
+        console.error('Error fetching product addons:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAddons();
+  }, [productId, restaurantId]);
+
+  const handleToggleAddon = (addon: Addon, group: AddonGroup) => {
+    const isSelected = selectedAddons.some(a => a.id === addon.id);
+    
+    if (isSelected) {
+      // Remove addon
+      onSelectionChange(selectedAddons.filter(a => a.id !== addon.id));
+    } else {
+      // Check max selections for this group
+      const groupSelectedCount = selectedAddons.filter(a => a.groupId === group.id).length;
+      
+      if (groupSelectedCount >= group.max_selections) {
+        // Replace the first selected addon in this group if max reached
+        const newAddons = selectedAddons.filter(a => a.groupId !== group.id || groupSelectedCount < group.max_selections);
+        if (groupSelectedCount >= group.max_selections) {
+          // Remove oldest selection from this group
+          const firstInGroup = selectedAddons.find(a => a.groupId === group.id);
+          if (firstInGroup) {
+            const filtered = selectedAddons.filter(a => a.id !== firstInGroup.id);
+            onSelectionChange([...filtered, {
+              id: addon.id,
+              name: addon.name,
+              price: addon.price,
+              groupId: group.id,
+              groupName: group.name,
+            }]);
+            return;
+          }
+        }
+      }
+      
+      // Add addon
+      onSelectionChange([...selectedAddons, {
+        id: addon.id,
+        name: addon.name,
+        price: addon.price,
+        groupId: group.id,
+        groupName: group.name,
+      }]);
+    }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const getGroupAddons = (groupId: string) => {
+    return addons.filter(a => a.group_id === groupId);
+  };
+
+  const getGroupSelectedCount = (groupId: string) => {
+    return selectedAddons.filter(a => a.groupId === groupId).length;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-3">
+        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (addonGroups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4">
+      {addonGroups.map((group) => {
+        const groupAddons = getGroupAddons(group.id);
+        const selectedCount = getGroupSelectedCount(group.id);
+        
+        if (groupAddons.length === 0) return null;
+        
+        return (
+          <div key={group.id} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="font-medium text-sm">{group.name}</Label>
+              {group.is_required && (
+                <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                  Obrigatório
+                </Badge>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">
+                {selectedCount}/{group.max_selections}
+              </span>
+            </div>
+            {group.description && (
+              <p className="text-xs text-muted-foreground">{group.description}</p>
+            )}
+            <div className="space-y-1">
+              {groupAddons.map((addon) => {
+                const isSelected = selectedAddons.some(a => a.id === addon.id);
+                return (
+                  <button
+                    key={addon.id}
+                    type="button"
+                    onClick={() => handleToggleAddon(addon, group)}
+                    className={`
+                      w-full flex items-center justify-between p-2.5 rounded-lg border transition-all text-left
+                      ${isSelected 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Checkbox checked={isSelected} className="pointer-events-none" />
+                      <span className="text-sm">{addon.name}</span>
+                    </div>
+                    {addon.price > 0 && (
+                      <span className="text-sm font-medium text-primary">
+                        +{formatCurrency(addon.price)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
