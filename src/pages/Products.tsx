@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles, CirclePlus, LayoutGrid, List } from 'lucide-react';
+import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles, CirclePlus, LayoutGrid, List, AlertTriangle } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MenuImportModal } from '@/components/products/MenuImportModal';
 import { ProductAddonLinker } from '@/components/products/ProductAddonLinker';
@@ -221,6 +221,9 @@ export default function Products() {
       }
     }
 
+    // Warning for missing category (non-blocking)
+    const showCategoryWarning = !categoryId;
+
     setSaving(true);
 
     try {
@@ -280,7 +283,20 @@ export default function Products() {
         if (linkError) throw linkError;
       }
 
+      // Show success toast
       toast({ title: editingProduct ? 'Produto atualizado!' : 'Produto criado!' });
+      
+      // Show warning about missing category after success
+      if (showCategoryWarning) {
+        setTimeout(() => {
+          toast({
+            variant: 'destructive',
+            title: 'Atenção: Produto sem categoria',
+            description: 'A impressão por categoria pode não funcionar corretamente para este produto.',
+          });
+        }, 500);
+      }
+      
       setShowDialog(false);
       resetForm();
       fetchData();
@@ -664,10 +680,15 @@ export default function Products() {
 
                 {/* Product Info */}
                 <div className="p-4 space-y-3">
-                  {/* Category */}
-                  {product.category_id && (
+                  {/* Category or Warning */}
+                  {product.category_id ? (
                     <span className="text-xs font-medium text-primary/80 uppercase tracking-wide">
                       {getCategoryName(product.category_id)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="w-3 h-3" />
+                      Sem categoria
                     </span>
                   )}
 
@@ -767,10 +788,15 @@ export default function Products() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        {/* Category */}
-                        {product.category_id && (
+                        {/* Category or Warning */}
+                        {product.category_id ? (
                           <span className="text-xs font-medium text-primary/80 uppercase tracking-wide">
                             {getCategoryName(product.category_id)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                            <AlertTriangle className="w-3 h-3" />
+                            Sem categoria
                           </span>
                         )}
                         {/* Name */}
