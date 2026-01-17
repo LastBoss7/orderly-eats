@@ -19,6 +19,7 @@ import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
+import { ScrollableColumn } from '@/components/dashboard/ScrollableColumn';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -1635,11 +1636,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </p>
                   </div>
                 ) : (
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  <ScrollableColumn>
                     {pendingOrders.map(order => (
                       <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
                     ))}
-                  </div>
+                  </ScrollableColumn>
                 )}
               </DroppableColumn>
 
@@ -1658,7 +1659,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   </Badge>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                <ScrollableColumn>
                   {preparingOrders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
                       <ChefHat className="w-8 h-8 mb-2 opacity-30" />
@@ -1669,7 +1670,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
                     ))
                   )}
-                </div>
+                </ScrollableColumn>
               </DroppableColumn>
 
               {/* Column: Prontos para entrega */}
@@ -1696,7 +1697,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                <ScrollableColumn>
                   {readyOrders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-4 text-center text-muted-foreground">
                       <UtensilsCrossed className="w-8 h-8 mb-2 opacity-30" />
@@ -1707,7 +1708,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
                     ))
                   )}
-                </div>
+                </ScrollableColumn>
               </DroppableColumn>
 
               {/* Served Orders Column - Only for table/tab orders awaiting table close */}
@@ -1725,14 +1726,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </Badge>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                  <ScrollableColumn>
                     {servedOrders.map(order => (
                       <DraggableOrderCard key={order.id} order={order} />
                     ))}
                     <p className="text-[10px] text-center text-muted-foreground mt-1">
                       Aguardando fechamento
                     </p>
-                  </div>
+                  </ScrollableColumn>
                 </DroppableColumn>
               )}
             </div>
