@@ -60,7 +60,7 @@ export function ScrollableColumn({ children, className }: ScrollableColumnProps)
       {/* Scrollable content */}
       <div 
         ref={scrollRef}
-        className="h-full overflow-y-auto p-3 space-y-3"
+        className="h-full overflow-y-auto p-2 space-y-2"
       >
         {children}
       </div>
