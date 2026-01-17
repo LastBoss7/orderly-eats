@@ -8,6 +8,7 @@ import { usePrinters, Printer } from '@/hooks/usePrinters';
 import { PrinterModal } from '@/components/printers/PrinterModal';
 import { PrinterConfigCard } from '@/components/printers/PrinterConfigCard';
 import { ReceiptLayoutEditor } from '@/components/printers/ReceiptLayoutEditor';
+import { SpecialPrinterSettings } from '@/components/printers/SpecialPrinterSettings';
 import {
   Copy,
   CheckCircle2,
@@ -199,6 +200,11 @@ export default function Printers() {
                 onUpdate={refetch}
               />
             ))}
+
+            {/* Special Printer Settings */}
+            {printers.length > 0 && (
+              <SpecialPrinterSettings printers={printers} loading={loadingPrinters} />
+            )}
           </div>
         )}
 

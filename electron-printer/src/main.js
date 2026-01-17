@@ -48,6 +48,7 @@ const defaultLayout = {
 let cachedRestaurantInfo = null;
 let cachedPrintLayout = null;
 let cachedDbPrinters = [];
+let cachedSpecialPrinters = { conference: null, closing: null };
 
 // Configuração persistente
 const store = new Store({
@@ -547,6 +548,27 @@ async function refreshRestaurantConfig(restaurantId) {
       sendToRenderer('log', `✓ ${data.printers.length} impressora(s) configurada(s) no servidor`);
     }
 
+    // Cache special printer assignments
+    if (data.settings) {
+      const conferencePrinterId = data.settings.conferencePrinterId;
+      const closingPrinterId = data.settings.closingPrinterId;
+      
+      // Find printer names for special printers
+      cachedSpecialPrinters.conference = conferencePrinterId 
+        ? cachedDbPrinters.find(p => p.id === conferencePrinterId)?.printer_name || null
+        : null;
+      cachedSpecialPrinters.closing = closingPrinterId
+        ? cachedDbPrinters.find(p => p.id === closingPrinterId)?.printer_name || null
+        : null;
+        
+      if (cachedSpecialPrinters.conference) {
+        sendToRenderer('log', `✓ Impressora de conferência: ${cachedSpecialPrinters.conference}`);
+      }
+      if (cachedSpecialPrinters.closing) {
+        sendToRenderer('log', `✓ Impressora de fechamento: ${cachedSpecialPrinters.closing}`);
+      }
+    }
+
     sendToRenderer('log', `✓ Restaurante: ${cachedRestaurantInfo?.name || 'N/A'}`);
   } catch (error) {
     sendToRenderer('log', `Erro ao carregar config: ${error.message}`);
@@ -626,6 +648,23 @@ async function printOrderToAllPrinters(order, dbPrinters) {
   // Collect all printers to try, in order of priority
   const printersToTry = [];
   
+  // 0. Special printer for conference/closing types (HIGHEST PRIORITY)
+  if (orderType === 'conference' && cachedSpecialPrinters.conference) {
+    printersToTry.push({
+      name: cachedSpecialPrinters.conference,
+      source: 'special_conference',
+      paperWidth: null, // Will use default
+    });
+    console.log(`[PrintOrder] Using conference printer: ${cachedSpecialPrinters.conference}`);
+  } else if (orderType === 'closing' && cachedSpecialPrinters.closing) {
+    printersToTry.push({
+      name: cachedSpecialPrinters.closing,
+      source: 'special_closing',
+      paperWidth: null,
+    });
+    console.log(`[PrintOrder] Using closing printer: ${cachedSpecialPrinters.closing}`);
+  }
+  
   // 1. DB printers matching order type
   if (dbPrinters && dbPrinters.length > 0) {
     for (const dbPrinter of dbPrinters) {
@@ -633,11 +672,14 @@ async function printOrderToAllPrinters(order, dbPrinters) {
       
       const types = dbPrinter.linked_order_types || ['counter', 'table', 'delivery'];
       if (types.includes(orderType) && dbPrinter.printer_name) {
-        printersToTry.push({
-          name: dbPrinter.printer_name,
-          source: 'db_type_match',
-          paperWidth: dbPrinter.paper_width,
-        });
+        // Don't add if already added as special printer
+        if (!printersToTry.some(p => p.name === dbPrinter.printer_name)) {
+          printersToTry.push({
+            name: dbPrinter.printer_name,
+            source: 'db_type_match',
+            paperWidth: dbPrinter.paper_width,
+          });
+        }
       }
     }
     
