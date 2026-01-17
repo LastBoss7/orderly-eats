@@ -194,6 +194,7 @@ export function CloseTableModal({
           product_price: item.product_price,
         })),
         total: grandTotal,
+        serviceCharge: serviceCharge,
         splitCount: splitMode === 'equal' ? numPeople : 1,
       });
     } catch (error) {

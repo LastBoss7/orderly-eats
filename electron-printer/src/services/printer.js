@@ -657,6 +657,7 @@ class PrinterService {
     const entityNumber = conf.entityNumber || '';
     const discount = conf.discount || 0;
     const addition = conf.addition || 0;
+    const serviceCharge = conf.serviceCharge || order.service_charge || 0;
     const payments = conf.payments || [];
     
     // Header
@@ -708,6 +709,11 @@ class PrinterService {
     // Addition
     if (addition > 0) {
       lines.push(this.alignBoth('Acrescimo:', '+R$ ' + addition.toFixed(2).replace('.', ','), width));
+    }
+    
+    // Service charge (10%)
+    if (serviceCharge > 0) {
+      lines.push(this.alignBoth('Taxa de Servico (10%):', '+R$ ' + serviceCharge.toFixed(2).replace('.', ','), width));
     }
     
     // Total

@@ -150,6 +150,7 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
     total: number;
     discount?: number;
     addition?: number;
+    serviceCharge?: number;
     splitCount?: number;
     payments?: Array<{
       method: string;
@@ -175,6 +176,7 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
           order_type: 'conference',
           customer_name: params.customerName || `${params.entityType === 'table' ? 'Mesa' : 'Comanda'} ${params.entityNumber}`,
           total: params.total,
+          service_charge: params.serviceCharge || null,
           status: 'conference', // Special status for conference prints
           print_status: 'pending',
           notes: JSON.stringify({
@@ -182,6 +184,7 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
             entityNumber: params.entityNumber,
             discount: params.discount || 0,
             addition: params.addition || 0,
+            serviceCharge: params.serviceCharge || 0,
             splitCount: params.splitCount || 1,
             isConference: !params.isFinalReceipt,
             isFinalReceipt: params.isFinalReceipt || false,
