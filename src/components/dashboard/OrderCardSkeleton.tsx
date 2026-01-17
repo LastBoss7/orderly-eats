@@ -178,10 +178,10 @@ export function DashboardSkeleton() {
 }
 
 // Dashboard content wrapper with enter animation
-export function DashboardContent({ children }: { children: React.ReactNode }) {
+export function DashboardContent({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <motion.div 
-      className="h-full flex flex-col"
+      className={`h-full flex flex-col min-h-0 ${className || ''}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}

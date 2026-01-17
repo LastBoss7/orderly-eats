@@ -1343,7 +1343,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           <DashboardSkeleton key="skeleton" />
         ) : (
           <DashboardContent key="content">
-        <div className="bg-card border-b px-3 py-2">
+        <div className="bg-card border-b px-3 py-2 flex-shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             <SidebarTrigger />
 
@@ -1592,7 +1592,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 overflow-hidden p-3 flex gap-3">
+          <div className="flex-1 min-h-0 overflow-hidden p-3 flex gap-3">
             {/* Kanban Columns */}
             <div className="flex-1 h-full flex gap-3 kanban-scroll overflow-x-auto">
               {/* Column: Em análise */}
