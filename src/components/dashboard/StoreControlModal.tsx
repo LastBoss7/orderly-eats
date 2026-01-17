@@ -12,8 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Store, Power, PowerOff, Loader2, FileText, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { fetchDailyReportData, printDailyReport } from './PrintDailyReport';
+import { fetchDailyReportData } from './PrintDailyReport';
 import { useSaveClosing } from '@/hooks/useSaveClosing';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface StoreControlModalProps {
   open: boolean;
@@ -32,6 +33,7 @@ export function StoreControlModal({
   const [loading, setLoading] = useState(false);
   const [resettingCounter, setResettingCounter] = useState(false);
   const { saveClosing } = useSaveClosing();
+  const { printClosing } = usePrintToElectron();
 
   const handleToggleStore = async () => {
     if (!restaurant?.id) return;
@@ -49,14 +51,15 @@ export function StoreControlModal({
 
       // If closing the store, print the daily report first and save to history
       if (!newIsOpen && existingSettings) {
-        // Fetch and print daily report
+        // Fetch and print daily report via Electron
         const reportData = await fetchDailyReportData(
           restaurant.id,
           restaurant.name,
           existingSettings.last_opened_at || null
         );
         
-        printDailyReport(reportData);
+        // Send to Electron for thermal printing
+        await printClosing(reportData);
 
         // Save closing to history
         await saveClosing({
@@ -145,8 +148,8 @@ export function StoreControlModal({
         settings?.last_opened_at || null
       );
       
-      printDailyReport(reportData);
-      toast.success('Relatório enviado para impressão!');
+      // Send to Electron for thermal printing
+      await printClosing(reportData);
     } catch (error: any) {
       console.error('Erro ao gerar relatório:', error);
       const errorMessage = error?.message || 'Erro desconhecido';

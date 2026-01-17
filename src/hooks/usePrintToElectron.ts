@@ -243,9 +243,112 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
     }
   }, [effectiveRestaurantId, options?.restaurantId, restaurant?.id]);
 
+  /**
+   * Imprime relatório de fechamento de caixa
+   * Cria um pedido temporário com type='closing' para impressão
+   */
+  const printClosing = useCallback(async (params: {
+    restaurantName: string;
+    date: string;
+    openedAt: string;
+    closedAt: string;
+    totalOrders: number;
+    totalRevenue: number;
+    averageTicket: number;
+    paymentBreakdown: Array<{
+      method: string;
+      count: number;
+      total: number;
+    }>;
+    orderTypeBreakdown: Array<{
+      type: string;
+      count: number;
+      total: number;
+    }>;
+    cancelledOrders: number;
+    receiptSettings?: {
+      receiptHeader: string | null;
+      receiptFooter: string | null;
+      showAddress: boolean;
+      showPhone: boolean;
+      showCnpj: boolean;
+      logoUrl: string | null;
+      address: string | null;
+      phone: string | null;
+      cnpj: string | null;
+    };
+  }) => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return false;
+    }
+
+    try {
+      // Create a temporary order for the closing print
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: effectiveRestaurantId,
+          order_type: 'closing',
+          customer_name: `Fechamento ${params.date}`,
+          total: params.totalRevenue,
+          status: 'closing', // Special status for closing prints
+          print_status: 'pending',
+          notes: JSON.stringify({
+            type: 'closing_report',
+            restaurantName: params.restaurantName,
+            date: params.date,
+            openedAt: params.openedAt,
+            closedAt: params.closedAt,
+            totalOrders: params.totalOrders,
+            totalRevenue: params.totalRevenue,
+            averageTicket: params.averageTicket,
+            paymentBreakdown: params.paymentBreakdown,
+            orderTypeBreakdown: params.orderTypeBreakdown,
+            cancelledOrders: params.cancelledOrders,
+            receiptSettings: params.receiptSettings || null,
+          }),
+        })
+        .select('id, order_number')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Log the closing print
+      await supabase.from('print_logs').insert({
+        restaurant_id: effectiveRestaurantId,
+        order_id: order.id,
+        order_number: order.order_number?.toString() || null,
+        event_type: 'print',
+        status: 'pending',
+        printer_name: 'Electron App',
+      });
+
+      toast.success('Relatório de fechamento enviado para impressão!');
+
+      // Delete the temporary order after 60 seconds
+      setTimeout(async () => {
+        try {
+          await supabase.from('orders').delete().eq('id', order.id);
+        } catch (e) {
+          console.log('Closing order cleanup:', e);
+        }
+      }, 60000);
+
+      return true;
+    } catch (error: any) {
+      console.error('Error sending closing to Electron:', error);
+      toast.error('Erro ao enviar relatório de fechamento', {
+        description: error.message,
+      });
+      return false;
+    }
+  }, [effectiveRestaurantId]);
+
   return {
     printOrder,
     reprintOrder,
     printConference,
+    printClosing,
   };
 }
