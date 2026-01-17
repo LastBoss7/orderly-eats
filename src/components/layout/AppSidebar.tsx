@@ -59,6 +59,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   ShieldCheck,
+  Receipt,
 } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-white-full.png';
 import logoGamakoIcon from '@/assets/logo-gamako-white-icon.png';
@@ -89,6 +90,7 @@ const bottomMenuItems = [
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
   { title: 'Meu Estabelecimento', url: '/restaurant-settings', icon: Settings2 },
+  { title: 'NFC-e', url: '/nfce-settings', icon: Receipt },
 ];
 
 export function AppSidebar() {
