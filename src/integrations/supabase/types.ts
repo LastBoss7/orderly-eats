@@ -14,6 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
+      addon_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_required: boolean | null
+          max_selections: number | null
+          min_selections: number | null
+          name: string
+          restaurant_id: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          name: string
+          restaurant_id: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_required?: boolean | null
+          max_selections?: number | null
+          min_selections?: number | null
+          name?: string
+          restaurant_id?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addon_groups_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "addon_groups_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      addons: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          is_available: boolean | null
+          name: string
+          price: number
+          restaurant_id: string
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          is_available?: boolean | null
+          name: string
+          price?: number
+          restaurant_id: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          is_available?: boolean | null
+          name?: string
+          price?: number
+          restaurant_id?: string
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addons_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "addon_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "addons_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "addons_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       available_printers: {
         Row: {
           created_at: string
@@ -664,6 +779,42 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      product_addon_groups: {
+        Row: {
+          addon_group_id: string
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          addon_group_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          addon_group_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_addon_groups_addon_group_id_fkey"
+            columns: ["addon_group_id"]
+            isOneToOne: false
+            referencedRelation: "addon_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_addon_groups_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
