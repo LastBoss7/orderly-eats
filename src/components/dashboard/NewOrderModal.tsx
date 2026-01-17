@@ -861,12 +861,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
             </div>
 
             {/* Categories */}
-            <ScrollArea className="flex-shrink-0 mb-3">
-              <div className="flex gap-2 pb-2">
+            <div className="flex-shrink-0 mb-3 max-h-24 overflow-y-auto">
+              <div className="flex flex-wrap gap-2 pb-1">
                 <Button
                   variant={selectedCategory === null ? 'default' : 'outline'}
                   size="sm"
-                  className="flex-shrink-0"
+                  className="flex-shrink-0 h-8"
                   onClick={() => setSelectedCategory(null)}
                 >
                   Todos
@@ -876,14 +876,14 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                     key={category.id}
                     variant={selectedCategory === category.id ? 'default' : 'outline'}
                     size="sm"
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 h-8"
                     onClick={() => setSelectedCategory(category.id)}
                   >
                     {category.name}
                   </Button>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Products Grid */}
             <ScrollArea className="flex-1">
