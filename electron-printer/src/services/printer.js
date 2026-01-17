@@ -671,8 +671,13 @@ class PrinterService {
     const entityLabel = entityType === 'table' ? 'MESA' : 'COMANDA';
     lines.push(this.center(entityLabel + ' ' + entityNumber, width));
     
+    // Only show customer_name if it's NOT just "Mesa X" or "Comanda X" (avoid duplication)
     if (order.customer_name) {
-      lines.push(this.center(this.sanitizeText(order.customer_name), width));
+      const nameStr = String(order.customer_name).toLowerCase();
+      const isDefaultName = nameStr.startsWith('mesa ') || nameStr.startsWith('comanda ');
+      if (!isDefaultName) {
+        lines.push(this.center(this.sanitizeText(order.customer_name), width));
+      }
     }
     
     lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
