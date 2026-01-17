@@ -28,7 +28,9 @@ import {
   Wallet,
   Clock,
   Trash2,
+  Percent,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 
 interface OrderItem {
@@ -100,6 +102,10 @@ export function CloseTabModal({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
+  const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
+  
+  // Service charge rate (10%)
+  const SERVICE_CHARGE_RATE = 0.10;
   
   // Partial payment states
   const [partialAmount, setPartialAmount] = useState<number>(0);
@@ -116,7 +122,9 @@ export function CloseTabModal({
   );
 
   // Calculate totals
-  const grandTotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const subtotal = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+  const serviceCharge = includeServiceCharge ? subtotal * SERVICE_CHARGE_RATE : 0;
+  const grandTotal = subtotal + serviceCharge;
   
   // Total already paid
   const totalPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0);
@@ -193,6 +201,7 @@ export function CloseTabModal({
       setCashReceived(0);
       setPartialAmount(0);
       setPartialPaidBy('');
+      setIncludeServiceCharge(false);
     }
   }, [open]);
 
@@ -350,6 +359,7 @@ export function CloseTabModal({
           product_price: item.product_price,
         })),
         total: grandTotal,
+        serviceCharge: serviceCharge,
         splitCount: splitMode === 'equal' ? numPeople : 1,
       });
     } catch (error) {
@@ -432,6 +442,7 @@ export function CloseTabModal({
             change_given: paymentMethod === 'cash' ? change : null,
             split_mode: splitMode,
             split_people: splitMode === 'equal' ? numPeople : null,
+            service_charge: serviceCharge,
           })
           .eq('id', order.id);
       }
@@ -516,6 +527,12 @@ export function CloseTabModal({
                   <p className="text-3xl font-bold text-foreground tracking-tight">
                     {formatCurrency(grandTotal)}
                   </p>
+                  {includeServiceCharge && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <Percent className="w-3 h-3" />
+                      Inclui taxa de serviço: {formatCurrency(serviceCharge)}
+                    </p>
+                  )}
                   {tab?.customer_name && (
                     <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                       <User className="w-3 h-3" />
@@ -526,6 +543,29 @@ export function CloseTabModal({
                 <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center">
                   <Calculator className="w-7 h-7 text-primary" />
                 </div>
+              </div>
+            </div>
+
+            {/* Service Charge Toggle */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 rounded-xl p-4 border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                    <Percent className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">Taxa de Serviço (10%)</p>
+                    <p className="text-xs text-muted-foreground">
+                      {includeServiceCharge 
+                        ? `+ ${formatCurrency(serviceCharge)}` 
+                        : 'Não incluída'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={includeServiceCharge}
+                  onCheckedChange={setIncludeServiceCharge}
+                />
               </div>
             </div>
 
