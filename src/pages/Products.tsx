@@ -28,9 +28,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles } from 'lucide-react';
+import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles, CirclePlus } from 'lucide-react';
 import { MenuImportModal } from '@/components/products/MenuImportModal';
+import { ProductAddonLinker } from '@/components/products/ProductAddonLinker';
 
 interface Category {
   id: string;
@@ -74,18 +76,28 @@ export default function Products() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [selectedAddonGroups, setSelectedAddonGroups] = useState<string[]>([]);
+  const [productAddonCounts, setProductAddonCounts] = useState<Record<string, number>>({});
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
 
     try {
-      const [productsRes, categoriesRes] = await Promise.all([
+      const [productsRes, categoriesRes, addonLinksRes] = await Promise.all([
         supabase.from('products').select('*').order('name'),
         supabase.from('categories').select('*').order('name'),
+        supabase.from('product_addon_groups').select('product_id, addon_group_id'),
       ]);
 
       setProducts(productsRes.data || []);
       setCategories(categoriesRes.data || []);
+      
+      // Count addon groups per product
+      const counts: Record<string, number> = {};
+      (addonLinksRes.data || []).forEach(link => {
+        counts[link.product_id] = (counts[link.product_id] || 0) + 1;
+      });
+      setProductAddonCounts(counts);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -109,6 +121,7 @@ export default function Products() {
     setPriceLarge('');
     setImageUrl(null);
     setEditingProduct(null);
+    setSelectedAddonGroups([]);
   };
 
   const openEditDialog = (product: Product) => {
@@ -123,6 +136,7 @@ export default function Products() {
     setPriceMedium(product.price_medium?.toString() || '');
     setPriceLarge(product.price_large?.toString() || '');
     setImageUrl(product.image_url);
+    setSelectedAddonGroups([]); // Will be loaded by ProductAddonLinker
     setShowDialog(true);
   };
 
@@ -231,6 +245,8 @@ export default function Products() {
         image_url: imageUrl,
       };
 
+      let productId: string;
+
       if (editingProduct) {
         const { error } = await supabase
           .from('products')
@@ -238,13 +254,40 @@ export default function Products() {
           .eq('id', editingProduct.id);
 
         if (error) throw error;
-        toast({ title: 'Produto atualizado!' });
+        productId = editingProduct.id;
       } else {
-        const { error } = await supabase.from('products').insert(productData);
+        const { data, error } = await supabase
+          .from('products')
+          .insert(productData)
+          .select('id')
+          .single();
+
         if (error) throw error;
-        toast({ title: 'Produto criado!' });
+        productId = data.id;
       }
 
+      // Update addon group links
+      // First, delete existing links
+      await supabase
+        .from('product_addon_groups')
+        .delete()
+        .eq('product_id', productId);
+
+      // Then, insert new links
+      if (selectedAddonGroups.length > 0) {
+        const links = selectedAddonGroups.map(groupId => ({
+          product_id: productId,
+          addon_group_id: groupId,
+        }));
+
+        const { error: linkError } = await supabase
+          .from('product_addon_groups')
+          .insert(links);
+
+        if (linkError) throw linkError;
+      }
+
+      toast({ title: editingProduct ? 'Produto atualizado!' : 'Produto criado!' });
       setShowDialog(false);
       resetForm();
       fetchData();
@@ -485,6 +528,23 @@ export default function Products() {
                     onCheckedChange={setIsAvailable}
                   />
                 </div>
+
+                {/* Addon Groups Section */}
+                <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <CirclePlus className="w-4 h-4 text-muted-foreground" />
+                    <Label className="font-medium">Grupos de Adicionais</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Selecione os grupos de adicionais disponíveis para este produto
+                  </p>
+                  <ProductAddonLinker
+                    productId={editingProduct?.id || null}
+                    restaurantId={restaurant?.id || ''}
+                    selectedGroups={selectedAddonGroups}
+                    onSelectionChange={setSelectedAddonGroups}
+                  />
+                </div>
                 <Button
                   className="w-full"
                   onClick={handleSave}
@@ -549,12 +609,18 @@ export default function Products() {
                       )}
                     </TableCell>
                     <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {product.name}
                         {product.has_sizes && (
                           <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
                             P/M/G
                           </span>
+                        )}
+                        {productAddonCounts[product.id] > 0 && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <CirclePlus className="w-3 h-3" />
+                            {productAddonCounts[product.id]}
+                          </Badge>
                         )}
                       </div>
                     </TableCell>
