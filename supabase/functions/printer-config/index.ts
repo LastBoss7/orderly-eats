@@ -43,10 +43,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch salon settings with print layout
+    // Fetch salon settings with print layout and special printer assignments
     const { data: salonSettings } = await supabase
       .from("salon_settings")
-      .select("print_layout, receipt_header, receipt_footer, show_address_on_receipt, show_phone_on_receipt, show_cnpj_on_receipt")
+      .select("print_layout, receipt_header, receipt_footer, show_address_on_receipt, show_phone_on_receipt, show_cnpj_on_receipt, conference_printer_id, closing_printer_id")
       .eq("restaurant_id", restaurantId)
       .maybeSingle();
 
@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
           showAddress: salonSettings?.show_address_on_receipt ?? true,
           showPhone: salonSettings?.show_phone_on_receipt ?? true,
           showCnpj: salonSettings?.show_cnpj_on_receipt ?? false,
+          conferencePrinterId: salonSettings?.conference_printer_id || null,
+          closingPrinterId: salonSettings?.closing_printer_id || null,
         },
         printers: printers || [],
         categories: categories || [],

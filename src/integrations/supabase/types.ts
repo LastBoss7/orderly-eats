@@ -866,6 +866,8 @@ export type Database = {
           auto_print_counter: boolean | null
           auto_print_delivery: boolean | null
           auto_print_table: boolean | null
+          closing_printer_id: string | null
+          conference_printer_id: string | null
           counter_prep_max: number | null
           counter_prep_min: number | null
           created_at: string
@@ -897,6 +899,8 @@ export type Database = {
           auto_print_counter?: boolean | null
           auto_print_delivery?: boolean | null
           auto_print_table?: boolean | null
+          closing_printer_id?: string | null
+          conference_printer_id?: string | null
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string
@@ -928,6 +932,8 @@ export type Database = {
           auto_print_counter?: boolean | null
           auto_print_delivery?: boolean | null
           auto_print_table?: boolean | null
+          closing_printer_id?: string | null
+          conference_printer_id?: string | null
           counter_prep_max?: number | null
           counter_prep_min?: number | null
           created_at?: string
@@ -955,7 +961,22 @@ export type Database = {
           table_count?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "salon_settings_closing_printer_id_fkey"
+            columns: ["closing_printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salon_settings_conference_printer_id_fkey"
+            columns: ["conference_printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tab_payments: {
         Row: {
