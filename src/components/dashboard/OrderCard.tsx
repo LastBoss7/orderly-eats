@@ -159,7 +159,7 @@ export function OrderCard({
       <div 
         {...listeners} 
         {...attributes}
-        className="absolute top-2 right-2 p-1.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors z-10"
+        className="absolute top-2 right-2 p-1.5 cursor-grab active:cursor-grabbing text-muted-foreground z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-4 h-4" />
