@@ -28,9 +28,9 @@ class PrinterService {
     const isConference = order.order_type === 'conference';
     const isClosing = order.order_type === 'closing';
     
-    console.log(`[PrintOrder] Order: #${order.order_number || order.id?.slice(0, 8)}`);
-    console.log(`[PrintOrder] Printer: "${printerName}"`);
-    console.log(`[PrintOrder] Type: ${order.order_type}`);
+    console.log('[PrintOrder] Order: #' + (order.order_number || (order.id ? order.id.slice(0, 8) : '?')));
+    console.log('[PrintOrder] Printer: "' + printerName + '"');
+    console.log('[PrintOrder] Type: ' + order.order_type);
     
     // Format receipt based on type
     let receipt;
@@ -63,8 +63,8 @@ class PrinterService {
     lines.push('');
     lines.push(this.center('Impressora configurada!', width));
     lines.push('');
-    lines.push(`Largura: ${width} caracteres`);
-    lines.push(`Impressora: ${printerName || 'padrao'}`);
+    lines.push('Largura: ' + width + ' caracteres');
+    lines.push('Impressora: ' + (printerName || 'padrao'));
     lines.push('');
     lines.push(divSmall);
     lines.push(this.alignBoth('(2) X-Burguer', 'R$ 29,90', width));
@@ -160,7 +160,7 @@ class PrinterService {
   // ============================================
   
   async printWindows(data, printerName) {
-    const tmpFile = path.join(os.tmpdir(), `gamako_print_${Date.now()}.bin`);
+    const tmpFile = path.join(os.tmpdir(), 'gamako_print_' + Date.now() + '.bin');
     
     try {
       // Write binary data to temp file
@@ -183,20 +183,20 @@ class PrinterService {
       
       for (let i = 0; i < methods.length; i++) {
         try {
-          console.log(`[PrintText] Method ${i + 1}/${methods.length}: ${methods[i].name}...`);
+          console.log('[PrintText] Method ' + (i + 1) + '/' + methods.length + ': ' + methods[i].name + '...');
           await methods[i].fn();
           console.log('[PrintText] SUCCESS with', methods[i].name);
           this.cleanup(tmpFile);
           return true;
         } catch (err) {
-          const errMsg = `${methods[i].name}: ${err.message}`;
-          console.log(`[PrintText] ${errMsg}`);
+          const errMsg = methods[i].name + ': ' + err.message;
+          console.log('[PrintText] ' + errMsg);
           errors.push(errMsg);
         }
       }
       
       this.cleanup(tmpFile);
-      throw new Error(`Todos falharam - ${errors.join('; ')}`);
+      throw new Error('Todos falharam - ' + errors.join('; '));
       
     } catch (error) {
       this.cleanup(tmpFile);
@@ -240,8 +240,9 @@ class PrinterService {
         '}',
         '',
         '# Otherwise use copy to printer share',
-        '$sharePath = "\\\\localhost\\" + $printerName',
-        '$null = & cmd.exe /c ("copy /b `"" + $filePath + "`" `"" + $sharePath + "`"") 2>&1',
+        '$sharePath = "\\\\\\\\localhost\\\\" + $printerName',
+        '$copyCmd = "copy /b """ + $filePath + """ """ + $sharePath + """"',
+        '$null = & cmd.exe /c $copyCmd 2>&1',
         'if ($LASTEXITCODE -eq 0) {',
         '    Write-Host "OK"',
         '} else {',
@@ -249,11 +250,11 @@ class PrinterService {
         '}',
       ].join('\r\n');
       
-      const psFile = path.join(os.tmpdir(), `gamako_simple_${Date.now()}.ps1`);
+      const psFile = path.join(os.tmpdir(), 'gamako_simple_' + Date.now() + '.ps1');
       fs.writeFileSync(psFile, psScript, 'utf8');
 
       exec(
-        `powershell -NoProfile -ExecutionPolicy Bypass -File "${psFile}"`,
+        'powershell -NoProfile -ExecutionPolicy Bypass -File "' + psFile + '"',
         { timeout: 20000, windowsHide: true },
         (error, stdout, stderr) => {
           this.cleanup(psFile);
@@ -276,98 +277,100 @@ class PrinterService {
   async printWin32Api(filePath, printerName) {
     return new Promise((resolve, reject) => {
       // PowerShell script that uses Windows API for RAW printing
-      const psScript = `
-$ErrorActionPreference = 'Stop'
-$printerName = '${printerName}'
-$filePath = '${filePath.replace(/\\/g, '\\\\')}'
-
-# Read the binary data
-$bytes = [System.IO.File]::ReadAllBytes($filePath)
-
-# Add the required type for RAW printing
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-
-public class RawPrinterHelper {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct DOCINFO {
-        [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
-        [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
-        [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
-    }
-
-    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
-
-    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern bool StartDocPrinter(IntPtr hPrinter, int Level, ref DOCINFO pDocInfo);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    public static extern bool StartPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    public static extern bool EndPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    public static extern bool EndDocPrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    public static extern bool ClosePrinter(IntPtr hPrinter);
-
-    public static void SendRawData(string printerName, byte[] data) {
-        IntPtr hPrinter;
-        if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {
-            throw new Exception("Erro ao abrir impressora: " + Marshal.GetLastWin32Error());
-        }
-
-        try {
-            var docInfo = new DOCINFO { 
-                pDocName = "Pedido", 
-                pOutputFile = null, 
-                pDataType = "RAW" 
-            };
-
-            if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {
-                throw new Exception("Erro StartDoc: " + Marshal.GetLastWin32Error());
-            }
-
-            try {
-                if (!StartPagePrinter(hPrinter)) {
-                    throw new Exception("Erro StartPage: " + Marshal.GetLastWin32Error());
-                }
-
-                try {
-                    int written;
-                    if (!WritePrinter(hPrinter, data, data.Length, out written)) {
-                        throw new Exception("Erro Write: " + Marshal.GetLastWin32Error());
-                    }
-                } finally {
-                    EndPagePrinter(hPrinter);
-                }
-            } finally {
-                EndDocPrinter(hPrinter);
-            }
-        } finally {
-            ClosePrinter(hPrinter);
-        }
-    }
-}
-"@
-
-[RawPrinterHelper]::SendRawData($printerName, $bytes)
-Write-Host "OK"
-`;
+      // Using array join to avoid template literal issues with special characters
+      const escapedFilePath = filePath.replace(/\\/g, '\\\\');
+      const psScript = [
+        "$ErrorActionPreference = 'Stop'",
+        "$printerName = '" + printerName + "'",
+        "$filePath = '" + escapedFilePath + "'",
+        "",
+        "# Read the binary data",
+        "$bytes = [System.IO.File]::ReadAllBytes($filePath)",
+        "",
+        "# Add the required type for RAW printing",
+        'Add-Type -TypeDefinition @"',
+        "using System;",
+        "using System.Runtime.InteropServices;",
+        "",
+        "public class RawPrinterHelper {",
+        "    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]",
+        "    public struct DOCINFO {",
+        "        [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;",
+        "        [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;",
+        "        [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;",
+        "    }",
+        "",
+        '    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]',
+        "    public static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);",
+        "",
+        '    [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true)]',
+        "    public static extern bool StartDocPrinter(IntPtr hPrinter, int Level, ref DOCINFO pDocInfo);",
+        "",
+        '    [DllImport("winspool.drv", SetLastError = true)]',
+        "    public static extern bool StartPagePrinter(IntPtr hPrinter);",
+        "",
+        '    [DllImport("winspool.drv", SetLastError = true)]',
+        "    public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);",
+        "",
+        '    [DllImport("winspool.drv", SetLastError = true)]',
+        "    public static extern bool EndPagePrinter(IntPtr hPrinter);",
+        "",
+        '    [DllImport("winspool.drv", SetLastError = true)]',
+        "    public static extern bool EndDocPrinter(IntPtr hPrinter);",
+        "",
+        '    [DllImport("winspool.drv", SetLastError = true)]',
+        "    public static extern bool ClosePrinter(IntPtr hPrinter);",
+        "",
+        "    public static void SendRawData(string printerName, byte[] data) {",
+        "        IntPtr hPrinter;",
+        "        if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {",
+        '            throw new Exception("Erro ao abrir impressora: " + Marshal.GetLastWin32Error());',
+        "        }",
+        "",
+        "        try {",
+        "            var docInfo = new DOCINFO { ",
+        '                pDocName = "Pedido", ',
+        "                pOutputFile = null, ",
+        '                pDataType = "RAW" ',
+        "            };",
+        "",
+        "            if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {",
+        '                throw new Exception("Erro StartDoc: " + Marshal.GetLastWin32Error());',
+        "            }",
+        "",
+        "            try {",
+        "                if (!StartPagePrinter(hPrinter)) {",
+        '                    throw new Exception("Erro StartPage: " + Marshal.GetLastWin32Error());',
+        "                }",
+        "",
+        "                try {",
+        "                    int written;",
+        "                    if (!WritePrinter(hPrinter, data, data.Length, out written)) {",
+        '                        throw new Exception("Erro Write: " + Marshal.GetLastWin32Error());',
+        "                    }",
+        "                } finally {",
+        "                    EndPagePrinter(hPrinter);",
+        "                }",
+        "            } finally {",
+        "                EndDocPrinter(hPrinter);",
+        "            }",
+        "        } finally {",
+        "            ClosePrinter(hPrinter);",
+        "        }",
+        "    }",
+        "}",
+        '"@',
+        "",
+        "[RawPrinterHelper]::SendRawData($printerName, $bytes)",
+        'Write-Host "OK"',
+      ].join("\r\n");
 
       // Save script to temp file
-      const psFile = path.join(os.tmpdir(), `gamako_ps_${Date.now()}.ps1`);
+      const psFile = path.join(os.tmpdir(), "gamako_ps_" + Date.now() + ".ps1");
       fs.writeFileSync(psFile, psScript, 'utf8');
 
       exec(
-        `powershell -ExecutionPolicy Bypass -File "${psFile}"`,
+        'powershell -ExecutionPolicy Bypass -File "' + psFile + '"',
         { timeout: 30000, windowsHide: true },
         (error, stdout, stderr) => {
           this.cleanup(psFile);
@@ -391,12 +394,12 @@ Write-Host "OK"
     return new Promise((resolve, reject) => {
       // Get computer name
       const computerName = process.env.COMPUTERNAME || 'localhost';
-      const sharePath = `\\\\${computerName}\\${printerName}`;
+      const sharePath = '\\\\' + computerName + '\\' + printerName;
       
       console.log('[PrintText] Copy to:', sharePath);
       
       exec(
-        `copy /b "${filePath}" "${sharePath}"`,
+        'copy /b "' + filePath + '" "' + sharePath + '"',
         { timeout: 15000, shell: 'cmd.exe', windowsHide: true },
         (error, stdout, stderr) => {
           if (error) {
@@ -415,7 +418,7 @@ Write-Host "OK"
   async printLpr(filePath, printerName) {
     return new Promise((resolve, reject) => {
       exec(
-        `lpr -S localhost -P "${printerName}" "${filePath}"`,
+        'lpr -S localhost -P "' + printerName + '" "' + filePath + '"',
         { timeout: 15000, windowsHide: true },
         (error, stdout, stderr) => {
           if (error) {
@@ -433,16 +436,16 @@ Write-Host "OK"
   // ============================================
   
   async printUnix(data, printerName) {
-    const tmpFile = path.join(os.tmpdir(), `gamako_print_${Date.now()}.bin`);
+    const tmpFile = path.join(os.tmpdir(), 'gamako_print_' + Date.now() + '.bin');
     
     try {
       fs.writeFileSync(tmpFile, data);
       
-      const printerArg = printerName ? `-d "${printerName}"` : '';
+      const printerArg = printerName ? '-d "' + printerName + '"' : '';
       
       return new Promise((resolve, reject) => {
         exec(
-          `lp -o raw ${printerArg} "${tmpFile}"`,
+          'lp -o raw ' + printerArg + ' "' + tmpFile + '"',
           { timeout: 15000 },
           (error, stdout, stderr) => {
             this.cleanup(tmpFile);
