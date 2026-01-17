@@ -61,7 +61,7 @@ export function DashboardLayout({ children, showHeader = false }: DashboardLayou
               </div>
             </header>
           )}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-hidden flex flex-col">
             {children}
           </div>
         </main>
