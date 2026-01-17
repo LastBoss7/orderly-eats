@@ -1192,7 +1192,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full bg-sky-500 hover:bg-sky-600 active:scale-[0.98] text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1 transition-all"
+              className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-8 text-xs rounded-md flex items-center justify-center gap-1"
               onClick={() => handleCloseTableFromOrder(order)}
             >
               Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
@@ -1207,7 +1207,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
               onClick={() => {
                 const nextStatus = order.status === 'pending' 
                   ? 'preparing' 
@@ -1230,7 +1230,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
+              className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-md flex items-center justify-center gap-1 bg-background"
               onClick={() => updateOrderStatus(order.id, 'preparing')}
             >
               Aceitar
@@ -1246,7 +1246,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
+              className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
               onClick={() => updateOrderStatus(order.id, 'delivered')}
             >
               <CheckCircle className="w-3 h-3" />
@@ -1262,7 +1262,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             onClick={(e) => e.stopPropagation()}
           >
             <button 
-              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white active:scale-[0.98] rounded-md flex items-center justify-center gap-1 bg-background transition-all"
+              className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded-md flex items-center justify-center gap-1 bg-background"
               onClick={() => updateOrderStatus(order.id, 'served')}
             >
               <CheckCircle className="w-3 h-3" />
