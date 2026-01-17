@@ -1056,13 +1056,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           >
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className={`w-full h-7 justify-between text-[11px] ${
+                <button 
+                  className={`w-full h-7 px-3 justify-between text-[11px] inline-flex items-center rounded-md border bg-background ${
                     order.driver_id 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                      : 'border-dashed'
+                      : 'border-dashed border-input'
                   }`}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
@@ -1071,7 +1069,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     {order.driver_id ? getDriverName(order.driver_id) : 'Motoboy'}
                   </span>
                   <ChevronDown className="w-3 h-3" />
-                </Button>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[160px]">
                 {drivers.length === 0 ? (
@@ -1155,13 +1153,11 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           >
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className={`w-full h-7 justify-between text-xs ${
+                <button 
+                  className={`w-full h-7 px-3 justify-between text-xs inline-flex items-center rounded-md border bg-background ${
                     order.status === 'out_for_delivery' 
                       ? 'border-blue-500 text-blue-600 bg-blue-50' 
-                      : ''
+                      : 'border-input'
                   }`}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
@@ -1177,7 +1173,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     )}
                   </span>
                   <ChevronDown className="w-3 h-3" />
-                </Button>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[160px]">
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateOrderStatus(order.id, 'preparing'); }} className="text-xs">
