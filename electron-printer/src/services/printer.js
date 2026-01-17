@@ -210,45 +210,44 @@ class PrinterService {
   async printRawSimple(filePath, printerName) {
     return new Promise((resolve, reject) => {
       // Use simpler PowerShell approach without Add-Type
-      const psScript = `
-$ErrorActionPreference = 'Stop'
-$printerName = "${printerName}"
-$filePath = "${filePath.replace(/\\/g, '\\\\')}"
-
-# Read binary data
-$bytes = [System.IO.File]::ReadAllBytes($filePath)
-
-# Get printer
-$printerPath = Get-Printer -Name "$printerName" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PortName
-
-if (-not $printerPath) {
-    # Try direct port
-    $printerPath = (Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Name='$printerName'" | Select-Object -First 1).PortName
-}
-
-if (-not $printerPath) {
-    throw "Impressora '$printerName' não encontrada"
-}
-
-# Write directly to port if it's a file-like port (LPT, COM, or USB)
-if ($printerPath -match '^(LPT|COM|USB)') {
-    [System.IO.File]::WriteAllBytes($printerPath, $bytes)
-    Write-Host "OK"
-    exit 0
-}
-
-# Otherwise use .NET printing
-$printJob = [System.Drawing.Printing.PrintDocument]::new()
-$printJob.PrinterSettings.PrinterName = $printerName
-
-# Create a raw print job using the spooler
-$null = & cmd.exe /c "copy /b `"$filePath`" `"\\\\localhost\\$printerName`"" 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "OK"
-} else {
-    throw "Falha ao enviar para spooler"
-}
-`;
+      // Note: Using string concatenation to avoid backtick issues with template literals
+      const escapedFilePath = filePath.replace(/\\/g, '\\\\');
+      const psScript = [
+        '$ErrorActionPreference = "Stop"',
+        '$printerName = "' + printerName + '"',
+        '$filePath = "' + escapedFilePath + '"',
+        '',
+        '# Read binary data',
+        '$bytes = [System.IO.File]::ReadAllBytes($filePath)',
+        '',
+        '# Get printer',
+        '$printerPath = Get-Printer -Name "$printerName" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty PortName',
+        '',
+        'if (-not $printerPath) {',
+        '    # Try direct port',
+        '    $printerPath = (Get-WmiObject -Query "SELECT * FROM Win32_Printer WHERE Name=\'$printerName\'" | Select-Object -First 1).PortName',
+        '}',
+        '',
+        'if (-not $printerPath) {',
+        '    throw "Impressora \'$printerName\' nao encontrada"',
+        '}',
+        '',
+        '# Write directly to port if it is a file-like port (LPT, COM, or USB)',
+        'if ($printerPath -match "^(LPT|COM|USB)") {',
+        '    [System.IO.File]::WriteAllBytes($printerPath, $bytes)',
+        '    Write-Host "OK"',
+        '    exit 0',
+        '}',
+        '',
+        '# Otherwise use copy to printer share',
+        '$sharePath = "\\\\localhost\\" + $printerName',
+        '$null = & cmd.exe /c ("copy /b `"" + $filePath + "`" `"" + $sharePath + "`"") 2>&1',
+        'if ($LASTEXITCODE -eq 0) {',
+        '    Write-Host "OK"',
+        '} else {',
+        '    throw "Falha ao enviar para spooler"',
+        '}',
+      ].join('\r\n');
       
       const psFile = path.join(os.tmpdir(), `gamako_simple_${Date.now()}.ps1`);
       fs.writeFileSync(psFile, psScript, 'utf8');
