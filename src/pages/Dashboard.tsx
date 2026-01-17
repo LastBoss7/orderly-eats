@@ -244,11 +244,13 @@ export default function Dashboard() {
     playNotificationSound 
   } = useOrderNotifications(restaurant?.id);
 
-  // DnD sensors
+  // DnD sensors - increased distance to prevent accidental drags when clicking
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 15, // Increased from 8 to prevent accidental drags on click
+        delay: 150, // Add delay before drag activates
+        tolerance: 5,
       },
     })
   );

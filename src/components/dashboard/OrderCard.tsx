@@ -109,10 +109,12 @@ export function OrderCard({
     id: order.id,
   });
 
-  const style = {
+  // Only apply transform when actually dragging to prevent visual jumping
+  const style = transform && isDragging ? {
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
-  };
+    opacity: 0.5,
+    zIndex: 50,
+  } : undefined;
 
   const getOrderTypeIcon = (type: string | null) => {
     switch (type) {
@@ -151,13 +153,13 @@ export function OrderCard({
       style={style}
       className={`bg-card rounded-xl border shadow-sm overflow-hidden relative ${
         isDelayed && order.status !== 'delivered' ? 'ring-2 ring-destructive' : ''
-      } ${isDragging ? 'shadow-xl z-50' : ''}`}
+      } ${isDragging ? 'shadow-xl' : ''}`}
     >
       {/* Drag Handle - on top border */}
       <div 
         {...listeners} 
         {...attributes}
-        className="absolute top-2 right-2 p-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors z-10"
+        className="absolute top-2 right-2 p-1.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-4 h-4" />
