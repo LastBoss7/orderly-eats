@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reconnect: () => ipcRenderer.invoke('reconnect'),
   refreshConfig: () => ipcRenderer.invoke('refresh-config'),
   
+  // Auto-start
+  setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
+  
   // App control
   quit: () => ipcRenderer.invoke('app-quit'),
   

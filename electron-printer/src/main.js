@@ -1158,12 +1158,42 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   initializeSupabase();
+  
+  // Setup auto-launch with Windows
+  setupAutoLaunch();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+});
+
+/**
+ * Setup auto-launch on Windows startup
+ */
+function setupAutoLaunch() {
+  if (process.platform !== 'win32') return;
+  
+  const autoStart = store.get('autoStart');
+  const appPath = app.getPath('exe');
+  const appName = 'GamakoPrintService';
+  
+  // Use Electron's setLoginItemSettings for auto-start
+  app.setLoginItemSettings({
+    openAtLogin: autoStart,
+    path: appPath,
+    args: ['--minimized'],
+  });
+  
+  console.log(`[AutoStart] ${autoStart ? 'Enabled' : 'Disabled'} auto-start on login`);
+}
+
+// IPC handler to toggle auto-start
+ipcMain.handle('set-auto-start', async (event, enabled) => {
+  store.set('autoStart', enabled);
+  setupAutoLaunch();
+  return { success: true, autoStart: enabled };
 });
 
 app.on('window-all-closed', () => {
