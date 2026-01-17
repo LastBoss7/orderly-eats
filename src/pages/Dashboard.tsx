@@ -1740,13 +1740,13 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 min-h-0 overflow-hidden p-3 flex gap-3">
+          <div className="flex-1 min-h-0 overflow-hidden p-2 flex gap-2">
             {/* Kanban Columns */}
-            <div className="flex-1 h-full flex gap-3 kanban-scroll overflow-x-auto">
+            <div className="flex-1 h-full flex gap-2 kanban-scroll overflow-x-auto min-w-0">
               {/* Column: Em análise */}
               <DroppableColumn 
                 id="column-pending" 
-                className="w-72 lg:w-80 flex-shrink-0 kanban-column analysis"
+                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column analysis"
               >
                 <div className="kanban-header analysis py-3 px-4">
                   <span className="text-sm font-bold">Em análise</span>
@@ -1794,7 +1794,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Em produção */}
               <DroppableColumn 
                 id="column-preparing" 
-                className="w-72 lg:w-80 flex-shrink-0 kanban-column production"
+                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column production"
               >
                 <div className="kanban-header production py-3 px-4">
                   <div className="flex items-center gap-2">
@@ -1825,7 +1825,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {/* Column: Prontos para entrega */}
               <DroppableColumn 
                 id="column-ready" 
-                className="w-72 lg:w-80 flex-shrink-0 kanban-column ready"
+                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column ready"
               >
                 <div className="kanban-header ready py-3 px-4">
                   <span className="text-sm font-bold">Prontos para entrega</span>
@@ -1864,7 +1864,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               {servedOrders.length > 0 && (
                 <DroppableColumn 
                   id="served" 
-                  className="w-72 lg:w-80 flex-shrink-0 kanban-column served"
+                  className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column served"
                 >
                   <div className="kanban-header served py-3 px-4">
                     <span className="text-sm font-bold">🍽️ Servidos</span>
@@ -1886,44 +1886,44 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             </div>
 
             {/* Right Sidebar - Table/Tab Stats */}
-            <div className="w-14 flex-shrink-0 flex flex-col gap-2">
+            <div className="w-11 flex-shrink-0 flex flex-col gap-1.5">
               {/* Open Tables Counter */}
-              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
+                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <UtensilsCrossed className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-sm font-bold text-foreground">
                   {orders.filter(o => o.table_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
                     if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
                     return acc;
                   }, [] as string[]).length}
                 </span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight">Mesas</span>
+                <span className="text-[8px] text-muted-foreground text-center leading-tight">Mesas</span>
               </div>
 
               {/* Open Tabs Counter */}
-              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                  <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
+                <div className="w-6 h-6 rounded-md bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                  <User className="w-3 h-3 text-violet-600 dark:text-violet-400" />
                 </div>
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-sm font-bold text-foreground">
                   {orders.filter(o => o.tab_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
                     if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
                     return acc;
                   }, [] as string[]).length}
                 </span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight">Comandas</span>
+                <span className="text-[8px] text-muted-foreground text-center leading-tight">Comandas</span>
               </div>
 
               {/* Delivery Counter */}
-              <div className="bg-card border rounded-lg p-2 flex flex-col items-center gap-1">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
+                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Bike className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-sm font-bold text-foreground">
                   {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status || '')).length}
                 </span>
-                <span className="text-[9px] text-muted-foreground text-center leading-tight">Delivery</span>
+                <span className="text-[8px] text-muted-foreground text-center leading-tight">Delivery</span>
               </div>
             </div>
           </div>
