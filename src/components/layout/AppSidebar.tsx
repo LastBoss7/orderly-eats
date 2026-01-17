@@ -53,6 +53,7 @@ import {
   Clock,
   History,
   Wallet,
+  CirclePlus,
   UserCircle,
   Settings2,
   PanelLeftClose,
@@ -71,6 +72,7 @@ const mainMenuItems = [
 
 const cardapioSubmenu = [
   { title: 'Gestor', url: '/products', icon: Package },
+  { title: 'Adicionais', url: '/addons', icon: CirclePlus },
   { title: 'Categorias', url: '/categories', icon: FolderOpen },
   { title: 'Imagens do cardápio', url: '/menu-images', icon: Image },
   { title: 'Edição em massa', url: '/bulk-edit', icon: Edit3 },

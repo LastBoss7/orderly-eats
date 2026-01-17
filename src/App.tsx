@@ -34,6 +34,7 @@ import TabHistory from "./pages/TabHistory";
 import ClosingHistory from "./pages/ClosingHistory";
 import RestaurantSettings from "./pages/RestaurantSettings";
 import AdminDashboard from "./pages/AdminDashboard";
+import Addons from "./pages/Addons";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,7 @@ const AnimatedRoutes = () => {
           <Route path="/pos" element={<POS />} />
           <Route path="/tables" element={<Tables />} />
           <Route path="/products" element={<Products />} />
+          <Route path="/addons" element={<Addons />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/menu-images" element={<MenuImages />} />
           <Route path="/bulk-edit" element={<BulkEdit />} />
