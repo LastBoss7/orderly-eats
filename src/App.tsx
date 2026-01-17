@@ -35,6 +35,7 @@ import ClosingHistory from "./pages/ClosingHistory";
 import RestaurantSettings from "./pages/RestaurantSettings";
 import AdminDashboard from "./pages/AdminDashboard";
 import Addons from "./pages/Addons";
+import NFCeSettings from "./pages/NFCeSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,7 @@ const AnimatedRoutes = () => {
           <Route path="/tab-history" element={<TabHistory />} />
           <Route path="/closing-history" element={<ClosingHistory />} />
           <Route path="/restaurant-settings" element={<RestaurantSettings />} />
+          <Route path="/nfce-settings" element={<NFCeSettings />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.printer-sync]
 verify_jwt = false
+
+[functions.nfce-emit]
+verify_jwt = false
+
+[functions.nfce-status]
+verify_jwt = false
+
+[functions.nfce-cancel]
+verify_jwt = false
