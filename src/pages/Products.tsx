@@ -29,7 +29,8 @@ import {
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image } from 'lucide-react';
+import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles } from 'lucide-react';
+import { MenuImportModal } from '@/components/products/MenuImportModal';
 
 interface Category {
   id: string;
@@ -72,6 +73,7 @@ export default function Products() {
   const [priceLarge, setPriceLarge] = useState('');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const fetchData = async () => {
     if (!restaurant?.id) return;
@@ -306,12 +308,18 @@ export default function Products() {
               if (!open) resetForm();
             }}
           >
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowImportModal(true)}>
+              <Sparkles className="w-4 h-4 mr-2" />
+              Importar com IA
+            </Button>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="w-4 h-4 mr-2" />
                 Novo Produto
               </Button>
             </DialogTrigger>
+          </div>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
@@ -589,6 +597,15 @@ export default function Products() {
             </Table>
           </div>
         )}
+
+        {/* Menu Import Modal */}
+        <MenuImportModal
+          open={showImportModal}
+          onOpenChange={setShowImportModal}
+          restaurantId={restaurant?.id || ''}
+          categories={categories}
+          onSuccess={fetchData}
+        />
       </div>
     </DashboardLayout>
   );
