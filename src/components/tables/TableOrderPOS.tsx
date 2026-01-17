@@ -615,9 +615,9 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
         </div>
 
         {/* Right Section - Cart */}
-        <div className="w-80 border-l bg-card flex flex-col h-full">
+        <div className="w-80 border-l bg-card flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="p-4 border-b flex-shrink-0">
+          <div className="p-4 border-b shrink-0">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Itens do pedido</h3>
               <span className="text-sm text-muted-foreground">Subtotal</span>
@@ -625,7 +625,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           </div>
 
           {/* Scrollable cart items - this is the only part that scrolls */}
-          <div className="flex-1 min-h-0 relative overflow-hidden">
+          <div className="flex-1 min-h-0 relative overflow-auto">
             <ScrollArea 
               className="h-full"
               ref={cartScrollRef}
@@ -784,7 +784,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           </div>
 
           {/* Fixed bottom section - Totals & Actions */}
-          <div className="border-t bg-card flex-shrink-0">
+          <div className="border-t bg-card shrink-0">
             {/* Totals */}
             <div className="p-4 space-y-2 border-b">
               <div className="flex justify-between text-sm">
