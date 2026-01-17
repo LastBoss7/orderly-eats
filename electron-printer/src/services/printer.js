@@ -26,14 +26,17 @@ class PrinterService {
   async printOrder(order, options = {}) {
     const { layout = {}, restaurantInfo = {}, printerName = '' } = options;
     const isConference = order.order_type === 'conference';
+    const isClosing = order.order_type === 'closing';
     
     console.log(`[PrintOrder] Order: #${order.order_number || order.id?.slice(0, 8)}`);
     console.log(`[PrintOrder] Printer: "${printerName}"`);
     console.log(`[PrintOrder] Type: ${order.order_type}`);
     
-    // Format receipt
+    // Format receipt based on type
     let receipt;
-    if (isConference) {
+    if (isClosing) {
+      receipt = this.formatClosingReceipt(order, layout, restaurantInfo);
+    } else if (isConference) {
       receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
     } else {
       receipt = this.formatReceipt(order, layout, restaurantInfo);
@@ -718,6 +721,116 @@ Write-Host "OK"
     
     lines.push('');
     lines.push(this.center('Obrigado pela preferencia!', width));
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    
+    return lines.join('\n');
+  }
+
+  /**
+   * Format closing/daily report receipt
+   */
+  formatClosingReceipt(order, layout, restaurantInfo = {}) {
+    const width = parseInt(layout.paperWidth, 10) || 48;
+    const div = '='.repeat(width);
+    const divSmall = '-'.repeat(width);
+    const lines = [];
+    
+    // Parse closing data from notes
+    let data = {};
+    try {
+      data = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      data = {};
+    }
+    
+    const settings = data.receiptSettings || {};
+    
+    // Header
+    if (restaurantInfo.name || data.restaurantName) {
+      lines.push(this.center(this.sanitizeText((restaurantInfo.name || data.restaurantName).toUpperCase()), width));
+    }
+    
+    if (settings.showAddress && (settings.address || restaurantInfo.address)) {
+      const addr = settings.address || restaurantInfo.address;
+      this.wrapText(this.sanitizeText(addr), width).forEach(line => lines.push(this.center(line, width)));
+    }
+    
+    if (settings.showPhone && (settings.phone || restaurantInfo.phone)) {
+      lines.push(this.center('Tel: ' + (settings.phone || restaurantInfo.phone), width));
+    }
+    
+    if (settings.showCnpj && (settings.cnpj || restaurantInfo.cnpj)) {
+      lines.push(this.center('CNPJ: ' + (settings.cnpj || restaurantInfo.cnpj), width));
+    }
+    
+    lines.push('');
+    lines.push(div);
+    lines.push(this.center('RELATORIO DE FECHAMENTO', width));
+    lines.push(this.center(data.date || new Date().toLocaleDateString('pt-BR'), width));
+    lines.push(div);
+    
+    // Period
+    lines.push('');
+    lines.push('PERIODO:');
+    lines.push(this.alignBoth('Abertura:', data.openedAt || '--:--', width));
+    lines.push(this.alignBoth('Fechamento:', data.closedAt || '--:--', width));
+    
+    lines.push('');
+    lines.push(divSmall);
+    
+    // Summary
+    lines.push('RESUMO:');
+    lines.push(this.alignBoth('Total de Pedidos:', String(data.totalOrders || 0), width));
+    lines.push(this.alignBoth('Pedidos Cancelados:', String(data.cancelledOrders || 0), width));
+    lines.push(this.alignBoth('Ticket Medio:', 'R$ ' + (data.averageTicket || 0).toFixed(2).replace('.', ','), width));
+    
+    lines.push('');
+    lines.push(div);
+    lines.push(this.alignBoth('FATURAMENTO TOTAL:', 'R$ ' + (data.totalRevenue || 0).toFixed(2).replace('.', ','), width));
+    lines.push(div);
+    
+    // Payment breakdown
+    if (data.paymentBreakdown && data.paymentBreakdown.length > 0) {
+      lines.push('');
+      lines.push('FORMAS DE PAGAMENTO:');
+      lines.push(divSmall);
+      
+      for (const pay of data.paymentBreakdown) {
+        const label = pay.method + ' (' + pay.count + 'x)';
+        const value = 'R$ ' + (pay.total || 0).toFixed(2).replace('.', ',');
+        lines.push(this.alignBoth(this.sanitizeText(label), value, width));
+      }
+    }
+    
+    // Order type breakdown
+    if (data.orderTypeBreakdown && data.orderTypeBreakdown.length > 0) {
+      lines.push('');
+      lines.push('TIPOS DE PEDIDO:');
+      lines.push(divSmall);
+      
+      for (const type of data.orderTypeBreakdown) {
+        const label = type.type + ' (' + type.count + 'x)';
+        const value = 'R$ ' + (type.total || 0).toFixed(2).replace('.', ',');
+        lines.push(this.alignBoth(this.sanitizeText(label), value, width));
+      }
+    }
+    
+    // Footer
+    lines.push('');
+    lines.push(div);
+    
+    if (settings.receiptFooter) {
+      this.wrapText(this.sanitizeText(settings.receiptFooter), width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
+    }
+    
+    lines.push(this.center('Relatorio gerado automaticamente', width));
+    lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
+    
     lines.push('');
     lines.push('');
     lines.push('');
