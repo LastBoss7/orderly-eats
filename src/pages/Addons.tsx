@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Loader2, Pencil, Trash2, Package, GripVertical } from 'lucide-react';
+import { CategoryAddonLinker } from '@/components/products/CategoryAddonLinker';
 
 interface AddonGroup {
   id: string;
@@ -521,6 +522,13 @@ export default function Addons() {
                         <p className="text-xs text-muted-foreground mt-1">
                           Seleção: {group.min_selections} - {group.max_selections} itens
                         </p>
+                        {/* Category Links */}
+                        <div className="mt-2">
+                          <CategoryAddonLinker 
+                            groupId={group.id} 
+                            restaurantId={restaurant?.id || ''} 
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Switch

@@ -182,6 +182,7 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
             {restaurantId && (
               <ProductAddonSelector
                 productId={product.id}
+                productCategoryId={product.category_id}
                 restaurantId={restaurantId}
                 selectedAddons={selectedAddons}
                 onSelectionChange={setSelectedAddons}

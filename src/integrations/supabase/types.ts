@@ -207,6 +207,42 @@ export type Database = {
           },
         ]
       }
+      category_addon_groups: {
+        Row: {
+          addon_group_id: string
+          category_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          addon_group_id: string
+          category_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          addon_group_id?: string
+          category_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_addon_groups_addon_group_id_fkey"
+            columns: ["addon_group_id"]
+            isOneToOne: false
+            referencedRelation: "addon_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "category_addon_groups_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
