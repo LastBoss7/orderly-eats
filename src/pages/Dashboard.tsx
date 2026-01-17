@@ -1692,7 +1692,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                       <Button 
                         size="sm" 
                         variant="outline" 
-                        className="h-5 text-[10px] px-1.5"
+                        className="h-5 text-[10px] px-1.5 bg-white/90 text-emerald-700 border-white/50 hover:bg-white hover:text-emerald-800"
                         onClick={handleFinalizeAllReady}
                       >
                         Todos
