@@ -89,6 +89,8 @@ import {
   ChevronDown,
   Truck,
   Activity,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -199,12 +201,22 @@ export default function Dashboard() {
   const [isStoreOpen, setIsStoreOpen] = useState(false);
   const [recentlyUpdatedOrders, setRecentlyUpdatedOrders] = useState<Set<string>>(new Set());
   const [recentActivity, setRecentActivity] = useState<{ orderId: string; timestamp: number; status: string }[]>([]);
+  const [isCompactMode, setIsCompactMode] = useState(() => {
+    // Load from localStorage
+    const saved = localStorage.getItem('dashboard-compact-mode');
+    return saved === 'true';
+  });
   const [prepTimes, setPrepTimes] = useState<PrepTimeSettings>({
     counter_min: 10,
     counter_max: 50,
     delivery_min: 25,
     delivery_max: 80,
   });
+  
+  // Save compact mode preference
+  useEffect(() => {
+    localStorage.setItem('dashboard-compact-mode', String(isCompactMode));
+  }, [isCompactMode]);
   
   // Close table/tab modal states
   const [showCloseTableModal, setShowCloseTableModal] = useState(false);
@@ -927,6 +939,125 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
       return '';
     };
 
+    // COMPACT MODE CARD
+    if (isCompactMode) {
+      return (
+        <div 
+          ref={setNodeRef} 
+          style={style}
+          className={`order-card relative ${getCardBorderClass()} ${
+            delayed && order.status !== 'delivered' ? 'delayed' : ''
+          } ${isDragging ? 'z-50 opacity-50' : ''} ${isRecentlyUpdated ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30' : ''}`}
+        >
+          {/* Drag Handle - Compact */}
+          <div 
+            {...listeners} 
+            {...attributes}
+            className="absolute top-1.5 right-1 p-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/40 z-10 hover:text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </div>
+
+          {/* Compact Card Content */}
+          <div 
+            className="p-2.5 cursor-pointer"
+            onClick={() => handleOpenOrderDetail(order)}
+          >
+            {/* Single Row: Icon, Number, Location/Type, Timer, Total */}
+            <div className="flex items-center gap-2 pr-4">
+              <span className="w-6 h-6 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                {getOrderTypeIcon(order.order_type)}
+              </span>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-sm text-foreground">
+                    {getOrderDisplayNumber(order)}
+                  </span>
+                  {delayed && order.status === 'preparing' && (
+                    <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">
+                      ATRASADO
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  {locationInfo ? (
+                    <span className={`font-medium ${locationInfo.type === 'table' ? 'text-emerald-600' : 'text-violet-600'}`}>
+                      {locationInfo.label}
+                    </span>
+                  ) : (
+                    <span className="truncate max-w-[100px]">{order.customer_name || 'Não identificado'}</span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Timer Badge - Compact */}
+              <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold flex-shrink-0 ${
+                timer?.isOverdue 
+                  ? 'bg-destructive/10 text-destructive' 
+                  : timer && timer.percentage > 75
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                    : 'bg-muted text-muted-foreground'
+              }`}>
+                <Clock className="w-2.5 h-2.5" />
+                {timer ? formatElapsedTimeWithSeconds(timer.elapsedSeconds) : formatTime(order.created_at)}
+              </div>
+              
+              {/* Total - Compact */}
+              <span className="font-bold text-sm flex-shrink-0">{formatCurrency(order.total)}</span>
+            </div>
+          </div>
+
+          {/* Compact Action Buttons */}
+          {(showAdvanceButton || showFinalizeButton || showCloseButton) && (
+            <div className="px-2.5 pb-2" onClick={(e) => e.stopPropagation()}>
+              {showCloseButton && locationInfo && (
+                <button 
+                  className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium h-7 text-xs rounded flex items-center justify-center gap-1 transition-colors"
+                  onClick={() => handleCloseTableFromOrder(order)}
+                >
+                  Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'} →
+                </button>
+              )}
+              
+              {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
+                <button 
+                  className="w-full h-7 text-xs border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded flex items-center justify-center gap-1 bg-background font-medium transition-colors"
+                  onClick={() => {
+                    const nextStatus = order.status === 'pending' ? 'preparing' : order.status === 'preparing' ? 'ready' : 'served';
+                    updateOrderStatus(order.id, nextStatus);
+                  }}
+                >
+                  {order.status === 'ready' ? 'Servido' : 'Avançar'} →
+                </button>
+              )}
+              
+              {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
+                <button 
+                  className="w-full h-7 text-xs border border-green-600 text-green-600 hover:bg-green-600 hover:text-white rounded flex items-center justify-center gap-1 bg-background font-medium transition-colors"
+                  onClick={() => updateOrderStatus(order.id, 'delivered')}
+                >
+                  <CheckCircle className="w-3 h-3" />
+                  Entregue
+                </button>
+              )}
+              
+              {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && (
+                <button 
+                  className="w-full h-7 text-xs border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white rounded flex items-center justify-center gap-1 bg-background font-medium transition-colors"
+                  onClick={() => updateOrderStatus(order.id, 'served')}
+                >
+                  Servido
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // EXPANDED MODE CARD (default)
     return (
       <div 
         ref={setNodeRef} 
@@ -1491,8 +1622,25 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               </TooltipContent>
             </Tooltip>
             
-            {/* Icon buttons - compact */}
-            <div className="flex items-center">
+            {/* Icon buttons */}
+            <div className="flex items-center gap-0.5">
+              {/* Compact Mode Toggle */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className={`h-8 w-8 ${isCompactMode ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
+                    onClick={() => setIsCompactMode(!isCompactMode)}
+                  >
+                    {isCompactMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">{isCompactMode ? 'Modo expandido' : 'Modo compacto'}</p>
+                </TooltipContent>
+              </Tooltip>
+              
               <Button 
                 variant="ghost" 
                 size="icon"
