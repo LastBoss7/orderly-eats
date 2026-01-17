@@ -510,9 +510,14 @@ class PrinterService {
       lines.push('Tipo: ' + (typeLabels[order.order_type] || order.order_type || 'N/A'));
     }
     
-    // Table
+    // Table - Only show the number, not "Mesa X Mesa X"
     if (layout.showTable !== false && (order.table_number || order.table_id)) {
-      lines.push('Mesa: ' + (order.table_number || order.table_id));
+      const tableNum = order.table_number || order.table_id;
+      // Check if tableNum already contains "Mesa" to avoid duplication
+      const tableLabel = String(tableNum).toLowerCase().includes('mesa') 
+        ? tableNum 
+        : 'Mesa ' + tableNum;
+      lines.push(tableLabel);
     }
     
     // Waiter
@@ -549,8 +554,13 @@ class PrinterService {
         const qty = item.quantity || 1;
         let name = this.sanitizeText(item.product_name || 'Item');
         
+        // Only add size if it's NOT already in the product_name
+        // (to avoid duplication like "Salada Mista (G) (G)")
         if (layout.showItemSize !== false && item.product_size) {
-          name += ' (' + item.product_size + ')';
+          const sizePattern = new RegExp('\\(' + item.product_size + '\\)', 'i');
+          if (!sizePattern.test(name)) {
+            name += ' (' + item.product_size + ')';
+          }
         }
         
         const itemText = '(' + qty + ') ' + name;

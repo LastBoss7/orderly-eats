@@ -175,6 +175,7 @@ async function loadConfig() {
     setRadioValue('escpos', config.escpos !== false ? '1' : '0');
     setRadioValue('bold', config.bold !== false ? '1' : '0');
     setRadioValue('removeAccents', config.removeAccents !== false ? '1' : '0');
+    setRadioValue('autoStart', config.autoStart ? '1' : '0');
     
     selectedPrinters = config.selectedPrinters || [];
     
@@ -220,10 +221,15 @@ async function saveConfig() {
       cashDrawer: document.getElementById('cashDrawer').value.trim(),
       bold: getRadioValue('bold') === '1',
       removeAccents: getRadioValue('removeAccents') === '1',
+      autoStart: getRadioValue('autoStart') === '1',
       selectedPrinters: selectedPrinters,
     };
     
     await window.electronAPI.saveConfig(config);
+    
+    // Update auto-start setting
+    await window.electronAPI.setAutoStart(config.autoStart);
+    
     showStatus('Configurações salvas!', 'success');
     
     // Sincroniza impressoras após salvar
