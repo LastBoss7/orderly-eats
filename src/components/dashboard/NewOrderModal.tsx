@@ -769,6 +769,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         product_size: item.size || null,
         quantity: item.quantity,
         notes: item.notes || null,
+        category_id: item.product.category_id || null,
       }));
 
       const { error: itemsError } = await supabase

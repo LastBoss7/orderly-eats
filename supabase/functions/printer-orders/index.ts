@@ -13,6 +13,7 @@ interface OrderItem {
   product_price: number;
   product_size: string | null;
   product_id: string | null;
+  category_id: string | null;
   products: { category_id: string | null }[] | null;
 }
 
@@ -33,6 +34,7 @@ interface Order {
   waiter_id: string | null;
   order_number: number | null;
   payment_method: string | null;
+  restaurant_id: string;
   order_items: OrderItem[];
   tables: { number: number }[] | null;
   waiters: { id: string; name: string }[] | null;
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
           waiter_id,
           order_number,
           payment_method,
+          restaurant_id,
           order_items (
             id,
             product_name,
@@ -91,6 +94,7 @@ Deno.serve(async (req) => {
             product_price,
             product_size,
             product_id,
+            category_id,
             products (
               category_id
             )
@@ -117,6 +121,49 @@ Deno.serve(async (req) => {
 
       console.log(`[printer-orders] Found ${orders?.length || 0} pending orders`);
 
+      // Fetch all products for category lookup fallback (when product_id is null)
+      const { data: allProducts } = await supabase
+        .from("products")
+        .select("id, name, category_id")
+        .eq("restaurant_id", restaurantId);
+
+      // Create a map for quick product name lookup
+      const productNameToCategoryMap = new Map<string, string>();
+      if (allProducts) {
+        for (const product of allProducts) {
+          if (product.category_id) {
+            // Store with normalized name (lowercase, trimmed, without size suffix)
+            const normalizedName = product.name.toLowerCase().trim();
+            productNameToCategoryMap.set(normalizedName, product.category_id);
+          }
+        }
+      }
+
+      // Helper function to find category by product name (fuzzy match)
+      const findCategoryByName = (productName: string): string | null => {
+        if (!productName) return null;
+        
+        // Remove size suffixes like (P), (M), (G) and normalize
+        const cleanName = productName
+          .replace(/\s*\([PMG]\)\s*$/i, '')
+          .toLowerCase()
+          .trim();
+        
+        // Try exact match first
+        if (productNameToCategoryMap.has(cleanName)) {
+          return productNameToCategoryMap.get(cleanName)!;
+        }
+        
+        // Try partial match
+        for (const [name, categoryId] of productNameToCategoryMap.entries()) {
+          if (cleanName.includes(name) || name.includes(cleanName)) {
+            return categoryId;
+          }
+        }
+        
+        return null;
+      };
+
       // Format orders for Electron
       const formattedOrders = (orders as Order[]).map((order) => ({
         id: order.id,
@@ -134,15 +181,31 @@ Deno.serve(async (req) => {
         waiter_name: order.waiters?.[0]?.name || null,
         print_count: order.print_count || 0,
         payment_method: order.payment_method,
-        order_items: order.order_items.map((item) => ({
-          id: item.id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          notes: item.notes,
-          product_price: item.product_price,
-          product_size: item.product_size,
-          category_id: item.products?.[0]?.category_id || null,
-        })),
+        order_items: order.order_items.map((item) => {
+          // Priority for category_id:
+          // 1. Direct category_id on order_item (new column)
+          // 2. category_id from joined products table
+          // 3. Fallback: lookup by product name
+          let categoryId = item.category_id 
+            || item.products?.[0]?.category_id 
+            || null;
+          
+          // If still no category, try to find by product name
+          if (!categoryId && item.product_name) {
+            categoryId = findCategoryByName(item.product_name);
+            console.log(`[printer-orders] Item "${item.product_name}" - category lookup by name: ${categoryId || 'NOT FOUND'}`);
+          }
+          
+          return {
+            id: item.id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            notes: item.notes,
+            product_price: item.product_price,
+            product_size: item.product_size,
+            category_id: categoryId,
+          };
+        }),
       }));
 
       return new Response(

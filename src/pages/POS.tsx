@@ -220,6 +220,7 @@ export default function POS() {
         product_name: item.product.name,
         product_price: item.product.price,
         quantity: item.quantity,
+        category_id: item.product.category_id || null,
       }));
 
       const { error: itemsError } = await supabase

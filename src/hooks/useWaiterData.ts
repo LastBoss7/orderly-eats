@@ -210,6 +210,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
         quantity: item.quantity,
         notes: item.notes || null,
         product_size: item.product_size || null,
+        category_id: item.category_id || null,
       }));
 
       await supabase.from('order_items').insert(orderItems);
