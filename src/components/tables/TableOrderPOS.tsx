@@ -316,6 +316,12 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
       const orderType = isTab ? 'table' : 'table'; // Both use 'table' type
       const shouldPrint = shouldAutoPrint('table');
       
+      // Get next order number atomically using database function
+      const { data: orderNumber, error: orderNumberError } = await supabase
+        .rpc('get_next_order_number', { _restaurant_id: restaurant?.id });
+      
+      if (orderNumberError) throw orderNumberError;
+      
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -324,6 +330,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           table_id: isTab ? null : targetId,
           tab_id: isTab ? targetId : null,
           order_type: orderType,
+          order_number: orderNumber,
           status: 'pending',
           print_status: 'pending', // Always print via Electron
           total: cartTotal,
