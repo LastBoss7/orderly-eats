@@ -386,7 +386,7 @@ let isCheckingOrders = false;
 
 // Track last config refresh time
 let lastConfigRefresh = 0;
-const CONFIG_REFRESH_INTERVAL = 60000; // Refresh config every 60 seconds
+const CONFIG_REFRESH_INTERVAL = 30000; // Refresh config every 30 seconds for better sync
 
 function startOrderMonitoring() {
   if (checkInterval) {
@@ -546,14 +546,17 @@ async function refreshRestaurantConfig(restaurantId) {
     // Cache printers from config
     if (data.printers) {
       cachedDbPrinters = data.printers;
-      sendToRenderer('log', `✓ ${data.printers.length} impressora(s) configurada(s) no servidor`);
+      sendToRenderer('log', `✓ ${data.printers.length} impressora(s) ativa(s) no servidor`);
       
-      // Log category filters for each printer
+      // Log detailed category filters for each printer
       for (const p of data.printers) {
-        if (p.linked_categories && p.linked_categories.length > 0) {
-          sendToRenderer('log', `  → ${p.name}: ${p.linked_categories.length} categoria(s)`);
+        const categories = p.linked_categories;
+        if (categories && Array.isArray(categories) && categories.length > 0) {
+          sendToRenderer('log', `  → ${p.name}: ${categories.length} categoria(s) filtrada(s)`);
+          console.log(`[Config] Printer "${p.name}" linked_categories:`, JSON.stringify(categories));
         } else {
-          sendToRenderer('log', `  → ${p.name}: todas as categorias`);
+          sendToRenderer('log', `  → ${p.name}: TODAS as categorias (sem filtro)`);
+          console.log(`[Config] Printer "${p.name}" has NO category filter (linked_categories empty or null)`);
         }
       }
     }
@@ -643,36 +646,59 @@ function getOrderTypeLabel(orderType) {
  * Returns order items that match the printer's linked categories
  */
 function filterItemsByCategory(orderItems, dbPrinter, allCategoriesIds) {
-  // If linked_categories is null or empty array, print ALL items (cashier/general printer)
+  const printerName = dbPrinter?.name || dbPrinter?.printer_name || 'Unknown';
   const linkedCategories = dbPrinter?.linked_categories;
   
-  if (!linkedCategories || linkedCategories.length === 0) {
-    console.log(`[CategoryFilter] Printer has no category filter - printing all items`);
+  console.log(`[CategoryFilter] ========================================`);
+  console.log(`[CategoryFilter] Printer: "${printerName}"`);
+  console.log(`[CategoryFilter] Printer linked_categories:`, JSON.stringify(linkedCategories));
+  console.log(`[CategoryFilter] All category IDs:`, JSON.stringify(allCategoriesIds));
+  console.log(`[CategoryFilter] Items to filter: ${orderItems?.length || 0}`);
+  
+  // If linked_categories is null, undefined, or empty array, print ALL items (cashier/general printer)
+  if (!linkedCategories || !Array.isArray(linkedCategories) || linkedCategories.length === 0) {
+    console.log(`[CategoryFilter] ⚠ Printer has NO category filter - printing ALL items`);
+    sendToRenderer('log', `⚠ ${printerName}: sem filtro de categoria`);
     return orderItems;
   }
   
   // If all categories are selected, print all items
-  if (allCategoriesIds && linkedCategories.length === allCategoriesIds.length) {
-    console.log(`[CategoryFilter] All categories selected - printing all items`);
+  if (allCategoriesIds && Array.isArray(allCategoriesIds) && linkedCategories.length === allCategoriesIds.length) {
+    console.log(`[CategoryFilter] All categories selected (${linkedCategories.length}/${allCategoriesIds.length}) - printing all items`);
     return orderItems;
   }
   
   // Filter items by category_id
-  const filteredItems = orderItems.filter(item => {
+  const filteredItems = [];
+  const excludedItems = [];
+  
+  for (const item of orderItems) {
     const categoryId = item.category_id;
     
-    // If item has no category, include it (safety measure)
+    // If item has no category, EXCLUDE it (don't print to specialized printers)
     if (!categoryId) {
-      console.log(`[CategoryFilter] Item "${item.product_name}" has no category - including`);
-      return true;
+      console.log(`[CategoryFilter] ⚠ Item "${item.product_name}" has no category - EXCLUDING from ${printerName}`);
+      excludedItems.push({ name: item.product_name, reason: 'no_category' });
+      continue;
     }
     
     const included = linkedCategories.includes(categoryId);
-    console.log(`[CategoryFilter] Item "${item.product_name}" category ${categoryId}: ${included ? 'INCLUDED' : 'EXCLUDED'}`);
-    return included;
-  });
+    if (included) {
+      console.log(`[CategoryFilter] ✓ Item "${item.product_name}" (cat: ${categoryId}) - INCLUDED`);
+      filteredItems.push(item);
+    } else {
+      console.log(`[CategoryFilter] ✗ Item "${item.product_name}" (cat: ${categoryId}) - EXCLUDED`);
+      excludedItems.push({ name: item.product_name, categoryId, reason: 'category_not_linked' });
+    }
+  }
   
-  console.log(`[CategoryFilter] Filtered ${orderItems.length} -> ${filteredItems.length} items`);
+  console.log(`[CategoryFilter] Result: ${filteredItems.length} included, ${excludedItems.length} excluded`);
+  console.log(`[CategoryFilter] ========================================`);
+  
+  if (filteredItems.length > 0) {
+    sendToRenderer('log', `📋 ${printerName}: ${filteredItems.length} item(s) para imprimir`);
+  }
+  
   return filteredItems;
 }
 
@@ -769,8 +795,16 @@ async function printOrderToAllPrinters(order, dbPrinters) {
   
   // 1. Process DB printers with category filtering
   if (dbPrinters && dbPrinters.length > 0) {
+    console.log(`[PrintOrder] Processing ${dbPrinters.length} DB printers`);
+    
     for (const dbPrinter of dbPrinters) {
-      if (!dbPrinter.is_active || !dbPrinter.printer_name) continue;
+      console.log(`[PrintOrder] Checking printer: "${dbPrinter.name}" (active: ${dbPrinter.is_active}, printer_name: ${dbPrinter.printer_name})`);
+      console.log(`[PrintOrder] Printer linked_categories:`, JSON.stringify(dbPrinter.linked_categories));
+      
+      if (!dbPrinter.is_active || !dbPrinter.printer_name) {
+        console.log(`[PrintOrder] Skipping - inactive or no printer_name`);
+        continue;
+      }
       
       // Check if this printer handles this order type
       const types = dbPrinter.linked_order_types || ['counter', 'table', 'delivery'];
@@ -786,6 +820,7 @@ async function printOrderToAllPrinters(order, dbPrinters) {
       
       if (!printerExists) {
         console.log(`[PrintOrder] Printer "${dbPrinter.printer_name}" not found on system`);
+        sendToRenderer('log', `⚠ ${dbPrinter.name}: impressora não encontrada no sistema`);
         continue;
       }
       
