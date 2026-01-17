@@ -643,6 +643,7 @@ export type Database = {
       }
       order_items: {
         Row: {
+          category_id: string | null
           created_at: string
           id: string
           notes: string | null
@@ -655,6 +656,7 @@ export type Database = {
           restaurant_id: string
         }
         Insert: {
+          category_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -667,6 +669,7 @@ export type Database = {
           restaurant_id: string
         }
         Update: {
+          category_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -679,6 +682,13 @@ export type Database = {
           restaurant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
