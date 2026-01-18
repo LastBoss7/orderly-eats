@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
@@ -38,6 +39,7 @@ interface OrderViewRefactoredProps {
   deliveryForm: DeliveryForm;
   categories: Category[];
   products: Product[];
+  loadingProducts?: boolean;
   cart: CartItem[];
   orderNotes: string;
   submitting: boolean;
@@ -48,6 +50,7 @@ interface OrderViewRefactoredProps {
   onRemoveFromCart: (productId: string, size: ProductSize | null | undefined) => void;
   onOrderNotesChange: (notes: string) => void;
   onSubmitOrder: () => void;
+  onCategoryChange?: (categoryId: string | null) => void;
 }
 
 export function OrderViewRefactored({
@@ -57,6 +60,7 @@ export function OrderViewRefactored({
   deliveryForm,
   categories,
   products,
+  loadingProducts = false,
   cart,
   orderNotes,
   submitting,
@@ -67,6 +71,7 @@ export function OrderViewRefactored({
   onRemoveFromCart,
   onOrderNotesChange,
   onSubmitOrder,
+  onCategoryChange,
 }: OrderViewRefactoredProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -76,11 +81,28 @@ export function OrderViewRefactored({
   });
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
 
+  // Load first category products on mount
+  useEffect(() => {
+    if (onCategoryChange && categories.length > 0 && products.length === 0) {
+      // Load first category by default
+      onCategoryChange(categories[0].id);
+      setSelectedCategory(categories[0].id);
+    }
+  }, [categories, onCategoryChange, products.length]);
+
+  const handleCategorySelect = (categoryId: string | null) => {
+    setSelectedCategory(categoryId);
+    if (onCategoryChange) {
+      onCategoryChange(categoryId);
+    }
+  };
+
+  // With lazy loading, products already filtered by category from backend
+  // Only filter by search term locally
   const filteredProducts = products.filter(p => {
-    const matchesCategory = !selectedCategory || p.category_id === selectedCategory;
     const matchesSearch = !searchTerm || 
       p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesSearch;
   });
 
   const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
@@ -164,21 +186,13 @@ export function OrderViewRefactored({
       {/* Categories */}
       <div className="px-3 py-2 bg-muted/30 border-b overflow-x-auto">
         <div className="flex gap-2">
-          <Button
-            variant={selectedCategory === null ? 'default' : 'outline'}
-            size="sm"
-            className="shrink-0"
-            onClick={() => setSelectedCategory(null)}
-          >
-            Todos
-          </Button>
           {categories.map((category) => (
             <Button
               key={category.id}
               variant={selectedCategory === category.id ? 'default' : 'outline'}
               size="sm"
               className="shrink-0"
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => handleCategorySelect(category.id)}
             >
               {category.icon && <span className="mr-1">{category.icon}</span>}
               {category.name}
@@ -189,6 +203,28 @@ export function OrderViewRefactored({
 
       {/* Products */}
       <ScrollArea className="flex-1">
+        {loadingProducts ? (
+          <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}`}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              menuViewMode === 'grid' ? (
+                <div key={i} className="flex flex-col p-2 bg-card rounded-xl border border-transparent shadow-sm">
+                  <Skeleton className="w-full aspect-square rounded-lg mb-2" />
+                  <Skeleton className="h-4 w-3/4 mb-1" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ) : (
+                <div key={i} className="flex items-center gap-3 p-3 bg-card rounded-xl border border-transparent shadow-sm">
+                  <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/3" />
+                  </div>
+                  <Skeleton className="w-10 h-10 rounded-lg" />
+                </div>
+              )
+            ))}
+          </div>
+        ) : (
         <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}`}>
           {filteredProducts.map((product) => {
             const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
@@ -279,6 +315,7 @@ export function OrderViewRefactored({
             );
           })}
         </div>
+        )}
       </ScrollArea>
 
       {/* Cart Summary */}

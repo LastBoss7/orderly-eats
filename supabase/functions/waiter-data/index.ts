@@ -71,14 +71,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // GET products
+    // GET products (with optional category filter for lazy loading)
     if (action === "products") {
-      const { data, error } = await supabase
+      const categoryId = url.searchParams.get("category_id");
+      
+      let query = supabase
         .from("products")
         .select("*")
         .eq("restaurant_id", restaurantId)
-        .eq("is_available", true)
-        .order("name");
+        .eq("is_available", true);
+      
+      if (categoryId) {
+        query = query.eq("category_id", categoryId);
+      }
+      
+      const { data, error } = await query.order("name");
 
       if (error) throw error;
       return new Response(
