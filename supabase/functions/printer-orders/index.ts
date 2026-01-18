@@ -32,12 +32,14 @@ interface Order {
   print_status: string | null;
   print_count: number | null;
   waiter_id: string | null;
+  created_by: string | null;
   order_number: number | null;
   payment_method: string | null;
   restaurant_id: string;
   order_items: OrderItem[];
   tables: { number: number }[] | null;
   waiters: { id: string; name: string }[] | null;
+  profiles: { full_name: string | null }[] | null;
 }
 
 Deno.serve(async (req) => {
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
           print_status,
           print_count,
           waiter_id,
+          created_by,
           order_number,
           payment_method,
           restaurant_id,
@@ -105,6 +108,9 @@ Deno.serve(async (req) => {
           waiters (
             id,
             name
+          ),
+          profiles:created_by (
+            full_name
           )
         `)
         .eq("restaurant_id", restaurantId)
@@ -165,7 +171,12 @@ Deno.serve(async (req) => {
       };
 
       // Format orders for Electron
-      const formattedOrders = (orders as Order[]).map((order) => ({
+      const formattedOrders = (orders as Order[]).map((order) => {
+        // Get the creator name - from profile or waiter
+        const waiterName = order.waiters?.[0]?.name || null;
+        const creatorName = order.profiles?.[0]?.full_name || null;
+        
+        return {
         id: order.id,
         order_number: order.order_number,
         created_at: order.created_at,
@@ -178,7 +189,8 @@ Deno.serve(async (req) => {
         delivery_phone: order.delivery_phone,
         delivery_fee: order.delivery_fee,
         table_number: order.tables?.[0]?.number || null,
-        waiter_name: order.waiters?.[0]?.name || null,
+        waiter_name: waiterName,
+        created_by_name: creatorName,
         print_count: order.print_count || 0,
         payment_method: order.payment_method,
         order_items: order.order_items.map((item) => {
@@ -206,7 +218,8 @@ Deno.serve(async (req) => {
             category_id: categoryId,
           };
         }),
-      }));
+      };
+      });
 
       return new Response(
         JSON.stringify({ orders: formattedOrders, count: formattedOrders.length }),

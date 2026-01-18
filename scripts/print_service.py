@@ -216,6 +216,14 @@ def format_receipt(order: Dict) -> str:
     }
     lines.append(f"TIPO: {type_labels.get(order_type, order_type.upper())}")
     
+    # Garçom ou atendente
+    waiter_name = order.get('waiter_name')
+    created_by_name = order.get('created_by_name')
+    if waiter_name:
+        lines.append(f"GARCOM: {waiter_name}")
+    elif created_by_name:
+        lines.append(f"ATENDENTE: {created_by_name}")
+    
     # Mesa (se aplicável)
     table_id = order.get('table_id')
     if table_id and order_type == 'table':
