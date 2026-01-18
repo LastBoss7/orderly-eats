@@ -19,7 +19,7 @@ import { MoveToTableModal } from '@/components/dashboard/MoveToTableModal';
 import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
-import { ScrollableColumn } from '@/components/dashboard/ScrollableColumn';
+import { VirtualizedColumn } from '@/components/dashboard/VirtualizedColumn';
 import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -1762,11 +1762,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </p>
                   </div>
                 ) : (
-                  <ScrollableColumn>
-                    {pendingOrders.map(order => (
+                  <VirtualizedColumn
+                    items={pendingOrders}
+                    renderItem={(order) => (
                       <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
-                    ))}
-                  </ScrollableColumn>
+                    )}
+                    getItemKey={(order) => order.id}
+                    estimateSize={isCompactMode ? 60 : 120}
+                  />
                 )}
               </DroppableColumn>
 
@@ -1787,18 +1790,20 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   </Badge>
                 </div>
                 
-                <ScrollableColumn>
-                  {preparingOrders.length === 0 ? (
+                <VirtualizedColumn
+                  items={preparingOrders}
+                  renderItem={(order) => (
+                    <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
+                  )}
+                  getItemKey={(order) => order.id}
+                  estimateSize={isCompactMode ? 60 : 120}
+                  emptyState={
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
                       <ChefHat className="w-10 h-10 mb-3 opacity-30" />
                       <p className="text-sm font-medium">Nenhum pedido em produção</p>
                     </div>
-                  ) : (
-                    preparingOrders.map(order => (
-                      <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
-                    ))
-                  )}
-                </ScrollableColumn>
+                  }
+                />
               </DroppableColumn>
 
               {/* Column: Prontos para entrega */}
@@ -1825,18 +1830,20 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   </div>
                 </div>
                 
-                <ScrollableColumn>
-                  {readyOrders.length === 0 ? (
+                <VirtualizedColumn
+                  items={readyOrders}
+                  renderItem={(order) => (
+                    <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
+                  )}
+                  getItemKey={(order) => order.id}
+                  estimateSize={isCompactMode ? 60 : 120}
+                  emptyState={
                     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
                       <UtensilsCrossed className="w-10 h-10 mb-3 opacity-30" />
                       <p className="text-sm font-medium">Nenhum pedido pronto</p>
                     </div>
-                  ) : (
-                    readyOrders.map(order => (
-                      <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
-                    ))
-                  )}
-                </ScrollableColumn>
+                  }
+                />
               </DroppableColumn>
 
               {/* Served Orders Column - Only for table/tab orders awaiting table close */}
@@ -1852,14 +1859,17 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </Badge>
                   </div>
                   
-                  <ScrollableColumn>
-                    {servedOrders.map(order => (
+                  <VirtualizedColumn
+                    items={servedOrders}
+                    renderItem={(order) => (
                       <DraggableOrderCard key={order.id} order={order} />
-                    ))}
-                    <p className="text-xs text-center text-muted-foreground mt-2 px-3">
-                      Aguardando fechamento de mesa/comanda
-                    </p>
-                  </ScrollableColumn>
+                    )}
+                    getItemKey={(order) => order.id}
+                    estimateSize={isCompactMode ? 60 : 120}
+                  />
+                  <p className="text-xs text-center text-muted-foreground mt-2 px-3">
+                    Aguardando fechamento de mesa/comanda
+                  </p>
                 </DroppableColumn>
               )}
             </div>
