@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-full.png';
+import dashboardPreview from '@/assets/dashboard-preview.png';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -531,16 +532,12 @@ export default function Login() {
                 <div className="w-3 h-3 rounded-full bg-yellow-400" />
                 <div className="w-3 h-3 rounded-full bg-green-400" />
               </div>
-              <div className="bg-white rounded-lg overflow-hidden aspect-video flex items-center justify-center">
-                <div className="w-full h-full bg-gradient-to-br from-primary/5 to-primary/20 flex items-center justify-center">
-                  <div className="grid grid-cols-3 gap-2 p-4 w-full">
-                    <div className="bg-warning/80 rounded h-20"></div>
-                    <div className="bg-destructive/80 rounded h-20"></div>
-                    <div className="bg-muted rounded h-20"></div>
-                    <div className="bg-success/30 rounded h-8 col-span-2"></div>
-                    <div className="bg-primary/30 rounded h-8"></div>
-                  </div>
-                </div>
+              <div className="bg-white rounded-lg overflow-hidden aspect-video">
+                <img 
+                  src={dashboardPreview} 
+                  alt="Dashboard Gamako" 
+                  className="w-full h-full object-cover object-left-top"
+                />
               </div>
             </div>
             <div className="bg-slate-600 h-4 rounded-b-lg mx-4" />
