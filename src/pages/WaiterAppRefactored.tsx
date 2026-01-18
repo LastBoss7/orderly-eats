@@ -973,8 +973,10 @@ export default function WaiterAppRefactored({
         />
 
         {/* Payment Modal */}
-        {showCloseModal && (
+        {showCloseModal && selectedTable && (
           <PaymentModal
+            entityType="table"
+            entityNumber={selectedTable.number}
             total={tableOrdersTotal}
             paymentMethod={paymentMethod}
             cashReceived={cashReceived}
@@ -1027,8 +1029,11 @@ export default function WaiterAppRefactored({
         />
 
         {/* Payment Modal */}
-        {showCloseModal && (
+        {showCloseModal && selectedTab && (
           <PaymentModal
+            entityType="tab"
+            entityNumber={selectedTab.number}
+            customerName={selectedTab.customer_name}
             total={tableOrdersTotal}
             paymentMethod={paymentMethod}
             cashReceived={cashReceived}
