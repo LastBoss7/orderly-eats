@@ -17,7 +17,7 @@ import Deliveries from "./pages/Deliveries";
 import DeliverySettings from "./pages/DeliverySettings";
 import Customers from "./pages/Customers";
 import Waiter from "./pages/Waiter";
-import WaiterApp from "./pages/WaiterApp";
+import WaiterApp from "./pages/WaiterAppRefactored";
 import WaiterLogin from "./pages/WaiterLogin";
 import WaiterAppPublic from "./pages/WaiterAppPublic";
 import Kitchen from "./pages/Kitchen";
