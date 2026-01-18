@@ -1623,7 +1623,7 @@ export type Database = {
           restaurant_id: string
           token: string
           used_at: string | null
-          waiter_id: string
+          waiter_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1634,7 +1634,7 @@ export type Database = {
           restaurant_id: string
           token: string
           used_at?: string | null
-          waiter_id: string
+          waiter_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1645,7 +1645,7 @@ export type Database = {
           restaurant_id?: string
           token?: string
           used_at?: string | null
-          waiter_id?: string
+          waiter_id?: string | null
         }
         Relationships: [
           {
