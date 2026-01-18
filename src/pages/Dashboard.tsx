@@ -1491,7 +1491,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         >
           <div className="flex-1 min-h-0 overflow-hidden p-4 flex gap-4">
             {/* Premium Kanban Columns */}
-            <div className="flex-1 h-full flex gap-4 overflow-x-auto min-w-0 pb-2">
+            <div className="flex-1 h-full flex gap-4 overflow-x-auto overflow-y-hidden min-w-0 pb-2">
               {/* Column: Em análise */}
               <KanbanColumn
                 id="column-pending"
@@ -1609,7 +1609,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             </div>
 
             {/* Right Sidebar - Scheduled Orders & Quick Stats */}
-            <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+            <div className="w-64 shrink-0 flex flex-col gap-3 overflow-y-auto">
               {/* Scheduled Orders Panel */}
               {scheduledOrders.length > 0 && (
                 <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[50%]">
