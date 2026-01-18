@@ -191,11 +191,19 @@ Deno.serve(async (req) => {
       // Format orders for Electron
       const formattedOrders = (orders as Order[]).map((order) => {
         // Get the creator name - from profile map or waiter
-        const waiterName = order.waiters?.[0]?.name || null;
-        const creatorName = order.created_by ? profilesMap.get(order.created_by) || null : null;
-        const tableNumber = order.tables?.[0]?.number || null;
+        // Handle waiter - can be object or array depending on Supabase response
+        const waiterName = Array.isArray(order.waiters) 
+          ? order.waiters[0]?.name 
+          : (order.waiters as { id: string; name: string } | null)?.name || null;
         
-        console.log(`[printer-orders] Order ${order.order_number}: table=${tableNumber}, waiter=${waiterName}, creator=${creatorName}`);
+        const creatorName = order.created_by ? profilesMap.get(order.created_by) || null : null;
+        
+        // Handle table - can be object or array depending on Supabase response
+        const tableNumber = Array.isArray(order.tables)
+          ? order.tables[0]?.number
+          : (order.tables as { number: number } | null)?.number || null;
+        
+        console.log(`[printer-orders] Order ${order.order_number}: table_id=${order.table_id}, table=${tableNumber}, waiter=${waiterName}, creator=${creatorName}`);
         
         return {
         id: order.id,
@@ -209,7 +217,7 @@ Deno.serve(async (req) => {
         delivery_address: order.delivery_address,
         delivery_phone: order.delivery_phone,
         delivery_fee: order.delivery_fee,
-        table_number: order.tables?.[0]?.number || null,
+        table_number: tableNumber,
         waiter_name: waiterName,
         created_by_name: creatorName,
         print_count: order.print_count || 0,
