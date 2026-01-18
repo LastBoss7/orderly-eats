@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-full.png';
-import dashboardPreview from '@/assets/dashboard-preview.png';
+import loginMockupBg from '@/assets/login-mockup-bg.png';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -505,77 +505,19 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right Side - Promo */}
-      <div className="hidden lg:flex w-[55%] bg-sky-50 flex-col items-center justify-center p-12">
-        {/* Logo */}
-        <div className="mb-6">
-          <img src={logoGamako} alt="Gamako" className="h-20 object-contain" />
-        </div>
-
-        {/* Headline */}
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground text-center mb-4">
-          Gestão completa para seu restaurante
-        </h2>
-
-        {/* Description */}
-        <p className="text-muted-foreground text-center max-w-lg mb-12">
-          Robô de atendimento, app para garçom, cardápio digital e muito mais. Tudo isso em um só lugar!
-        </p>
-
-        {/* Mockup Illustration */}
-        <div className="relative w-full max-w-2xl">
-          {/* Laptop mockup */}
-          <div className="relative mx-auto w-full max-w-xl">
-            <div className="bg-slate-700 rounded-t-xl p-2">
-              <div className="flex gap-1.5 mb-2">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
-              </div>
-              <div className="bg-white rounded-lg overflow-hidden aspect-video">
-                <img 
-                  src={dashboardPreview} 
-                  alt="Dashboard Gamako" 
-                  className="w-full h-full object-cover object-left-top"
-                />
-              </div>
-            </div>
-            <div className="bg-slate-600 h-4 rounded-b-lg mx-4" />
-            <div className="bg-slate-500 h-2 rounded-b-lg mx-16" />
-          </div>
-
-          {/* Phone mockup */}
-          <div className="absolute -right-8 bottom-0 w-24 md:w-32">
-            <div className="bg-slate-800 rounded-2xl p-1.5 shadow-xl">
-              <div className="bg-white rounded-xl overflow-hidden aspect-[9/16]">
-                <div className="bg-gradient-to-br from-primary/10 to-success/20 h-full p-2">
-                  <div className="bg-primary rounded h-6 w-full mb-2"></div>
-                  <div className="space-y-1">
-                    <div className="bg-muted rounded h-8"></div>
-                    <div className="bg-muted rounded h-8"></div>
-                    <div className="bg-muted rounded h-8"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="flex flex-wrap justify-center gap-4 mt-12">
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-            <ClipboardList className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">Gestão de Pedidos</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-            <Monitor className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">PDV Completo</span>
-          </div>
-          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm">
-            <Smartphone className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium">App Garçom</span>
-          </div>
-        </div>
+      {/* Right Side - Promo with Mockup Background */}
+      <div 
+        className="hidden lg:flex w-[55%] flex-col items-center justify-center p-12 relative"
+        style={{
+          backgroundImage: `url(${loginMockupBg})`,
+          backgroundSize: 'contain',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          backgroundColor: '#f0f9ff'
+        }}
+      >
+        {/* Overlay for better contrast if needed */}
+        <div className="absolute inset-0 bg-sky-50/30" />
       </div>
 
       {/* Suspended Account Dialog */}
