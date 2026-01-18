@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban, Mail, RefreshCw } from 'lucide-react';
+import { PasswordStrength } from '@/components/ui/password-strength';
 import logoGamako from '@/assets/logo-gamako-full.png';
 import gestaoInteligente from '@/assets/gestao-inteligente.png';
 import { supabase } from '@/integrations/supabase/client';
@@ -538,12 +539,7 @@ export default function Login() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  {signupPassword && signupPassword.length > 0 && signupPassword.length < 6 && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      Mínimo de 6 caracteres
-                    </p>
-                  )}
+                  <PasswordStrength password={signupPassword} />
                 </div>
 
                 {/* Confirm Password */}
