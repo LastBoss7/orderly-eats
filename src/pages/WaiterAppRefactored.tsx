@@ -130,7 +130,10 @@ export default function WaiterAppRefactored({
   // ========== DATA FETCHING ==========
   
   const fetchInitialData = useCallback(async () => {
-    if (!restaurant?.id) return;
+    if (!restaurant?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
       const [tablesRes, tabsRes, categoriesRes, productsRes] = await Promise.all([
