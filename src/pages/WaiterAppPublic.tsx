@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import WaiterApp from './WaiterApp';
+import WaiterApp from './WaiterAppRefactored';
 
 interface WaiterSession {
   waiter: {
