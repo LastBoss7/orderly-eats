@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
 
     // Send email via Resend
     const { error: emailError } = await resend.emails.send({
-      from: 'Gamako <noreply@gamako.com.br>',
+      from: 'Gamako <noreply@www.gamako.com.br>',
       to: [email],
       subject: '✅ Confirme seu email - Gamako',
       html: `
