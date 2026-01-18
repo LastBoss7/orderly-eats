@@ -39,7 +39,6 @@ interface Order {
   order_items: OrderItem[];
   tables: { number: number }[] | null;
   waiters: { id: string; name: string }[] | null;
-  profiles: { full_name: string | null }[] | null;
 }
 
 Deno.serve(async (req) => {
@@ -108,14 +107,32 @@ Deno.serve(async (req) => {
           waiters (
             id,
             name
-          ),
-          profiles:created_by (
-            full_name
           )
         `)
         .eq("restaurant_id", restaurantId)
         .eq("print_status", "pending")
         .order("created_at", { ascending: true });
+
+      // Fetch profiles for created_by users separately (no FK relationship)
+      const createdByIds = (orders || [])
+        .map((o: Order) => o.created_by)
+        .filter((id): id is string => !!id);
+      
+      const profilesMap = new Map<string, string>();
+      if (createdByIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", createdByIds);
+        
+        if (profiles) {
+          for (const p of profiles) {
+            if (p.full_name) {
+              profilesMap.set(p.id, p.full_name);
+            }
+          }
+        }
+      }
 
       if (error) {
         console.error("Error fetching orders:", error);
@@ -172,9 +189,9 @@ Deno.serve(async (req) => {
 
       // Format orders for Electron
       const formattedOrders = (orders as Order[]).map((order) => {
-        // Get the creator name - from profile or waiter
+        // Get the creator name - from profile map or waiter
         const waiterName = order.waiters?.[0]?.name || null;
-        const creatorName = order.profiles?.[0]?.full_name || null;
+        const creatorName = order.created_by ? profilesMap.get(order.created_by) || null : null;
         
         return {
         id: order.id,
