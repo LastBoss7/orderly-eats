@@ -28,6 +28,7 @@ import {
   X,
   CheckCircle2,
 } from 'lucide-react';
+import { ProductSize, getSizeOptions, getProductPrice, getSizeLabel } from '@/components/products/SizeSelector';
 
 interface Category {
   id: string;
@@ -41,12 +42,18 @@ interface Product {
   price: number;
   category_id: string | null;
   image_url: string | null;
+  has_sizes?: boolean | null;
+  price_small?: number | null;
+  price_medium?: number | null;
+  price_large?: number | null;
 }
 
 interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
+  size?: ProductSize | null;
+  unitPrice: number;
 }
 
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
@@ -73,6 +80,9 @@ export default function POS() {
   const [submitting, setSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
+  const [showSizeModal, setShowSizeModal] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -123,25 +133,53 @@ export default function POS() {
     return matchesCategory && matchesSearch;
   });
 
-  const addToCart = (product: Product) => {
+  const handleProductClick = (product: Product) => {
+    const sizeOptions = getSizeOptions(product);
+    
+    if (sizeOptions.length > 0) {
+      // Product has sizes - show size modal
+      setPendingProduct(product);
+      setSelectedSize(null);
+      setShowSizeModal(true);
+    } else {
+      // Product without sizes - add directly
+      addToCartWithPrice(product, null, product.price);
+    }
+  };
+
+  const addToCartWithPrice = (product: Product, size: ProductSize | null, unitPrice: number) => {
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+      // For products with sizes, match by product ID + size
+      const existing = prev.find(
+        item => item.product.id === product.id && item.size === size
+      );
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id
+          item.product.id === product.id && item.size === size
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity: 1, size, unitPrice }];
     });
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const handleConfirmSize = () => {
+    if (!pendingProduct || !selectedSize) return;
+    
+    const unitPrice = getProductPrice(pendingProduct, selectedSize);
+    addToCartWithPrice(pendingProduct, selectedSize, unitPrice);
+    
+    setShowSizeModal(false);
+    setPendingProduct(null);
+    setSelectedSize(null);
+  };
+
+  const updateQuantity = (productId: string, size: ProductSize | null | undefined, delta: number) => {
     setCart(prev => {
       return prev
         .map(item => {
-          if (item.product.id === productId) {
+          if (item.product.id === productId && item.size === size) {
             const newQuantity = item.quantity + delta;
             return newQuantity > 0 ? { ...item, quantity: newQuantity } : null;
           }
@@ -151,14 +189,23 @@ export default function POS() {
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, size: ProductSize | null | undefined) => {
+    setCart(prev => prev.filter(item => !(item.product.id === productId && item.size === size)));
   };
 
   const cartTotal = cart.reduce(
-    (sum, item) => sum + item.product.price * item.quantity,
+    (sum, item) => sum + item.unitPrice * item.quantity,
     0
   );
+
+  const getDisplayPrice = (product: Product): number => {
+    const sizeOptions = getSizeOptions(product);
+    if (sizeOptions.length > 0) {
+      // Return the lowest price for display
+      return Math.min(...sizeOptions.map(s => s.price));
+    }
+    return product.price;
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -217,8 +264,11 @@ export default function POS() {
         restaurant_id: restaurant?.id,
         order_id: order.id,
         product_id: item.product.id,
-        product_name: item.product.name,
-        product_price: item.product.price,
+        product_name: item.size 
+          ? `${item.product.name} (${getSizeLabel(item.size)})`
+          : item.product.name,
+        product_price: item.unitPrice,
+        product_size: item.size || null,
         quantity: item.quantity,
         category_id: item.product.category_id || null,
       }));
@@ -330,34 +380,39 @@ export default function POS() {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="pos-product-card"
-                    onClick={() => addToCart(product)}
-                  >
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-2">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <ShoppingCart className="w-6 h-6 text-muted-foreground" />
-                      )}
+                {filteredProducts.map((product) => {
+                  const displayPrice = getDisplayPrice(product);
+                  const hasSizes = getSizeOptions(product).length > 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className="pos-product-card"
+                      onClick={() => handleProductClick(product)}
+                    >
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-2">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <ShoppingCart className="w-6 h-6 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium text-center line-clamp-2">
+                        {product.name}
+                      </span>
+                      <span className="text-sm font-bold text-primary mt-1">
+                        {hasSizes && <span className="text-xs font-normal mr-0.5">a partir de</span>}
+                        {formatCurrency(displayPrice)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                        #{product.id.slice(0, 6)}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-center line-clamp-2">
-                      {product.name}
-                    </span>
-                    <span className="text-sm font-bold text-primary mt-1">
-                      {formatCurrency(product.price)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground mt-0.5 font-mono">
-                      #{product.id.slice(0, 6)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
@@ -402,15 +457,20 @@ export default function POS() {
               <div className="space-y-3">
                 {cart.map((item) => (
                   <div
-                    key={item.product.id}
+                    key={`${item.product.id}-${item.size || 'default'}`}
                     className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
                         {item.product.name}
+                        {item.size && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({getSizeLabel(item.size)})
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatCurrency(item.product.price)} cada
+                        {formatCurrency(item.unitPrice)} cada
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -418,7 +478,7 @@ export default function POS() {
                         variant="outline"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => updateQuantity(item.product.id, -1)}
+                        onClick={() => updateQuantity(item.product.id, item.size, -1)}
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
@@ -429,7 +489,7 @@ export default function POS() {
                         variant="outline"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={() => updateQuantity(item.product.id, 1)}
+                        onClick={() => updateQuantity(item.product.id, item.size, 1)}
                       >
                         <Plus className="w-3 h-3" />
                       </Button>
@@ -437,7 +497,7 @@ export default function POS() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => removeFromCart(item.product.id)}
+                        onClick={() => removeFromCart(item.product.id, item.size)}
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
@@ -548,6 +608,45 @@ export default function POS() {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Size Selection Modal */}
+      <Dialog open={showSizeModal} onOpenChange={setShowSizeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecione o Tamanho</DialogTitle>
+          </DialogHeader>
+          
+          {pendingProduct && (
+            <div className="py-4">
+              <p className="text-center font-medium mb-4">{pendingProduct.name}</p>
+              <div className="flex flex-col gap-2">
+                {getSizeOptions(pendingProduct).map(({ size, label, price }) => (
+                  <Button
+                    key={size}
+                    type="button"
+                    variant={selectedSize === size ? 'default' : 'outline'}
+                    className="justify-between h-12"
+                    onClick={() => setSelectedSize(size)}
+                  >
+                    <span className="font-medium">{label}</span>
+                    <span className={selectedSize === size ? "text-primary-foreground font-bold" : "text-primary font-bold"}>
+                      {formatCurrency(price)}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+              
+              <Button
+                className="w-full mt-6"
+                disabled={!selectedSize}
+                onClick={handleConfirmSize}
+              >
+                Adicionar ao Pedido
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>
