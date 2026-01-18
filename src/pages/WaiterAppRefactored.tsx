@@ -558,14 +558,19 @@ export default function WaiterAppRefactored({
 
       toast.success(successMessage);
 
-      // Refresh data using waiterData hook
-      const [tablesData, tabsData] = await Promise.all([
-        waiterData.fetchTables(),
-        waiterData.fetchTabs(),
-      ]);
-      setTables(tablesData as Table[]);
-      setTabs(tabsData as Tab[]);
+      // Optimistically update table/tab status locally first
+      if (orderMode === 'table' && selectedTable) {
+        setTables(prev => prev.map(t => 
+          t.id === selectedTable.id ? { ...t, status: 'occupied' as const } : t
+        ));
+      }
+      if (orderMode === 'tab' && selectedTab) {
+        setTabs(prev => prev.map(t => 
+          t.id === selectedTab.id ? { ...t, status: 'occupied' as const } : t
+        ));
+      }
 
+      // Navigate immediately - don't wait for refresh
       setView('tables');
       setSelectedTable(null);
       setSelectedTab(null);
@@ -583,6 +588,15 @@ export default function WaiterAppRefactored({
         deliveryFee: 0,
       });
       setSelectedCustomer(null);
+
+      // Refresh data in background (non-blocking)
+      Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchTabs(),
+      ]).then(([tablesData, tabsData]) => {
+        setTables(tablesData as Table[]);
+        setTabs(tabsData as Tab[]);
+      }).catch(console.error);
     } catch (error: any) {
       toast.error('Erro ao enviar pedido: ' + error.message);
     } finally {
