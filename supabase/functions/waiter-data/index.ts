@@ -314,6 +314,50 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST update tab (for tab customer assignment)
+    if (req.method === "POST" && action === "update-tab") {
+      const body = await req.json();
+      
+      const { error } = await supabase
+        .from("tabs")
+        .update({
+          status: body.status,
+          customer_name: body.customer_name ?? null,
+          customer_phone: body.customer_phone ?? null,
+        })
+        .eq("id", body.tab_id)
+        .eq("restaurant_id", restaurantId);
+
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST create tab
+    if (req.method === "POST" && action === "create-tab") {
+      const body = await req.json();
+      
+      const { data: newTab, error } = await supabase
+        .from("tabs")
+        .insert({
+          restaurant_id: restaurantId,
+          number: body.number,
+          customer_name: body.customer_name || null,
+          customer_phone: body.customer_phone || null,
+          status: body.status || 'occupied',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ success: true, tab: newTab }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
