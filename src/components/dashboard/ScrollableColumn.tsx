@@ -8,84 +8,97 @@ interface ScrollableColumnProps {
 
 export function ScrollableColumn({ children, className }: ScrollableColumnProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showTopIndicator, setShowTopIndicator] = useState(false);
-  const [showBottomIndicator, setShowBottomIndicator] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
 
-  const checkScroll = useCallback(() => {
+  const updateScrollIndicators = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     const { scrollTop, scrollHeight, clientHeight } = el;
-    const threshold = 10;
+    const threshold = 5;
 
-    setShowTopIndicator(scrollTop > threshold);
-    setShowBottomIndicator(scrollTop + clientHeight < scrollHeight - threshold);
+    setCanScrollUp(scrollTop > threshold);
+    setCanScrollDown(scrollHeight - scrollTop - clientHeight > threshold);
   }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    // Check initially
-    checkScroll();
+    // Initial check
+    updateScrollIndicators();
 
-    // Check on scroll with passive listener for better performance
-    el.addEventListener('scroll', checkScroll, { passive: true });
-    
-    // Check on resize only
-    const resizeObserver = new ResizeObserver(checkScroll);
+    // Listen for scroll events
+    const handleScroll = () => updateScrollIndicators();
+    el.addEventListener('scroll', handleScroll, { passive: true });
+
+    // Watch for size changes
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollIndicators();
+    });
     resizeObserver.observe(el);
 
-    return () => {
-      el.removeEventListener('scroll', checkScroll);
-      resizeObserver.disconnect();
-    };
-  }, [checkScroll]);
+    // Watch for content changes via MutationObserver but only on childList, not attributes
+    const mutationObserver = new MutationObserver(() => {
+      // Use requestAnimationFrame to batch updates
+      requestAnimationFrame(updateScrollIndicators);
+    });
+    mutationObserver.observe(el, { 
+      childList: true, 
+      subtree: true,
+      attributes: false,
+      characterData: false 
+    });
 
-  // Re-check when children change (using a simple interval approach instead of MutationObserver)
-  useEffect(() => {
-    // Small delay to let DOM settle after children updates
-    const timeoutId = setTimeout(checkScroll, 100);
-    return () => clearTimeout(timeoutId);
-  }, [children, checkScroll]);
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [updateScrollIndicators]);
 
   return (
-    <div className={cn("relative flex-1 min-h-0", className)}>
-      {/* Top scroll indicator */}
-      {showTopIndicator && (
-        <div 
-          className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-background/80 to-transparent pointer-events-none z-10"
-        />
-      )}
+    <div className={cn("relative flex-1 min-h-0 overflow-hidden", className)}>
+      {/* Top fade indicator */}
+      <div 
+        className={cn(
+          "absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-card to-transparent pointer-events-none z-10 transition-opacity duration-150",
+          canScrollUp ? "opacity-100" : "opacity-0"
+        )}
+        aria-hidden="true"
+      />
       
       {/* Scrollable content */}
       <div 
         ref={scrollRef}
-        className="h-full overflow-y-auto p-2 space-y-2"
+        className="h-full overflow-y-auto p-2 space-y-2 scrollbar-thin"
       >
         {children}
       </div>
 
-      {/* Bottom scroll indicator */}
-      {showBottomIndicator && (
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-muted/60 to-transparent pointer-events-none z-10 flex items-end justify-center pb-1"
+      {/* Bottom fade indicator with arrow */}
+      <div 
+        className={cn(
+          "absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-card to-transparent pointer-events-none z-10 transition-opacity duration-150 flex items-end justify-center pb-0.5",
+          canScrollDown ? "opacity-100" : "opacity-0"
+        )}
+        aria-hidden="true"
+      >
+        <svg 
+          className="w-3 h-3 text-muted-foreground/50" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
         >
-          <svg 
-            className="w-4 h-4 text-muted-foreground/60 animate-bounce" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M19 9l-7 7-7-7" 
-            />
-          </svg>
-        </div>
-      )}
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={2} 
+            d="M19 9l-7 7-7-7" 
+          />
+        </svg>
+      </div>
     </div>
   );
 }
