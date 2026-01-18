@@ -188,9 +188,18 @@ export function useOrderNotifications(restaurantId: string | undefined) {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  const toggleSound = useCallback(() => {
-    setSoundSettings(prev => ({ ...prev, sound_enabled: !prev.sound_enabled }));
-  }, []);
+  const toggleSound = useCallback(async () => {
+    const newValue = !soundSettings.sound_enabled;
+    setSoundSettings(prev => ({ ...prev, sound_enabled: newValue }));
+    
+    // Persist to database
+    if (restaurantId) {
+      await supabase
+        .from('salon_settings')
+        .update({ sound_enabled: newValue })
+        .eq('restaurant_id', restaurantId);
+    }
+  }, [soundSettings.sound_enabled, restaurantId]);
 
   return {
     notifications,
