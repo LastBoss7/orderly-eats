@@ -40,16 +40,10 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Generate verification token
-    const { data: tokenData, error: tokenError } = await supabaseAdmin
-      .rpc('generate_verification_token')
-
-    if (tokenError || !tokenData) {
-      console.error('Error generating token:', tokenError)
-      throw new Error('Failed to generate verification token')
-    }
-
-    const token = tokenData as string
+    // Generate verification token using Web Crypto API
+    const randomBytes = new Uint8Array(32)
+    crypto.getRandomValues(randomBytes)
+    const token = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')
 
     // Delete any existing tokens for this user
     await supabaseAdmin
