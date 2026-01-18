@@ -64,17 +64,127 @@ Deno.serve(async (req) => {
       console.error('Error updating token:', updateTokenError)
     }
 
-    // Update user profile as verified
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .update({ email_verified: true })
-      .eq('user_id', userId)
+    // Get user data from auth.users to retrieve metadata
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
 
-    if (profileError) {
-      console.error('Error updating profile:', profileError)
+    if (userError || !user) {
+      console.error('Error fetching user:', userError)
+      return new Response(
+        JSON.stringify({ success: false, error: 'Usuário não encontrado' }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
     }
 
-    console.log(`Email verified successfully for user ${userId}`)
+    // Check if profile already exists
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    // If no profile exists and user has pending setup metadata, create the restaurant and profile
+    if (!existingProfile && user.user_metadata?.pending_setup) {
+      const metadata = user.user_metadata
+
+      console.log('Creating restaurant and profile for user:', userId, metadata)
+
+      // Create restaurant
+      const { data: restaurantData, error: restaurantError } = await supabaseAdmin
+        .from('restaurants')
+        .insert({
+          name: metadata.restaurant_name,
+          slug: metadata.restaurant_slug,
+          cnpj: metadata.cnpj,
+        })
+        .select('id')
+        .single()
+
+      if (restaurantError) {
+        console.error('Error creating restaurant:', restaurantError)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Erro ao criar restaurante. Tente novamente.' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+
+      // Create profile
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          restaurant_id: restaurantData.id,
+          full_name: metadata.full_name,
+          email_verified: true,
+        })
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError)
+        // Try to rollback restaurant creation
+        await supabaseAdmin.from('restaurants').delete().eq('id', restaurantData.id)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Erro ao criar perfil. Tente novamente.' }),
+          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+
+      // Create admin role
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: userId,
+          role: 'admin',
+        })
+
+      if (roleError) {
+        console.error('Error creating user role:', roleError)
+        // Non-critical, continue
+      }
+
+      // Create salon settings
+      const { error: salonError } = await supabaseAdmin
+        .from('salon_settings')
+        .insert({
+          restaurant_id: restaurantData.id,
+        })
+
+      if (salonError) {
+        console.error('Error creating salon settings:', salonError)
+        // Non-critical, continue
+      }
+
+      // Update user metadata to remove pending_setup flag
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          ...metadata,
+          pending_setup: false,
+          email_verified: true,
+        },
+      })
+
+      // Confirm the user's email in Supabase Auth
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email_confirm: true,
+      })
+
+      console.log(`Email verified and profile created successfully for user ${userId}`)
+    } else {
+      // Just update existing profile as verified
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update({ email_verified: true })
+        .eq('user_id', userId)
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError)
+      }
+
+      // Confirm the user's email in Supabase Auth
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        email_confirm: true,
+      })
+
+      console.log(`Email verified successfully for user ${userId}`)
+    }
 
     return new Response(
       JSON.stringify({ success: true, message: 'Email verified successfully' }),
