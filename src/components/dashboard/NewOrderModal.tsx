@@ -44,8 +44,10 @@ import {
   ClipboardList,
   Bike,
   MessageSquare,
+  Calendar,
 } from 'lucide-react';
 import { ProductSizeModal } from '@/components/tables/ProductSizeModal';
+import { ScheduleOrderPicker } from './ScheduleOrderPicker';
 
 interface Category {
   id: string;
@@ -175,6 +177,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
 
   useEffect(() => {
@@ -240,6 +243,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     setSelectedCategory(null);
     setPaymentMethod(null);
     setCashReceived('');
+    setScheduledAt(null);
   };
 
   // Format phone number
@@ -704,23 +708,25 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         }
       }
 
-      // Check if store is open
-      const { data: settings, error: settingsError } = await supabase
-        .from('salon_settings')
-        .select('is_open')
-        .eq('restaurant_id', restaurant?.id)
-        .maybeSingle();
+      // Check if store is open (skip for scheduled orders)
+      if (!scheduledAt) {
+        const { data: settings, error: settingsError } = await supabase
+          .from('salon_settings')
+          .select('is_open')
+          .eq('restaurant_id', restaurant?.id)
+          .maybeSingle();
 
-      if (settingsError) throw settingsError;
+        if (settingsError) throw settingsError;
 
-      if (!settings?.is_open) {
-        toast({
-          variant: 'destructive',
-          title: 'Loja fechada',
-          description: 'Abra a loja antes de criar novos pedidos.',
-        });
-        setSubmitting(false);
-        return;
+        if (!settings?.is_open) {
+          toast({
+            variant: 'destructive',
+            title: 'Loja fechada',
+            description: 'Abra a loja antes de criar novos pedidos.',
+          });
+          setSubmitting(false);
+          return;
+        }
       }
 
       // Get next order number atomically using database function
@@ -747,8 +753,8 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           tab_id: orderType === 'table' && dineInType === 'tab' ? selectedTab : null,
           driver_id: orderType === 'delivery' && selectedDriver && selectedDriver !== 'none' ? selectedDriver : null,
           order_type: orderType === 'table' ? (dineInType === 'tab' ? 'tab' : 'table') : orderType,
-          status: 'pending',
-          print_status: 'pending', // Always print via Electron
+          status: scheduledAt ? 'scheduled' : 'pending',
+          print_status: scheduledAt ? 'scheduled' : 'pending', // Scheduled orders don't print immediately
           total: orderTotal,
           notes: notes || null,
           order_number: newOrderNumber,
@@ -756,6 +762,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           cash_received: paymentMethod === 'cash' && cashReceivedValue > 0 ? cashReceivedValue : null,
           change_given: paymentMethod === 'cash' && changeAmount > 0 ? changeAmount : null,
           created_by: user?.id || null,
+          scheduled_at: scheduledAt ? scheduledAt.toISOString() : null,
         })
         .select()
         .single();
@@ -781,8 +788,10 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       if (itemsError) throw itemsError;
 
       toast({
-        title: 'Pedido criado!',
-        description: `Pedido #${newOrderNumber} criado com sucesso.`,
+        title: scheduledAt ? 'Pedido agendado!' : 'Pedido criado!',
+        description: scheduledAt 
+          ? `Pedido #${newOrderNumber} agendado com sucesso.`
+          : `Pedido #${newOrderNumber} criado com sucesso.`,
       });
 
       resetForm();
@@ -1301,6 +1310,12 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                   />
                 </div>
 
+                {/* Schedule Order */}
+                <ScheduleOrderPicker
+                  scheduledAt={scheduledAt}
+                  onScheduleChange={setScheduledAt}
+                />
+
                 <Separator />
 
                 {/* Cart Items */}
@@ -1393,17 +1408,19 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                 </span>
               </div>
               <Button
-                className="w-full h-12 text-base"
+                className={`w-full h-12 text-base ${scheduledAt ? 'bg-violet-600 hover:bg-violet-700' : ''}`}
                 size="lg"
                 disabled={cart.length === 0 || submitting}
                 onClick={handleSubmit}
               >
                 {submitting ? (
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : scheduledAt ? (
+                  <Calendar className="w-5 h-5 mr-2" />
                 ) : (
                   <Plus className="w-5 h-5 mr-2" />
                 )}
-                Criar Pedido
+                {scheduledAt ? 'Agendar Pedido' : 'Criar Pedido'}
               </Button>
             </div>
           </div>

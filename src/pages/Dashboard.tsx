@@ -24,6 +24,7 @@ import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { PremiumOrderCard } from '@/components/dashboard/PremiumOrderCard';
 import { KanbanColumn } from '@/components/dashboard/KanbanColumn';
+import { ScheduledOrdersPanel } from '@/components/dashboard/ScheduledOrdersPanel';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -131,6 +132,7 @@ interface Order {
   payment_method: string | null;
   driver_id: string | null;
   waiter_id: string | null;
+  scheduled_at?: string | null;
   order_items?: {
     id: string;
     product_name: string;
@@ -381,7 +383,7 @@ export default function Dashboard() {
           order_items (*)
         `)
         .eq('restaurant_id', restaurant.id)
-        .in('status', ['pending', 'preparing', 'ready', 'served', 'out_for_delivery', 'delivered'])
+        .in('status', ['pending', 'preparing', 'ready', 'served', 'out_for_delivery', 'delivered', 'scheduled'])
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -591,11 +593,13 @@ export default function Dashboard() {
   };
 
   // Filter orders by status (exclude cancelled) and then by type
+  const allScheduledOrders = orders.filter(o => o.status === 'scheduled' && o.scheduled_at);
   const allPendingOrders = orders.filter(o => o.status === 'pending');
   const allPreparingOrders = orders.filter(o => o.status === 'preparing');
   const allReadyOrders = orders.filter(o => o.status === 'ready' || o.status === 'out_for_delivery');
   const allServedOrders = orders.filter(o => o.status === 'served');
 
+  const scheduledOrders = filterOrdersByType(allScheduledOrders);
   const pendingOrders = filterOrdersByType(allPendingOrders);
   const preparingOrders = filterOrdersByType(allPreparingOrders);
   const readyOrders = filterOrdersByType(allReadyOrders);
@@ -1604,42 +1608,101 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
               )}
             </div>
 
-            {/* Right Sidebar - Quick Stats */}
-            <div className="w-14 flex-shrink-0 flex flex-col gap-2">
-              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            {/* Right Sidebar - Scheduled Orders & Quick Stats */}
+            <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
+              {/* Scheduled Orders Panel */}
+              {scheduledOrders.length > 0 && (
+                <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[50%]">
+                  <div className="p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold">Agendados</span>
+                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
+                          {scheduledOrders.length}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <ScheduledOrdersPanel
+                    orders={scheduledOrders.map(o => ({
+                      ...o,
+                      scheduled_at: o.scheduled_at!,
+                    }))}
+                    onStartOrder={async (orderId) => {
+                      // Update order status from scheduled to pending
+                      await supabase
+                        .from('orders')
+                        .update({ 
+                          status: 'pending',
+                          print_status: 'pending',
+                        })
+                        .eq('id', orderId);
+                      toast.success('Pedido iniciado!');
+                      fetchOrders();
+                    }}
+                    onOpenDetail={(order) => {
+                      setSelectedOrder(order as Order);
+                      setShowOrderDetailModal(true);
+                    }}
+                    formatCurrency={formatCurrency}
+                    getTableNumber={getTableNumber}
+                    getTabInfo={getTabInfo}
+                  />
                 </div>
-                <span className="text-lg font-bold text-foreground">
-                  {orders.filter(o => o.table_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
-                    if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
-                    return acc;
-                  }, [] as string[]).length}
-                </span>
-                <span className="text-[9px] text-muted-foreground font-medium">Mesas</span>
-              </div>
+              )}
 
-              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                  <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              {/* Quick Stats */}
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {orders.filter(o => o.table_id && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).reduce((acc, o) => {
+                      if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
+                      return acc;
+                    }, [] as string[]).length}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground font-medium">Mesas</span>
                 </div>
-                <span className="text-lg font-bold text-foreground">
-                  {orders.filter(o => o.tab_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
-                    if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
-                    return acc;
-                  }, [] as string[]).length}
-                </span>
-                <span className="text-[9px] text-muted-foreground font-medium">Comandas</span>
-              </div>
 
-              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                    <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {orders.filter(o => o.tab_id && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).reduce((acc, o) => {
+                      if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
+                      return acc;
+                    }, [] as string[]).length}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground font-medium">Comandas</span>
                 </div>
-                <span className="text-lg font-bold text-foreground">
-                  {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status || '')).length}
-                </span>
-                <span className="text-[9px] text-muted-foreground font-medium">Delivery</span>
+
+                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                    <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).length}
+                  </span>
+                  <span className="text-[9px] text-muted-foreground font-medium">Delivery</span>
+                </div>
+
+                {scheduledOrders.length === 0 && (
+                  <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <span className="text-lg font-bold text-foreground">
+                      {allScheduledOrders.length}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground font-medium">Agendados</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1675,8 +1738,10 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     selectedOrder.status === 'out_for_delivery' ? 'bg-blue-500' :
                     selectedOrder.status === 'preparing' ? 'bg-orange-500' : 
                     selectedOrder.status === 'served' ? 'bg-purple-500' :
+                    selectedOrder.status === 'scheduled' ? 'bg-violet-500' :
                     selectedOrder.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'
                   }>
+                    {selectedOrder.status === 'scheduled' && 'Agendado'}
                     {selectedOrder.status === 'pending' && 'Pendente'}
                     {selectedOrder.status === 'preparing' && 'Preparando'}
                     {selectedOrder.status === 'ready' && 'Pronto'}
@@ -1805,6 +1870,43 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                     </div>
                   )}
                 </div>
+
+                {/* Scheduled Info */}
+                {selectedOrder.scheduled_at && (
+                  <div className="bg-violet-50 dark:bg-violet-950/30 rounded-lg p-4 border border-violet-200 dark:border-violet-800">
+                    <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300">
+                      <Clock className="w-5 h-5" />
+                      <div>
+                        <p className="font-semibold">Pedido Agendado</p>
+                        <p className="text-sm">
+                          {new Date(selectedOrder.scheduled_at).toLocaleString('pt-BR', {
+                            weekday: 'long',
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    {selectedOrder.status === 'scheduled' && (
+                      <Button
+                        className="w-full mt-3 bg-violet-600 hover:bg-violet-700"
+                        onClick={async () => {
+                          await supabase
+                            .from('orders')
+                            .update({ status: 'pending', print_status: 'pending' })
+                            .eq('id', selectedOrder.id);
+                          toast.success('Pedido iniciado!');
+                          setShowOrderDetailModal(false);
+                          fetchOrders();
+                        }}
+                      >
+                        Iniciar Preparo Agora
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Customer Info */}
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
