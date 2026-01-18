@@ -270,6 +270,9 @@ export default function WaiterApp({
   const [editTabCustomerPhone, setEditTabCustomerPhone] = useState('');
   const [savingEditTabCustomer, setSavingEditTabCustomer] = useState(false);
   
+  // Order confirmation modal with notes summary
+  const [showOrderConfirmModal, setShowOrderConfirmModal] = useState(false);
+  
   // Menu view mode - persist in localStorage
   const [menuViewMode, setMenuViewMode] = useState<'list' | 'grid'>(() => {
     const saved = localStorage.getItem('waiter_menu_view_mode');
@@ -931,11 +934,27 @@ export default function WaiterApp({
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  const handleSubmitOrder = async () => {
+  // Check if has any observations
+  const hasObservations = cart.some(item => item.notes) || orderNotes;
+  const itemsWithNotes = cart.filter(item => item.notes);
+
+  const handleTrySubmitOrder = () => {
     if (orderMode === 'table' && (!selectedTable || cart.length === 0)) return;
     if (orderMode === 'tab' && (!selectedTab || cart.length === 0)) return;
     if ((orderMode === 'delivery' || orderMode === 'takeaway') && cart.length === 0) return;
 
+    // If has observations, show confirmation modal first
+    if (hasObservations) {
+      setShowOrderConfirmModal(true);
+      return;
+    }
+
+    // Otherwise, submit directly
+    handleSubmitOrder();
+  };
+
+  const handleSubmitOrder = async () => {
+    setShowOrderConfirmModal(false);
     setSubmitting(true);
 
     try {
@@ -2241,7 +2260,7 @@ export default function WaiterApp({
               <Button
                 className="h-12 px-6"
                 disabled={submitting}
-                onClick={handleSubmitOrder}
+                onClick={handleTrySubmitOrder}
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -2253,6 +2272,142 @@ export default function WaiterApp({
                 )}
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Order Confirmation Modal with Notes Summary */}
+        {showOrderConfirmModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-background rounded-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col"
+            >
+              {/* Header */}
+              <div className="p-4 border-b bg-primary/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">Confirmar Pedido</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {orderMode === 'table' && selectedTable && `Mesa ${selectedTable.number}`}
+                      {orderMode === 'tab' && selectedTab && `Comanda #${selectedTab.number}`}
+                      {orderMode === 'delivery' && 'Delivery'}
+                      {orderMode === 'takeaway' && 'Para Levar'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <ScrollArea className="flex-1 p-4">
+                <div className="space-y-4">
+                  {/* Items Summary */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                      Itens ({cart.length})
+                    </p>
+                    <div className="space-y-2">
+                      {cart.map((item, index) => (
+                        <div 
+                          key={`${item.product.id}-${item.size}-${index}`}
+                          className={`p-3 rounded-lg border ${item.notes ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800' : 'bg-muted/30'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">
+                                {item.quantity}x {item.product.name}
+                                {item.size && <span className="text-muted-foreground"> ({getSizeLabel(item.size)})</span>}
+                              </p>
+                              {item.notes && (
+                                <div className="mt-1.5 flex items-start gap-1.5">
+                                  <MessageSquare className="w-3.5 h-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                                    {item.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm font-semibold text-primary whitespace-nowrap">
+                              {formatCurrency(item.unitPrice * item.quantity)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Order Notes */}
+                  {orderNotes && (
+                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <FileText className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase mb-1">
+                            Observação do Pedido
+                          </p>
+                          <p className="text-sm text-blue-800 dark:text-blue-300">
+                            {orderNotes}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Observations Summary */}
+                  {(itemsWithNotes.length > 0 || orderNotes) && (
+                    <div className="p-3 rounded-lg bg-muted/50 border border-dashed">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <p className="text-xs font-medium">Resumo das Observações</p>
+                      </div>
+                      <ul className="space-y-1 text-xs text-muted-foreground">
+                        {itemsWithNotes.length > 0 && (
+                          <li>• {itemsWithNotes.length} item(ns) com observação</li>
+                        )}
+                        {orderNotes && (
+                          <li>• Observação geral do pedido</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              {/* Footer */}
+              <div className="p-4 border-t bg-muted/30">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-muted-foreground">Total do Pedido</span>
+                  <span className="text-xl font-bold text-primary">{formatCurrency(orderTotal)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowOrderConfirmModal(false)}
+                    className="h-11"
+                  >
+                    Revisar
+                  </Button>
+                  <Button 
+                    onClick={handleSubmitOrder}
+                    disabled={submitting}
+                    className="h-11"
+                  >
+                    {submitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Confirmar
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
 
