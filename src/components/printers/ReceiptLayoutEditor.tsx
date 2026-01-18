@@ -85,11 +85,12 @@ const defaultLayout: PrintLayout = {
 const sampleOrder = {
   id: 'ABC12345',
   order_number: 42,
-  order_type: 'counter',
-  table_id: null,
-  table_number: null,
-  waiter_name: null,
-  customer_name: 'Teste',
+  order_type: 'table',
+  table_id: 'table-123',
+  table_number: 5,
+  waiter_name: 'João Silva',
+  created_by_name: null,
+  customer_name: 'Cliente Teste',
   delivery_phone: '(99) 9 9999-9999',
   delivery_address: null,
   delivery_fee: 0,
@@ -296,6 +297,23 @@ export function ReceiptLayoutEditor() {
     // ============================================
     if (layout.showOrderNumber) {
       lines.push(center(`Pedido ${sampleOrder.order_number}`));
+    }
+
+    lines.push('');
+
+    // ============================================
+    // TABLE AND WAITER INFO
+    // ============================================
+    if (layout.showTable && sampleOrder.table_number) {
+      lines.push(`Mesa: ${sampleOrder.table_number}`);
+    }
+
+    if (layout.showWaiter) {
+      if (sampleOrder.waiter_name) {
+        lines.push(`Garçom: ${sampleOrder.waiter_name}`);
+      } else if (sampleOrder.created_by_name) {
+        lines.push(`Atendente: ${sampleOrder.created_by_name}`);
+      }
     }
 
     lines.push('');
