@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-full.png';
-import loginMockupBg from '@/assets/login-mockup-bg.png';
+import gestaoInteligente from '@/assets/gestao-inteligente.png';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -505,19 +505,18 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right Side - Promo with Mockup Background */}
+      {/* Right Side - Promo with Gestão Inteligente Image */}
       <div 
         className="hidden lg:flex w-[55%] flex-col items-center justify-center p-12 relative"
         style={{
-          backgroundImage: `url(${loginMockupBg})`,
-          backgroundSize: 'contain',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          backgroundColor: '#f0f9ff'
+          backgroundColor: '#c4d4e0'
         }}
       >
-        {/* Overlay for better contrast if needed */}
-        <div className="absolute inset-0 bg-sky-50/30" />
+        <img 
+          src={gestaoInteligente} 
+          alt="Gestão Inteligente - Gamako" 
+          className="max-w-full max-h-[85vh] object-contain drop-shadow-2xl"
+        />
       </div>
 
       {/* Suspended Account Dialog */}
