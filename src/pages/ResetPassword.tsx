@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Eye, EyeOff, CheckCircle2, XCircle, KeyRound, ShieldCheck, AlertCircle } from 'lucide-react';
+import { PasswordStrength } from '@/components/ui/password-strength';
 import logoGamako from '@/assets/logo-gamako-full.png';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -188,12 +189,7 @@ export default function ResetPassword() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
-                  {password && (
-                    <div className={`flex items-center gap-2 text-sm ${passwordMinLength ? 'text-success' : 'text-destructive'}`}>
-                      {passwordMinLength ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                      <span>Mínimo de 6 caracteres</span>
-                    </div>
-                  )}
+                  <PasswordStrength password={password} />
                 </div>
 
                 {/* Confirm Password */}
