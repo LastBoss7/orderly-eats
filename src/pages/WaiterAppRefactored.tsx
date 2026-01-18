@@ -73,6 +73,8 @@ export default function WaiterAppRefactored({
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({});
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [tableOrders, setTableOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [tableReadyOrders, setTableReadyOrders] = useState<Record<string, boolean>>({});
@@ -148,17 +150,16 @@ export default function WaiterAppRefactored({
     }
 
     try {
-      const [tablesData, tabsData, categoriesData, productsData] = await Promise.all([
+      // Load tables, tabs, and categories initially - products load on category select
+      const [tablesData, tabsData, categoriesData] = await Promise.all([
         waiterData.fetchTables(),
         waiterData.fetchTabs(),
         waiterData.fetchCategories(),
-        waiterData.fetchProducts(),
       ]);
 
       setTables(tablesData as Table[]);
       setTabs(tabsData as Tab[]);
       setCategories(categoriesData);
-      setProducts(productsData);
       initialLoadRef.current = true;
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -195,6 +196,33 @@ export default function WaiterAppRefactored({
       setLoadingOrders(false);
     }
   }, [waiterData]);
+
+  // Fetch products by category (lazy loading)
+  const fetchProductsByCategory = useCallback(async (categoryId: string | null) => {
+    // Check if already loaded
+    const cacheKey = categoryId || 'all';
+    if (productsByCategory[cacheKey]) {
+      setProducts(productsByCategory[cacheKey]);
+      return;
+    }
+
+    setLoadingProducts(true);
+    try {
+      const data = await waiterData.fetchProducts(categoryId || undefined);
+      const productsData = data as Product[];
+      
+      // Cache the results
+      setProductsByCategory(prev => ({
+        ...prev,
+        [cacheKey]: productsData,
+      }));
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, [waiterData, productsByCategory]);
 
   const refreshReadyOrders = useCallback(async () => {
     if (!restaurantId) return;
@@ -816,6 +844,7 @@ export default function WaiterAppRefactored({
           deliveryForm={deliveryForm}
           categories={categories}
           products={products}
+          loadingProducts={loadingProducts}
           cart={cart}
           orderNotes={orderNotes}
           submitting={submitting}
@@ -826,6 +855,7 @@ export default function WaiterAppRefactored({
           onRemoveFromCart={removeFromCart}
           onOrderNotesChange={setOrderNotes}
           onSubmitOrder={handleSubmitOrder}
+          onCategoryChange={fetchProductsByCategory}
         />
 
         {/* Size Modal */}
@@ -893,6 +923,7 @@ export default function WaiterAppRefactored({
           deliveryForm={deliveryForm}
           categories={categories}
           products={products}
+          loadingProducts={loadingProducts}
           cart={cart}
           orderNotes={orderNotes}
           submitting={submitting}
@@ -903,6 +934,7 @@ export default function WaiterAppRefactored({
           onRemoveFromCart={removeFromCart}
           onOrderNotesChange={setOrderNotes}
           onSubmitOrder={handleSubmitOrder}
+          onCategoryChange={fetchProductsByCategory}
         />
 
         {sizeModalProduct && (

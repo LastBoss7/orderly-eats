@@ -127,17 +127,24 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     return data || [];
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (categoryId?: string) => {
     if (useEdgeFunction) {
-      const result = await fetchFromEdge('products');
+      const params = categoryId ? { category_id: categoryId } : {};
+      const result = await fetchFromEdge('products', params);
       return result.data || [];
     }
-    const { data } = await supabase
+    
+    let query = supabase
       .from('products')
       .select('*')
       .eq('restaurant_id', restaurantId)
-      .eq('is_available', true)
-      .order('name');
+      .eq('is_available', true);
+    
+    if (categoryId) {
+      query = query.eq('category_id', categoryId);
+    }
+    
+    const { data } = await query.order('name');
     return data || [];
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 
