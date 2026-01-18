@@ -1,7 +1,29 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data`;
+
+// Simple in-memory cache with TTL
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const cache = new Map<string, CacheEntry<any>>();
+const CACHE_TTL = 3000; // 3 seconds
+
+function getCached<T>(key: string): T | null {
+  const entry = cache.get(key);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL) {
+    return entry.data;
+  }
+  cache.delete(key);
+  return null;
+}
+
+function setCache<T>(key: string, data: T): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
 
 interface UseWaiterDataOptions {
   restaurantId: string;
@@ -10,8 +32,17 @@ interface UseWaiterDataOptions {
 
 export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWaiterDataOptions) {
   const [loading, setLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchFromEdge = useCallback(async (action: string, params: Record<string, string> = {}) => {
+    const cacheKey = `edge:${restaurantId}:${action}:${JSON.stringify(params)}`;
+    const cached = getCached(cacheKey);
+    if (cached) return cached;
+
+    // Abort previous request if still pending
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
+
     const searchParams = new URLSearchParams({
       restaurant_id: restaurantId,
       action,
@@ -23,13 +54,16 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
         'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         'Content-Type': 'application/json',
       },
+      signal: abortControllerRef.current.signal,
     });
 
     if (!response.ok) {
       throw new Error('Failed to fetch data');
     }
 
-    return response.json();
+    const result = await response.json();
+    setCache(cacheKey, result);
+    return result;
   }, [restaurantId]);
 
   const postToEdge = useCallback(async (action: string, body: Record<string, any>) => {
