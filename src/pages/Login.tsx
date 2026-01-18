@@ -222,13 +222,13 @@ export default function Login() {
         title: 'Erro ao criar conta',
         description: result.error.message,
       });
-    } else {
-      // Show verification sent screen
-      setMode('verification-sent');
+    } else if (result.userId && result.userEmail) {
+      // Redirect to verification page with OTP input
       toast({
         title: 'Conta criada!',
-        description: 'Verifique seu email para ativar sua conta.',
+        description: 'Digite o código enviado para seu email.',
       });
+      navigate(`/verify-email?userId=${result.userId}&email=${encodeURIComponent(result.userEmail)}`);
     }
 
     setIsLoading(false);
