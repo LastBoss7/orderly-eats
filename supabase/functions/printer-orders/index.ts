@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true });
 
       // Fetch profiles for created_by users separately (no FK relationship)
+      // created_by contains user_id from auth.users
       const createdByIds = (orders || [])
         .map((o: Order) => o.created_by)
         .filter((id): id is string => !!id);
@@ -122,13 +123,13 @@ Deno.serve(async (req) => {
       if (createdByIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, full_name")
-          .in("id", createdByIds);
+          .select("user_id, full_name")
+          .in("user_id", createdByIds);
         
         if (profiles) {
           for (const p of profiles) {
-            if (p.full_name) {
-              profilesMap.set(p.id, p.full_name);
+            if (p.full_name && p.user_id) {
+              profilesMap.set(p.user_id, p.full_name);
             }
           }
         }
@@ -192,6 +193,9 @@ Deno.serve(async (req) => {
         // Get the creator name - from profile map or waiter
         const waiterName = order.waiters?.[0]?.name || null;
         const creatorName = order.created_by ? profilesMap.get(order.created_by) || null : null;
+        const tableNumber = order.tables?.[0]?.number || null;
+        
+        console.log(`[printer-orders] Order ${order.order_number}: table=${tableNumber}, waiter=${waiterName}, creator=${creatorName}`);
         
         return {
         id: order.id,
