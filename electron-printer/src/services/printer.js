@@ -520,9 +520,13 @@ class PrinterService {
       lines.push(tableLabel);
     }
     
-    // Waiter
-    if (layout.showWaiter !== false && order.waiter_name) {
-      lines.push('Garcom: ' + this.sanitizeText(order.waiter_name));
+    // Waiter or system user
+    if (layout.showWaiter !== false) {
+      if (order.waiter_name) {
+        lines.push('Garcom: ' + this.sanitizeText(order.waiter_name));
+      } else if (order.created_by_name) {
+        lines.push('Atendente: ' + this.sanitizeText(order.created_by_name));
+      }
     }
     
     // Customer
