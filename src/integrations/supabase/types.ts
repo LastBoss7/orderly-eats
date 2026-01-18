@@ -869,6 +869,13 @@ export type Database = {
             referencedRelation: "waiters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "waiters_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       print_logs: {
@@ -1608,6 +1615,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "waiter_calls_attended_by_fkey"
+            columns: ["attended_by"]
+            isOneToOne: false
+            referencedRelation: "waiters_safe"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "waiter_calls_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
@@ -1670,6 +1684,13 @@ export type Database = {
             columns: ["waiter_id"]
             isOneToOne: false
             referencedRelation: "waiters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiter_invites_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "waiters_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -1743,6 +1764,212 @@ export type Database = {
           total_revenue: number | null
           total_tables: number | null
           total_waiters: number | null
+        }
+        Relationships: []
+      }
+      nfce_invoices_safe: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          chave_acesso: string | null
+          cpf_masked: string | null
+          created_at: string | null
+          danfe_url: string | null
+          data_autorizacao: string | null
+          data_emissao: string | null
+          forma_pagamento: string | null
+          id: string | null
+          motivo_sefaz: string | null
+          nome_consumidor: string | null
+          numero: number | null
+          order_id: string | null
+          protocolo: string | null
+          qrcode_url: string | null
+          restaurant_id: string | null
+          serie: number | null
+          status: string | null
+          status_sefaz: string | null
+          updated_at: string | null
+          valor_desconto: number | null
+          valor_produtos: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          chave_acesso?: string | null
+          cpf_masked?: never
+          created_at?: string | null
+          danfe_url?: string | null
+          data_autorizacao?: string | null
+          data_emissao?: string | null
+          forma_pagamento?: string | null
+          id?: string | null
+          motivo_sefaz?: string | null
+          nome_consumidor?: string | null
+          numero?: number | null
+          order_id?: string | null
+          protocolo?: string | null
+          qrcode_url?: string | null
+          restaurant_id?: string | null
+          serie?: number | null
+          status?: string | null
+          status_sefaz?: string | null
+          updated_at?: string | null
+          valor_desconto?: number | null
+          valor_produtos?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          chave_acesso?: string | null
+          cpf_masked?: never
+          created_at?: string | null
+          danfe_url?: string | null
+          data_autorizacao?: string | null
+          data_emissao?: string | null
+          forma_pagamento?: string | null
+          id?: string | null
+          motivo_sefaz?: string | null
+          nome_consumidor?: string | null
+          numero?: number | null
+          order_id?: string | null
+          protocolo?: string | null
+          qrcode_url?: string | null
+          restaurant_id?: string | null
+          serie?: number | null
+          status?: string | null
+          status_sefaz?: string | null
+          updated_at?: string | null
+          valor_desconto?: number | null
+          valor_produtos?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfce_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nfce_invoices_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "nfce_invoices_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nfce_settings_safe: {
+        Row: {
+          auto_print_nfce: boolean | null
+          certificado_status: string | null
+          certificado_validade: string | null
+          created_at: string | null
+          csc_status: string | null
+          environment: string | null
+          id: string | null
+          inscricao_estadual: string | null
+          is_enabled: boolean | null
+          numero_atual: number | null
+          printer_id: string | null
+          regime_tributario: number | null
+          restaurant_id: string | null
+          serie_nfce: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_print_nfce?: boolean | null
+          certificado_status?: never
+          certificado_validade?: string | null
+          created_at?: string | null
+          csc_status?: never
+          environment?: string | null
+          id?: string | null
+          inscricao_estadual?: string | null
+          is_enabled?: boolean | null
+          numero_atual?: number | null
+          printer_id?: string | null
+          regime_tributario?: number | null
+          restaurant_id?: string | null
+          serie_nfce?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_print_nfce?: boolean | null
+          certificado_status?: never
+          certificado_validade?: string | null
+          created_at?: string | null
+          csc_status?: never
+          environment?: string | null
+          id?: string | null
+          inscricao_estadual?: string | null
+          is_enabled?: boolean | null
+          numero_atual?: number | null
+          printer_id?: string | null
+          regime_tributario?: number | null
+          restaurant_id?: string | null
+          serie_nfce?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfce_settings_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nfce_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "nfce_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      waiters_safe: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          name: string | null
+          restaurant_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          restaurant_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          restaurant_id?: string | null
+          status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
