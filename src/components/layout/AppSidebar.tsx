@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sidebar,
   SidebarContent,
@@ -102,10 +103,51 @@ export function AppSidebar() {
   const { newDeliveriesCount, markDeliveriesAsViewed } = useSidebarBadges();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const [isOpen, setIsOpen] = useState<boolean | null>(null);
   
   // Check if any cardapio route is active
   const isCardapioActive = cardapioSubmenu.some(item => location.pathname === item.url);
   const [cardapioOpen, setCardapioOpen] = useState(isCardapioActive);
+
+  // Fetch store open status
+  useEffect(() => {
+    if (!restaurant?.id) return;
+
+    const fetchStoreStatus = async () => {
+      const { data } = await supabase
+        .from('salon_settings')
+        .select('is_open')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
+      
+      setIsOpen(data?.is_open ?? false);
+    };
+
+    fetchStoreStatus();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('store-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'salon_settings',
+          filter: `restaurant_id=eq.${restaurant.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'is_open' in payload.new) {
+            setIsOpen(payload.new.is_open as boolean);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [restaurant?.id]);
 
   // Mark deliveries as viewed when visiting deliveries page
   useEffect(() => {
@@ -418,16 +460,26 @@ export function AppSidebar() {
           <div className="flex flex-col items-center justify-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
-                  <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
-                  <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
-                    {getInitials(profile?.full_name)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
+                    <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
+                      {getInitials(profile?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span 
+                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-background ${
+                      isOpen ? 'bg-success' : 'bg-destructive'
+                    }`}
+                  />
+                </div>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-popover">
                 <p className="font-medium">{restaurant?.name || 'Restaurante'}</p>
                 <p className="text-xs text-muted-foreground">{profile?.full_name}</p>
+                <Badge className={`mt-1 text-[10px] ${isOpen ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
+                  {isOpen ? 'ABERTO' : 'FECHADO'}
+                </Badge>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -448,12 +500,19 @@ export function AppSidebar() {
           </div>
         ) : (
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
-            <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
-              <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
-                {getInitials(profile?.full_name)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
+                <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
+                  {getInitials(profile?.full_name)}
+                </AvatarFallback>
+              </Avatar>
+              <span 
+                className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-accent ${
+                  isOpen ? 'bg-success' : 'bg-destructive'
+                }`}
+              />
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {restaurant?.name || 'Restaurante'}
@@ -461,8 +520,8 @@ export function AppSidebar() {
               <p className="text-xs text-sidebar-foreground/60 truncate">
                 {profile?.full_name}
               </p>
-              <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0 mt-1">
-                ABERTO
+              <Badge className={`text-[10px] px-1.5 py-0 mt-1 ${isOpen ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
+                {isOpen ? 'ABERTO' : 'FECHADO'}
               </Badge>
             </div>
             <Button
