@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban } from 'lucide-react';
+import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban, Mail, RefreshCw } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-full.png';
 import gestaoInteligente from '@/assets/gestao-inteligente.png';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,7 +79,7 @@ interface CNPJData {
   telefone: string;
 }
 
-type AuthMode = 'login' | 'signup';
+type AuthMode = 'login' | 'signup' | 'verification-sent';
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -214,20 +214,21 @@ export default function Login() {
     
     setIsLoading(true);
 
-    const { error } = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj);
+    const result = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj);
 
-    if (error) {
+    if (result.error) {
       toast({
         variant: 'destructive',
         title: 'Erro ao criar conta',
-        description: error.message,
+        description: result.error.message,
       });
     } else {
+      // Show verification sent screen
+      setMode('verification-sent');
       toast({
         title: 'Conta criada!',
-        description: 'Seu restaurante foi configurado com sucesso.',
+        description: 'Verifique seu email para ativar sua conta.',
       });
-      navigate('/dashboard');
     }
 
     setIsLoading(false);
@@ -331,6 +332,42 @@ export default function Login() {
               >
                 Criar conta
               </Button>
+            </>
+          ) : mode === 'verification-sent' ? (
+            <>
+              {/* Verification Sent Screen */}
+              <div className="text-center animate-fade-in-up">
+                <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6">
+                  <Mail className="h-10 w-10 text-success" />
+                </div>
+                <h1 className="text-2xl font-bold text-foreground mb-4">
+                  Verifique seu email
+                </h1>
+                <p className="text-muted-foreground mb-6">
+                  Enviamos um link de verificação para <span className="font-medium text-foreground">{signupEmail}</span>. 
+                  Clique no link para ativar sua conta.
+                </p>
+                <div className="bg-muted/50 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-muted-foreground">
+                    Não recebeu o email? Verifique sua pasta de spam ou aguarde alguns minutos.
+                  </p>
+                </div>
+                <Button 
+                  type="button"
+                  variant="outline"
+                  className="w-full h-12"
+                  onClick={() => {
+                    setMode('login');
+                    setSignupEmail('');
+                    setSignupPassword('');
+                    setRestaurantName('');
+                    setFullName('');
+                    setCnpj('');
+                  }}
+                >
+                  Voltar para o login
+                </Button>
+              </div>
             </>
           ) : (
             <>

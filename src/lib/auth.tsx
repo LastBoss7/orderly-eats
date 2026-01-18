@@ -184,12 +184,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: createError };
       }
 
+      // Send verification email
+      try {
+        const { error: emailError } = await supabase.functions.invoke('send-verification-email', {
+          body: {
+            email: email,
+            userId: authData.user.id,
+            redirectUrl: window.location.origin,
+          },
+        });
+
+        if (emailError) {
+          console.error('Error sending verification email:', emailError);
+          // Don't fail signup if email fails - user can request resend
+        }
+      } catch (emailErr) {
+        console.error('Error invoking verification email function:', emailErr);
+      }
+
       // Fetch the user data after successful creation
       if (authData.session) {
         await fetchUserData(authData.user.id);
       }
 
-      return { error: null };
+      return { error: null, requiresVerification: true };
     } catch (error) {
       return { error: error as Error };
     }
