@@ -2125,10 +2125,14 @@ export default function WaiterApp({
         {/* Cart Summary */}
         {cart.length > 0 && (
           <div className="sticky bottom-0 bg-background border-t shadow-lg">
-            <ScrollArea className="max-h-40 p-3">
+            <ScrollArea className="max-h-48 p-3">
               <div className="space-y-2">
-                {cart.map((item, index) => (
-                  <div key={`${item.product.id}-${item.size}-${index}`} className="bg-muted/50 rounded-lg p-2">
+                {cart.map((item, index) => {
+                  const itemKey = `${item.product.id}-${item.size}-${index}`;
+                  const isEditingThis = editingItemNotes === itemKey;
+                  
+                  return (
+                  <div key={itemKey} className="bg-muted/50 rounded-lg p-2">
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">
@@ -2162,6 +2166,20 @@ export default function WaiterApp({
                         <Button
                           variant="ghost"
                           size="icon"
+                          className={`h-7 w-7 ${item.notes ? 'text-primary' : 'text-muted-foreground'}`}
+                          onClick={() => {
+                            if (isEditingThis) {
+                              setEditingItemNotes(null);
+                            } else {
+                              setEditingItemNotes(itemKey);
+                            }
+                          }}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-7 w-7 text-destructive"
                           onClick={() => removeFromCart(item.product.id, item.size)}
                         >
@@ -2169,10 +2187,51 @@ export default function WaiterApp({
                         </Button>
                       </div>
                     </div>
+                    
+                    {/* Inline notes editor */}
+                    {isEditingThis && (
+                      <div className="mt-2">
+                        <Input
+                          placeholder="Obs: sem cebola, bem passado..."
+                          value={item.notes}
+                          onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
+                          className="h-8 text-xs"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setEditingItemNotes(null);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Show notes badge if has notes and not editing */}
+                    {item.notes && !isEditingThis && (
+                      <p className="mt-1 text-xs text-muted-foreground bg-muted rounded px-2 py-0.5 truncate">
+                        💬 {item.notes}
+                      </p>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
+            
+            {/* Order General Notes */}
+            <div className="px-3 py-2 border-t">
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Observação do pedido</span>
+              </div>
+              <Textarea
+                placeholder="Obs geral: mesa do fundo, entregar primeiro a bebida..."
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                className="h-16 text-xs resize-none"
+                rows={2}
+              />
+            </div>
 
             <div className="p-3 pt-0 flex items-center gap-3">
               <div className="flex-1">
