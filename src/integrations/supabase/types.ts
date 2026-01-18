@@ -1286,6 +1286,11 @@ export type Database = {
           show_address_on_receipt: boolean | null
           show_cnpj_on_receipt: boolean | null
           show_phone_on_receipt: boolean | null
+          sound_counter: boolean | null
+          sound_delivery: boolean | null
+          sound_enabled: boolean | null
+          sound_table: boolean | null
+          sound_takeaway: boolean | null
           table_count: number | null
           updated_at: string
         }
@@ -1319,6 +1324,11 @@ export type Database = {
           show_address_on_receipt?: boolean | null
           show_cnpj_on_receipt?: boolean | null
           show_phone_on_receipt?: boolean | null
+          sound_counter?: boolean | null
+          sound_delivery?: boolean | null
+          sound_enabled?: boolean | null
+          sound_table?: boolean | null
+          sound_takeaway?: boolean | null
           table_count?: number | null
           updated_at?: string
         }
@@ -1352,6 +1362,11 @@ export type Database = {
           show_address_on_receipt?: boolean | null
           show_cnpj_on_receipt?: boolean | null
           show_phone_on_receipt?: boolean | null
+          sound_counter?: boolean | null
+          sound_delivery?: boolean | null
+          sound_enabled?: boolean | null
+          sound_table?: boolean | null
+          sound_takeaway?: boolean | null
           table_count?: number | null
           updated_at?: string
         }

@@ -60,6 +60,7 @@ import {
   PanelLeft,
   ShieldCheck,
   Receipt,
+  Volume2,
 } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-white-full.png';
 import logoGamakoIcon from '@/assets/logo-gamako-white-icon.png';
@@ -89,6 +90,7 @@ const bottomMenuItems = [
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
+  { title: 'Sons', url: '/sound-settings', icon: Volume2 },
   { title: 'Meu Estabelecimento', url: '/restaurant-settings', icon: Settings2 },
   { title: 'NFC-e', url: '/nfce-settings', icon: Receipt },
 ];
