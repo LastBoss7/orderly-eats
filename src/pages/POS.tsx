@@ -240,6 +240,12 @@ export default function POS() {
     setSubmitting(true);
 
     try {
+      // Get next order number atomically using database function
+      const { data: orderNumber, error: orderNumberError } = await supabase
+        .rpc('get_next_order_number', { _restaurant_id: restaurant?.id });
+      
+      if (orderNumberError) throw orderNumberError;
+
       // Create order with payment method in notes
       const autoPrint = shouldAutoPrint('counter');
       
@@ -250,9 +256,11 @@ export default function POS() {
           customer_name: customerName || null,
           order_type: 'counter',
           status: 'pending',
+          order_number: orderNumber,
           print_status: 'pending', // Always print via Electron
           total: cartTotal,
-          notes: `Pagamento: ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
+          payment_method: selectedPayment,
+          notes: customerName ? `Cliente: ${customerName}` : null,
         })
         .select()
         .single();
@@ -281,7 +289,7 @@ export default function POS() {
 
       toast({
         title: 'Pedido finalizado!',
-        description: `Pedido #${order.id.slice(0, 8)} - ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
+        description: `Pedido #${orderNumber} - ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
       });
 
       // Clear cart and close modal
