@@ -444,6 +444,36 @@ export type Database = {
         }
         Relationships: []
       }
+      email_verification_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          token: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          token: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       nfce_invoices: {
         Row: {
           api_response: Json | null
@@ -1146,6 +1176,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          email_verified: boolean | null
           full_name: string | null
           id: string
           restaurant_id: string
@@ -1155,6 +1186,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          email_verified?: boolean | null
           full_name?: string | null
           id?: string
           restaurant_id: string
@@ -1164,6 +1196,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          email_verified?: boolean | null
           full_name?: string | null
           id?: string
           restaurant_id?: string
@@ -1985,6 +2018,7 @@ export type Database = {
         }
         Returns: string
       }
+      generate_verification_token: { Args: never; Returns: string }
       generate_waiter_invite_token: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { _restaurant_id: string }

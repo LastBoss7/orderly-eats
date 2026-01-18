@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider } from "@/lib/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import Login from "./pages/Login";
+import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import POS from "./pages/POS";
 import Tables from "./pages/Tables";
@@ -81,6 +82,7 @@ const AnimatedRoutes = () => {
         <Routes location={location}>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/scheduled" element={<Scheduled />} />
           <Route path="/pos" element={<POS />} />
