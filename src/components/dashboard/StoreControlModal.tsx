@@ -9,6 +9,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Store, Power, PowerOff, Loader2, FileText, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,6 +42,7 @@ export function StoreControlModal({
   const { restaurant } = useAuth();
   const [loading, setLoading] = useState(false);
   const [resettingCounter, setResettingCounter] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const { saveClosing } = useSaveClosing();
   const { printClosing } = usePrintToElectron();
 
@@ -175,6 +186,7 @@ export function StoreControlModal({
       if (error) throw error;
 
       toast.success('Contador de pedidos resetado para #01!');
+      setShowResetConfirm(false);
     } catch (error: any) {
       console.error('Erro ao resetar contador:', error);
       toast.error('Erro ao resetar contador', {
@@ -236,8 +248,8 @@ export function StoreControlModal({
               </Button>
               <Button 
                 variant="outline" 
-                className="w-full gap-2"
-                onClick={handleResetCounter}
+                className="w-full gap-2 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-600 dark:hover:bg-amber-950"
+                onClick={() => setShowResetConfirm(true)}
                 disabled={loading || resettingCounter}
               >
                 {resettingCounter ? (
@@ -272,6 +284,38 @@ export function StoreControlModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Reset Counter Confirmation Dialog */}
+      <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-amber-500" />
+              Resetar Contador de Pedidos?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              O próximo pedido será o <strong>#01</strong>. Esta ação não pode ser desfeita.
+              <br /><br />
+              Use esta opção apenas se precisar reiniciar a contagem manualmente durante o expediente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resettingCounter}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleResetCounter}
+              disabled={resettingCounter}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {resettingCounter ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4 mr-2" />
+              )}
+              Sim, Resetar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
