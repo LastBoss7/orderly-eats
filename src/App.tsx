@@ -38,6 +38,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Addons from "./pages/Addons";
 import NFCeSettings from "./pages/NFCeSettings";
 import SoundSettings from "./pages/SoundSettings";
+import Scheduled from "./pages/Scheduled";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,7 +82,7 @@ const AnimatedRoutes = () => {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/scheduled" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/scheduled" element={<Scheduled />} />
           <Route path="/pos" element={<POS />} />
           <Route path="/tables" element={<Tables />} />
           <Route path="/products" element={<Products />} />
