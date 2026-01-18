@@ -133,7 +133,7 @@ interface NewOrderModalProps {
 }
 
 export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPrint, initialOrderType }: NewOrderModalProps) {
-  const { restaurant } = useAuth();
+  const { restaurant, user } = useAuth();
   const { toast } = useToast();
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType || 'counter');
   const [dineInType, setDineInType] = useState<DineInType>('table');
@@ -612,8 +612,9 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
       return;
     }
 
-    // Validate payment method
-    if (!paymentMethod) {
+    // Validate payment method - NOT required for table/tab orders (pay at the end)
+    const requiresPayment = orderType !== 'table'; // 'table' includes both mesa and comanda
+    if (requiresPayment && !paymentMethod) {
       toast({
         variant: 'destructive',
         title: 'Forma de pagamento obrigatória',
@@ -751,9 +752,10 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
           total: orderTotal,
           notes: notes || null,
           order_number: newOrderNumber,
-          payment_method: paymentMethod,
+          payment_method: paymentMethod || null,
           cash_received: paymentMethod === 'cash' && cashReceivedValue > 0 ? cashReceivedValue : null,
           change_given: paymentMethod === 'cash' && changeAmount > 0 ? changeAmount : null,
+          created_by: user?.id || null,
         })
         .select()
         .single();
