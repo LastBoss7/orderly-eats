@@ -1,19 +1,29 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { ScheduledOrdersPanel } from '@/components/dashboard/ScheduledOrdersPanel';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Calendar, Clock, RefreshCw } from 'lucide-react';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Calendar as CalendarIcon, Clock, RefreshCw, Filter, Play, Check, X } from 'lucide-react';
+import { format, isToday, isTomorrow, parseISO, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+type StatusFilter = 'all' | 'pending' | 'preparing';
 
 export default function Scheduled() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRestaurantId = async () => {
@@ -59,16 +69,63 @@ export default function Scheduled() {
     refetchInterval: 30000,
   });
 
-  const handleStartOrder = async (orderId: string) => {
-    await supabase
-      .from('orders')
-      .update({ status: 'preparing' })
-      .eq('id', orderId);
-    refetch();
+  // Filter orders by date and status
+  const filteredOrders = scheduledOrders.filter((order) => {
+    // Status filter
+    if (statusFilter !== 'all' && order.status !== statusFilter) {
+      return false;
+    }
+    
+    // Date filter
+    if (dateFilter && order.scheduled_at) {
+      const orderDate = parseISO(order.scheduled_at);
+      if (!isSameDay(orderDate, dateFilter)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  const confirmOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      // Update order to preparing status and mark print_status as pending
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'preparing',
+          print_status: 'pending' // This will trigger automatic printing
+        })
+        .eq('id', orderId);
+      
+      if (error) throw error;
+      return orderId;
+    },
+    onSuccess: (orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['scheduled-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Pedido confirmado! Enviando para impressão...');
+      setConfirmingOrderId(null);
+      // Navigate to dashboard after confirmation
+      navigate('/dashboard');
+    },
+    onError: (error) => {
+      console.error('Error confirming order:', error);
+      toast.error('Erro ao confirmar pedido');
+      setConfirmingOrderId(null);
+    }
+  });
+
+  const handleConfirmOrder = (orderId: string) => {
+    setConfirmingOrderId(orderId);
   };
 
-  const handleOpenDetails = (orderId: string) => {
-    navigate(`/dashboard`);
+  const handleConfirmYes = (orderId: string) => {
+    confirmOrderMutation.mutate(orderId);
+  };
+
+  const handleConfirmNo = () => {
+    setConfirmingOrderId(null);
   };
 
   const formatCurrency = (value: number) => {
@@ -84,8 +141,18 @@ export default function Scheduled() {
     return null;
   };
 
+  const getOrderTypeLabel = (order: any) => {
+    switch (order.order_type) {
+      case 'delivery': return 'Delivery';
+      case 'takeaway': return 'Retirada';
+      case 'table': return 'Mesa';
+      case 'tab': return 'Comanda';
+      default: return 'Balcão';
+    }
+  };
+
   // Group orders by date
-  const groupedOrders = scheduledOrders.reduce((acc: Record<string, any[]>, order) => {
+  const groupedOrders = filteredOrders.reduce((acc: Record<string, any[]>, order) => {
     const date = order.scheduled_at ? format(parseISO(order.scheduled_at), 'yyyy-MM-dd') : 'sem-data';
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
@@ -100,27 +167,96 @@ export default function Scheduled() {
     return format(date, "EEEE, dd 'de' MMMM", { locale: ptBR });
   };
 
+  const clearFilters = () => {
+    setDateFilter(undefined);
+    setStatusFilter('all');
+  };
+
+  const hasActiveFilters = dateFilter !== undefined || statusFilter !== 'all';
+
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-background">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-semibold">Pedidos Agendados</h1>
+        <div className="flex flex-col gap-4 p-4 border-b bg-background">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5 text-primary" />
+                <h1 className="text-xl font-semibold">Pedidos Agendados</h1>
+              </div>
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-sm font-medium">
+                {filteredOrders.length}
+                {filteredOrders.length !== scheduledOrders.length && (
+                  <span className="text-muted-foreground ml-1">/ {scheduledOrders.length}</span>
+                )}
+              </span>
             </div>
-            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-sm font-medium">
-              {scheduledOrders.length}
-            </span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
+
+          {/* Filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Filtros:</span>
+            </div>
+
+            {/* Date Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "justify-start text-left font-normal",
+                    dateFilter && "bg-primary/10 border-primary"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, "dd/MM/yyyy") : "Data"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={setDateFilter}
+                  locale={ptBR}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Status Filter */}
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className={cn(
+                "w-[140px]",
+                statusFilter !== 'all' && "bg-primary/10 border-primary"
+              )}>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="preparing">Preparando</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Content */}
@@ -129,30 +265,41 @@ export default function Scheduled() {
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : scheduledOrders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
               <Clock className="h-12 w-12 mb-4 opacity-50" />
-              <p className="text-lg font-medium">Nenhum pedido agendado</p>
-              <p className="text-sm">Os pedidos agendados aparecerão aqui</p>
+              <p className="text-lg font-medium">
+                {hasActiveFilters ? 'Nenhum pedido encontrado' : 'Nenhum pedido agendado'}
+              </p>
+              <p className="text-sm">
+                {hasActiveFilters ? 'Tente ajustar os filtros' : 'Os pedidos agendados aparecerão aqui'}
+              </p>
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+              )}
             </div>
           ) : (
             <div className="max-w-4xl mx-auto space-y-6">
               {Object.entries(groupedOrders).map(([date, orders]) => (
                 <div key={date} className="space-y-3">
-                  <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide sticky top-0 bg-background py-2">
+                  <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide sticky top-0 bg-background py-2 z-10">
                     {formatDateHeader(date)} ({orders.length})
                   </h2>
                   <div className="grid gap-3">
                     {orders.map((order) => (
                       <div
                         key={order.id}
-                        className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                        onClick={() => handleOpenDetails(order.id)}
+                        className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
                               <span className="font-semibold">#{order.order_number}</span>
+                              <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                                {getOrderTypeLabel(order)}
+                              </span>
                               {order.customer_name && (
                                 <span className="text-muted-foreground">• {order.customer_name}</span>
                               )}
@@ -175,25 +322,71 @@ export default function Scheduled() {
                                 {order.status === 'preparing' ? 'Preparando' : 'Pendente'}
                               </span>
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {order.order_items?.length || 0} {order.order_items?.length === 1 ? 'item' : 'itens'}
-                            </div>
+                            {order.order_items && order.order_items.length > 0 && (
+                              <div className="text-sm text-muted-foreground space-y-0.5">
+                                {order.order_items.slice(0, 3).map((item: any) => (
+                                  <div key={item.id} className="truncate">
+                                    {item.quantity}x {item.product_name}
+                                    {item.product_size && ` (${item.product_size})`}
+                                  </div>
+                                ))}
+                                {order.order_items.length > 3 && (
+                                  <div className="text-xs italic">
+                                    +{order.order_items.length - 3} mais itens
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {order.notes && (
+                              <div className="mt-2 text-sm text-amber-600 dark:text-amber-400">
+                                📝 {order.notes}
+                              </div>
+                            )}
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex flex-col items-end gap-2">
                             <div className="font-semibold text-lg">
                               {formatCurrency(order.total || 0)}
                             </div>
                             {order.status === 'pending' && (
-                              <Button
-                                size="sm"
-                                className="mt-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStartOrder(order.id);
-                                }}
-                              >
-                                Iniciar
-                              </Button>
+                              <>
+                                {confirmingOrderId === order.id ? (
+                                  <div className="flex flex-col gap-2 items-end">
+                                    <span className="text-sm text-muted-foreground">Confirmar?</span>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleConfirmNo()}
+                                        disabled={confirmOrderMutation.isPending}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleConfirmYes(order.id)}
+                                        disabled={confirmOrderMutation.isPending}
+                                      >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Sim
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleConfirmOrder(order.id)}
+                                  >
+                                    <Play className="h-4 w-4 mr-1" />
+                                    Confirmar
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {order.status === 'preparing' && (
+                              <span className="text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                Em preparo
+                              </span>
                             )}
                           </div>
                         </div>
