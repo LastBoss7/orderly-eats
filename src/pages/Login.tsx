@@ -97,12 +97,14 @@ export default function Login() {
   // Signup form state
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [restaurantName, setRestaurantName] = useState('');
   const [fullName, setFullName] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [cnpjError, setCnpjError] = useState('');
   const [cnpjValidated, setCnpjValidated] = useState(false);
   const [cnpjData, setCnpjData] = useState<CNPJData | null>(null);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   // Suspended account state
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
@@ -211,6 +213,24 @@ export default function Login() {
       setCnpjError('CNPJ inválido. Por favor, verifique o número.');
       return;
     }
+
+    if (signupPassword.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Senha muito curta',
+        description: 'A senha deve ter pelo menos 6 caracteres.',
+      });
+      return;
+    }
+
+    if (signupPassword !== signupConfirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Senhas não coincidem',
+        description: 'Por favor, verifique se as senhas são iguais.',
+      });
+      return;
+    }
     
     setIsLoading(true);
 
@@ -291,7 +311,11 @@ export default function Login() {
                     </button>
                   </div>
                   <div className="text-right">
-                    <button type="button" className="text-sm text-primary hover:underline">
+                    <button 
+                      type="button" 
+                      className="text-sm text-primary hover:underline"
+                      onClick={() => navigate('/forgot-password')}
+                    >
                       Esqueci a senha
                     </button>
                   </div>
@@ -496,7 +520,13 @@ export default function Login() {
                       placeholder="Mínimo 6 caracteres"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
-                      className="h-12 pr-12 border-border/60"
+                      className={`h-12 pr-12 ${
+                        signupPassword && signupPassword.length < 6 
+                          ? 'border-destructive' 
+                          : signupPassword && signupPassword.length >= 6 
+                            ? 'border-success' 
+                            : 'border-border/60'
+                      }`}
                       required
                       minLength={6}
                     />
@@ -508,12 +538,67 @@ export default function Login() {
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  {signupPassword && signupPassword.length > 0 && signupPassword.length < 6 && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      Mínimo de 6 caracteres
+                    </p>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-confirm-password" className="text-sm font-medium">
+                    Confirmar Senha <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="signup-confirm-password"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      placeholder="Digite a senha novamente"
+                      value={signupConfirmPassword}
+                      onChange={(e) => setSignupConfirmPassword(e.target.value)}
+                      className={`h-12 pr-12 ${
+                        signupConfirmPassword && signupConfirmPassword !== signupPassword 
+                          ? 'border-destructive' 
+                          : signupConfirmPassword && signupConfirmPassword === signupPassword && signupPassword.length >= 6
+                            ? 'border-success' 
+                            : 'border-border/60'
+                      }`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  {signupConfirmPassword && signupConfirmPassword !== signupPassword && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      As senhas não coincidem
+                    </p>
+                  )}
+                  {signupConfirmPassword && signupConfirmPassword === signupPassword && signupPassword.length >= 6 && (
+                    <p className="text-sm text-success flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Senhas coincidem
+                    </p>
+                  )}
                 </div>
 
                 <Button 
                   type="submit" 
                   className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-medium text-base"
-                  disabled={isLoading || isValidatingCnpj || !!cnpjError}
+                  disabled={
+                    isLoading || 
+                    isValidatingCnpj || 
+                    !!cnpjError || 
+                    signupPassword.length < 6 || 
+                    signupPassword !== signupConfirmPassword
+                  }
                 >
                   {isLoading ? (
                     <>

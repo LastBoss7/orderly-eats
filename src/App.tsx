@@ -7,6 +7,8 @@ import { AuthProvider } from "@/lib/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import Login from "./pages/Login";
 import VerifyEmail from "./pages/VerifyEmail";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import POS from "./pages/POS";
 import Tables from "./pages/Tables";
@@ -83,6 +85,8 @@ const AnimatedRoutes = () => {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/scheduled" element={<Scheduled />} />
           <Route path="/pos" element={<POS />} />
