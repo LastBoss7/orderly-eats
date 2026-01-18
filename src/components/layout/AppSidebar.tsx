@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -419,6 +419,7 @@ export function AppSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
+                  <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
                   <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
                     {getInitials(profile?.full_name)}
                   </AvatarFallback>
@@ -448,6 +449,7 @@ export function AppSidebar() {
         ) : (
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
             <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
+              <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
               <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
                 {getInitials(profile?.full_name)}
               </AvatarFallback>
