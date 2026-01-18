@@ -29,7 +29,7 @@ interface AuthContextType {
   isSuspended: boolean;
   suspendedReason: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; suspended?: boolean; suspendedReason?: string }>;
-  signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null; userId?: string; userEmail?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -184,22 +184,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: createError };
       }
 
-      // Send verification email
+      // Send verification code
       try {
-        const { error: emailError } = await supabase.functions.invoke('send-verification-email', {
+        const { error: emailError } = await supabase.functions.invoke('send-verification-code', {
           body: {
             email: email,
             userId: authData.user.id,
-            redirectUrl: window.location.origin,
           },
         });
 
         if (emailError) {
-          console.error('Error sending verification email:', emailError);
+          console.error('Error sending verification code:', emailError);
           // Don't fail signup if email fails - user can request resend
         }
       } catch (emailErr) {
-        console.error('Error invoking verification email function:', emailErr);
+        console.error('Error invoking verification code function:', emailErr);
       }
 
       // Fetch the user data after successful creation
@@ -207,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUserData(authData.user.id);
       }
 
-      return { error: null, requiresVerification: true };
+      return { error: null, userId: authData.user.id, userEmail: email };
     } catch (error) {
       return { error: error as Error };
     }
