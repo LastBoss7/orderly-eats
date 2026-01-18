@@ -162,3 +162,140 @@ export function playAlertBell(volume: number = 0.6): void {
     console.warn('Não foi possível tocar o alerta:', error);
   }
 }
+
+/**
+ * Toca som de lembrete de agendamento (melodia suave e distintiva)
+ * Usado para alertar sobre pedidos agendados próximos
+ */
+export function playScheduleReminder(volume: number = 0.5): void {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+
+    // Sequência melodiosa ascendente - som amigável de lembrete
+    const notes = [
+      { freq: 523.25, delay: 0 },     // C5
+      { freq: 659.25, delay: 0.15 },  // E5
+      { freq: 783.99, delay: 0.30 },  // G5
+      { freq: 1046.50, delay: 0.45 }, // C6
+    ];
+
+    notes.forEach(({ freq, delay }) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 4000;
+      filter.Q.value = 0.5;
+
+      oscillator.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.frequency.value = freq;
+      oscillator.type = 'sine';
+
+      const noteStart = now + delay;
+      const noteDuration = 0.25;
+
+      gainNode.gain.setValueAtTime(0, noteStart);
+      gainNode.gain.linearRampToValueAtTime(volume * 0.6, noteStart + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(volume * 0.3, noteStart + noteDuration * 0.5);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDuration);
+
+      oscillator.start(noteStart);
+      oscillator.stop(noteStart + noteDuration + 0.1);
+    });
+
+    // Adiciona um "shimmer" suave no final
+    setTimeout(() => {
+      const ctx2 = getAudioContext();
+      const now2 = ctx2.currentTime;
+
+      [1046.50, 1318.51, 1567.98].forEach((freq, i) => {
+        const osc = ctx2.createOscillator();
+        const gain = ctx2.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx2.destination);
+
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+
+        const shimmerVol = volume * 0.3 * (1 - i * 0.2);
+
+        gain.gain.setValueAtTime(0, now2);
+        gain.gain.linearRampToValueAtTime(shimmerVol, now2 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now2 + 0.8);
+
+        osc.start(now2);
+        osc.stop(now2 + 0.9);
+      });
+    }, 500);
+
+  } catch (error) {
+    console.warn('Não foi possível tocar o lembrete:', error);
+  }
+}
+
+/**
+ * Toca som de urgência para agendamento próximo (< 5 min)
+ * Mais insistente que o lembrete normal
+ */
+export function playScheduleUrgent(volume: number = 0.6): void {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+
+    // Três toques rápidos e urgentes
+    [0, 0.2, 0.4].forEach((delay) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.frequency.value = 1568; // G6 - nota mais aguda e urgente
+      oscillator.type = 'sine';
+
+      const noteStart = now + delay;
+
+      gainNode.gain.setValueAtTime(0, noteStart);
+      gainNode.gain.linearRampToValueAtTime(volume, noteStart + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.15);
+
+      oscillator.start(noteStart);
+      oscillator.stop(noteStart + 0.2);
+    });
+
+    // Segundo grupo após pausa
+    setTimeout(() => {
+      const ctx2 = getAudioContext();
+      const now2 = ctx2.currentTime;
+
+      [0, 0.2, 0.4].forEach((delay) => {
+        const oscillator = ctx2.createOscillator();
+        const gainNode = ctx2.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx2.destination);
+
+        oscillator.frequency.value = 1976; // B6 - ainda mais aguda
+        oscillator.type = 'sine';
+
+        const noteStart = now2 + delay;
+
+        gainNode.gain.setValueAtTime(0, noteStart);
+        gainNode.gain.linearRampToValueAtTime(volume * 0.8, noteStart + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.15);
+
+        oscillator.start(noteStart);
+        oscillator.stop(noteStart + 0.2);
+      });
+    }, 600);
+
+  } catch (error) {
+    console.warn('Não foi possível tocar o alerta urgente:', error);
+  }
+}

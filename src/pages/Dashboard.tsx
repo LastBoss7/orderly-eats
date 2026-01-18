@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
+import { useScheduledOrderNotifications } from '@/hooks/useScheduledOrderNotifications';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { usePrintLogs } from '@/hooks/usePrintLogs';
 import { useKeyboardShortcuts, SHORTCUT_DESCRIPTIONS } from '@/hooks/useKeyboardShortcuts';
@@ -263,6 +264,13 @@ export default function Dashboard() {
     playNotificationSound 
   } = useOrderNotifications(restaurant?.id);
 
+  // Scheduled order notifications hook (15 min and 5 min alerts)
+  useScheduledOrderNotifications({
+    restaurantId: restaurant?.id,
+    soundEnabled,
+    alertMinutesBefore: 15,
+    urgentMinutesBefore: 5,
+  });
   // DnD sensors - increased distance to prevent accidental drags when clicking
   const sensors = useSensors(
     useSensor(PointerSensor, {
