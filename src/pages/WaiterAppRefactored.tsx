@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -7,7 +7,6 @@ import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 import { useWaiterData } from '@/hooks/useWaiterData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
-
 // Modular imports
 import { 
   WaiterPinLogin,
@@ -129,15 +128,21 @@ export default function WaiterAppRefactored({
   const [creatingTab, setCreatingTab] = useState(false);
 
   // Use the waiter data hook - Edge Function for public access, direct Supabase for authenticated
+  // Memoize restaurantId to prevent hook recreation
+  const restaurantId = useMemo(() => restaurant?.id || '', [restaurant?.id]);
+  
   const waiterData = useWaiterData({
-    restaurantId: restaurant?.id || '',
+    restaurantId,
     useEdgeFunction: isPublicAccess,
   });
+
+  // Track if initial load happened
+  const initialLoadRef = useRef(false);
 
   // ========== DATA FETCHING ==========
   
   const fetchInitialData = useCallback(async () => {
-    if (!restaurant?.id) {
+    if (!restaurantId || initialLoadRef.current) {
       setLoading(false);
       return;
     }
@@ -154,17 +159,18 @@ export default function WaiterAppRefactored({
       setTabs(tabsData as Tab[]);
       setCategories(categoriesData);
       setProducts(productsData);
+      initialLoadRef.current = true;
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [restaurant?.id, waiterData]);
+  }, [restaurantId, waiterData]);
 
   const fetchTableTotal = useCallback(async (tableId: string): Promise<number> => {
-    if (!restaurant?.id) return 0;
+    if (!restaurantId) return 0;
     return waiterData.fetchTableTotal(tableId);
-  }, [restaurant?.id, waiterData]);
+  }, [restaurantId, waiterData]);
 
   const fetchTableOrders = useCallback(async (tableId: string) => {
     setLoadingOrders(true);
@@ -191,7 +197,7 @@ export default function WaiterAppRefactored({
   }, [waiterData]);
 
   const refreshReadyOrders = useCallback(async () => {
-    if (!restaurant?.id) return;
+    if (!restaurantId) return;
     
     try {
       const data = await waiterData.fetchReadyOrders();
@@ -203,7 +209,7 @@ export default function WaiterAppRefactored({
     } catch (error) {
       console.error('Error fetching ready orders:', error);
     }
-  }, [restaurant?.id, waiterData]);
+  }, [restaurantId, waiterData]);
 
   // ========== EFFECTS ==========
 
@@ -211,15 +217,36 @@ export default function WaiterAppRefactored({
     fetchInitialData();
   }, [fetchInitialData]);
 
+  // Single polling interval for ready orders - combine with public access polling
   useEffect(() => {
+    if (!restaurantId) return;
+    
     refreshReadyOrders();
-    const interval = setInterval(refreshReadyOrders, 5000);
+    
+    // For public access, poll tables/tabs along with ready orders
+    const pollData = async () => {
+      try {
+        if (isPublicAccess) {
+          const [tablesData, tabsData] = await Promise.all([
+            waiterData.fetchTables(),
+            waiterData.fetchTabs(),
+          ]);
+          setTables(tablesData as Table[]);
+          setTabs(tabsData as Tab[]);
+        }
+        await refreshReadyOrders();
+      } catch (error) {
+        console.error('Error polling data:', error);
+      }
+    };
+
+    const interval = setInterval(pollData, 8000); // Increased to 8 seconds
     return () => clearInterval(interval);
-  }, [refreshReadyOrders]);
+  }, [restaurantId, isPublicAccess, refreshReadyOrders, waiterData]);
 
   // Realtime subscription for authenticated access
   useEffect(() => {
-    if (!restaurant?.id || isPublicAccess) return;
+    if (!restaurantId || isPublicAccess) return;
 
     const channel = supabase
       .channel('waiter-realtime')
@@ -235,29 +262,7 @@ export default function WaiterAppRefactored({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [restaurant?.id, isPublicAccess, refreshReadyOrders, waiterData]);
-
-  // Polling for public access
-  useEffect(() => {
-    if (!restaurant?.id || !isPublicAccess) return;
-
-    const pollData = async () => {
-      try {
-        const [tablesData, tabsData] = await Promise.all([
-          waiterData.fetchTables(),
-          waiterData.fetchTabs(),
-        ]);
-        setTables(tablesData as Table[]);
-        setTabs(tabsData as Tab[]);
-        await refreshReadyOrders();
-      } catch (error) {
-        console.error('Error polling data:', error);
-      }
-    };
-
-    const interval = setInterval(pollData, 5000);
-    return () => clearInterval(interval);
-  }, [restaurant?.id, isPublicAccess, refreshReadyOrders, waiterData]);
+  }, [restaurantId, isPublicAccess, refreshReadyOrders, waiterData]);
 
   // ========== HANDLERS ==========
 
