@@ -20,6 +20,7 @@ import { StoreControlModal } from '@/components/dashboard/StoreControlModal';
 import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
 import { ScrollableColumn } from '@/components/dashboard/ScrollableColumn';
+import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -57,7 +58,7 @@ import {
   useSensors,
   closestCenter,
 } from '@dnd-kit/core';
-import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import { 
@@ -850,28 +851,6 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         updateOrderStatus(orderId, targetStatus);
       }
     }
-  };
-
-  // Droppable Column Component
-  const DroppableColumn = ({ 
-    id, 
-    children, 
-    className 
-  }: { 
-    id: string; 
-    children: React.ReactNode; 
-    className?: string;
-  }) => {
-    const { setNodeRef, isOver } = useDroppable({ id });
-
-    return (
-      <div 
-        ref={setNodeRef} 
-        className={`${className} transition-all duration-200 max-h-[calc(100vh-180px)] flex flex-col ${isOver ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-      >
-        {children}
-      </div>
-    );
   };
 
   // Function to handle close table/tab from order card
