@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LogOut, MoreVertical } from 'lucide-react';
-import logoGamakoWhite from '@/assets/logo-gamako-white.png';
+import logoAppGarcom from '@/assets/logo-app-garcom.png';
 import { Waiter } from '../types';
 
 interface WaiterHeaderProps {
@@ -39,8 +39,8 @@ export function WaiterHeader({
         )}
         
         {!showBack && (
-          <div className="w-10 h-10 rounded-xl bg-primary-foreground/10 flex items-center justify-center">
-            <img src={logoGamakoWhite} alt="Gamako" className="h-6 object-contain" />
+          <div className="w-10 h-10 rounded-xl bg-primary-foreground/10 flex items-center justify-center overflow-hidden">
+            <img src={logoAppGarcom} alt="App do Garçom" className="h-9 object-contain" />
           </div>
         )}
         
