@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { playDoubleBell, playAlertBell } from '@/lib/restaurantBell';
+import { useAuth } from '@/lib/auth';
 
 interface OrderNotification {
   id: string;
@@ -12,6 +13,7 @@ interface OrderNotification {
 
 export function useOrderNotifications(restaurantId: string | undefined) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<OrderNotification[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const processedOrdersRef = useRef<Set<string>>(new Set());
@@ -56,10 +58,20 @@ export function useOrderNotifications(restaurantId: string | undefined) {
           if (processedOrdersRef.current.has(order.id)) return;
           processedOrdersRef.current.add(order.id);
 
+          // Ignore temporary orders (conference, closing)
+          if (order.order_type === 'conference' || order.order_type === 'closing') {
+            return;
+          }
+
+          // Ignore orders created by current user (they already see "Pedido criado" toast)
+          if (order.created_by && user?.id && order.created_by === user.id) {
+            return;
+          }
+
           // Play sound and show toast
           playNotificationSound();
           
-          const orderNumber = order.id.slice(0, 4).toUpperCase();
+          const orderNumber = order.order_number || order.id.slice(0, 4).toUpperCase();
           
           toast({
             title: '🔔 Novo Pedido!',
@@ -69,7 +81,7 @@ export function useOrderNotifications(restaurantId: string | undefined) {
 
           addNotification({
             id: order.id,
-            orderNumber,
+            orderNumber: String(orderNumber),
             type: 'new',
           });
         }
@@ -79,7 +91,7 @@ export function useOrderNotifications(restaurantId: string | undefined) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [restaurantId, playNotificationSound, toast, addNotification]);
+  }, [restaurantId, user?.id, playNotificationSound, toast, addNotification]);
 
   // Check for delayed orders periodically
   useEffect(() => {
