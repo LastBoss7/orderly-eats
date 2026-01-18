@@ -39,17 +39,25 @@ export default function WaiterLogin() {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('restaurants')
-          .select('id, name, slug, logo_url')
-          .eq('slug', slug)
-          .single();
+        // Build URL manually for GET request with query params - bypasses RLS
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=get-restaurant&slug=${encodeURIComponent(slug)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-        if (error || !data) {
-          console.error('Restaurant fetch error:', error);
+        const result = await response.json();
+
+        if (!response.ok || !result.found) {
+          console.error('Restaurant fetch error:', result.error);
           setNotFound(true);
         } else {
-          setRestaurant(data);
+          setRestaurant(result.data);
         }
       } catch (error) {
         console.error('Restaurant fetch exception:', error);

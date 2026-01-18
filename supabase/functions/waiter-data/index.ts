@@ -19,6 +19,36 @@ Deno.serve(async (req) => {
     const restaurantId = url.searchParams.get("restaurant_id");
     const action = url.searchParams.get("action") || "tables";
 
+    // GET restaurant by slug (public endpoint - no restaurant_id needed)
+    if (action === "get-restaurant") {
+      const slug = url.searchParams.get("slug");
+      if (!slug) {
+        return new Response(
+          JSON.stringify({ error: "slug is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("id, name, slug, logo_url")
+        .eq("slug", slug)
+        .single();
+
+      if (error) {
+        console.error("Restaurant fetch error:", error);
+        return new Response(
+          JSON.stringify({ error: "Restaurant not found", found: false }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ data, found: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (!restaurantId) {
       return new Response(
         JSON.stringify({ error: "restaurant_id is required" }),
