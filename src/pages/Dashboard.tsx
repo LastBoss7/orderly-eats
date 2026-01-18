@@ -867,7 +867,7 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
     return (
       <div 
         ref={setNodeRef} 
-        className={`${className} transition-all duration-200 ${isOver ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+        className={`${className} transition-all duration-200 max-h-[calc(100vh-180px)] flex flex-col ${isOver ? 'ring-2 ring-primary ring-offset-2' : ''}`}
       >
         {children}
       </div>
