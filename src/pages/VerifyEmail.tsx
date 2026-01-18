@@ -366,7 +366,7 @@ export default function VerifyEmail() {
                   transition={{ delay: 0.4 }}
                   className="text-muted-foreground"
                 >
-                  Sua conta foi ativada com sucesso. Agora você pode acessar todas as funcionalidades do Gamako.
+                  Sua conta foi ativada com sucesso. Faça login para acessar o sistema.
                 </motion.p>
               </div>
 
@@ -376,10 +376,10 @@ export default function VerifyEmail() {
                 transition={{ delay: 0.6 }}
               >
                 <Button 
-                  onClick={() => navigate('/dashboard')} 
+                  onClick={() => navigate('/login')} 
                   className="w-full h-12 bg-gradient-to-r from-success to-success/90 hover:from-success/90 hover:to-success text-base font-semibold shadow-lg shadow-success/25 transition-all duration-300"
                 >
-                  Acessar o sistema
+                  Fazer login
                 </Button>
               </motion.div>
             </motion.div>

@@ -151,38 +151,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => {
     try {
-      // Create the user
+      // Generate slug and cnpj digits for storage
+      const slug = restaurantName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const uniqueSlug = `${slug}-${Date.now()}`;
+      const cnpjDigits = cnpj.replace(/\D/g, '');
+
+      // Create the user with metadata to store signup data
+      // Profile will be created after email verification
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
+          data: {
+            restaurant_name: restaurantName,
+            restaurant_slug: uniqueSlug,
+            cnpj: cnpjDigits,
+            full_name: fullName,
+            pending_setup: true,
+          },
         },
       });
 
       if (authError) return { error: authError };
       if (!authData.user) return { error: new Error('Failed to create user') };
-
-      // Generate slug
-      const slug = restaurantName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-      const uniqueSlug = `${slug}-${Date.now()}`;
-      const cnpjDigits = cnpj.replace(/\D/g, '');
-
-      // Use the security definer function to create restaurant, profile, and role
-      // This bypasses RLS issues during signup
-      const { data: restaurantId, error: createError } = await supabase
-        .rpc('create_restaurant_with_profile', {
-          _user_id: authData.user.id,
-          _restaurant_name: restaurantName,
-          _restaurant_slug: uniqueSlug,
-          _cnpj: cnpjDigits,
-          _full_name: fullName,
-        });
-
-      if (createError) {
-        console.error('Signup creation error:', createError);
-        return { error: createError };
-      }
 
       // Send verification code
       try {
@@ -199,11 +191,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (emailErr) {
         console.error('Error invoking verification code function:', emailErr);
-      }
-
-      // Fetch the user data after successful creation
-      if (authData.session) {
-        await fetchUserData(authData.user.id);
       }
 
       return { error: null, userId: authData.user.id, userEmail: email };
