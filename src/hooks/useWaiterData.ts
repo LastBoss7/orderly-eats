@@ -275,6 +275,72 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     return { success: true };
   }, [restaurantId, useEdgeFunction, postToEdge]);
 
+  const updateTab = useCallback(async (data: {
+    tab_id: string;
+    status: string;
+    customer_name?: string | null;
+    customer_phone?: string | null;
+  }) => {
+    if (useEdgeFunction) {
+      return postToEdge('update-tab', data);
+    }
+
+    const { error } = await supabase
+      .from('tabs')
+      .update({
+        status: data.status,
+        customer_name: data.customer_name ?? null,
+        customer_phone: data.customer_phone ?? null,
+      })
+      .eq('id', data.tab_id);
+
+    if (error) throw error;
+    return { success: true };
+  }, [useEdgeFunction, postToEdge]);
+
+  const createTab = useCallback(async (data: {
+    number: number;
+    customer_name?: string | null;
+    customer_phone?: string | null;
+    status?: string;
+  }) => {
+    if (useEdgeFunction) {
+      return postToEdge('create-tab', data);
+    }
+
+    const { data: newTab, error } = await supabase
+      .from('tabs')
+      .insert({
+        restaurant_id: restaurantId,
+        number: data.number,
+        customer_name: data.customer_name || null,
+        customer_phone: data.customer_phone || null,
+        status: data.status || 'occupied',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, tab: newTab };
+  }, [restaurantId, useEdgeFunction, postToEdge]);
+
+  const updateTable = useCallback(async (data: {
+    table_id: string;
+    status: string;
+  }) => {
+    if (useEdgeFunction) {
+      return postToEdge('update-table', data);
+    }
+
+    const { error } = await supabase
+      .from('tables')
+      .update({ status: data.status })
+      .eq('id', data.table_id);
+
+    if (error) throw error;
+    return { success: true };
+  }, [useEdgeFunction, postToEdge]);
+
   return {
     loading,
     fetchTables,
@@ -287,5 +353,8 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     fetchTableTotal,
     createOrder,
     closeOrders,
+    updateTab,
+    createTab,
+    updateTable,
   };
 }

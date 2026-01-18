@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
+import { useWaiterData } from '@/hooks/useWaiterData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
@@ -127,6 +128,12 @@ export default function WaiterAppRefactored({
   const [newTabCustomerPhone, setNewTabCustomerPhone] = useState('');
   const [creatingTab, setCreatingTab] = useState(false);
 
+  // Use the waiter data hook - Edge Function for public access, direct Supabase for authenticated
+  const waiterData = useWaiterData({
+    restaurantId: restaurant?.id || '',
+    useEdgeFunction: isPublicAccess,
+  });
+
   // ========== DATA FETCHING ==========
   
   const fetchInitialData = useCallback(async () => {
@@ -136,87 +143,67 @@ export default function WaiterAppRefactored({
     }
 
     try {
-      const [tablesRes, tabsRes, categoriesRes, productsRes] = await Promise.all([
-        supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
-        supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).order('number'),
-        supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
-        supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true).order('name'),
+      const [tablesData, tabsData, categoriesData, productsData] = await Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchTabs(),
+        waiterData.fetchCategories(),
+        waiterData.fetchProducts(),
       ]);
 
-      setTables((tablesRes.data || []) as Table[]);
-      setTabs((tabsRes.data || []) as Tab[]);
-      setCategories(categoriesRes.data || []);
-      setProducts(productsRes.data || []);
+      setTables(tablesData as Table[]);
+      setTabs(tabsData as Tab[]);
+      setCategories(categoriesData);
+      setProducts(productsData);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  }, [restaurant?.id]);
+  }, [restaurant?.id, waiterData]);
 
   const fetchTableTotal = useCallback(async (tableId: string): Promise<number> => {
     if (!restaurant?.id) return 0;
-    
-    const { data } = await supabase
-      .from('orders')
-      .select('total')
-      .eq('table_id', tableId)
-      .in('status', ['pending', 'preparing', 'ready']);
-    
-    return (data || []).reduce((sum, o) => sum + (o.total || 0), 0);
-  }, [restaurant?.id]);
+    return waiterData.fetchTableTotal(tableId);
+  }, [restaurant?.id, waiterData]);
 
   const fetchTableOrders = useCallback(async (tableId: string) => {
     setLoadingOrders(true);
     try {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, order_items(*), waiters(id, name)')
-        .eq('table_id', tableId)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: false });
-      
+      const data = await waiterData.fetchTableOrders(tableId);
       setTableOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [waiterData]);
 
   const fetchTabOrders = useCallback(async (tabId: string) => {
     setLoadingOrders(true);
     try {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, order_items(*), waiters(id, name)')
-        .eq('tab_id', tabId)
-        .in('status', ['pending', 'preparing', 'ready'])
-        .order('created_at', { ascending: false });
-      
+      const data = await waiterData.fetchTabOrders(tabId);
       setTableOrders(data || []);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
       setLoadingOrders(false);
     }
-  }, []);
+  }, [waiterData]);
 
   const refreshReadyOrders = useCallback(async () => {
     if (!restaurant?.id) return;
     
-    const { data } = await supabase
-      .from('orders')
-      .select('table_id')
-      .eq('restaurant_id', restaurant.id)
-      .eq('status', 'ready');
-    
-    const readyMap: Record<string, boolean> = {};
-    data?.forEach((order) => {
-      if (order.table_id) readyMap[order.table_id] = true;
-    });
-    setTableReadyOrders(readyMap);
-  }, [restaurant?.id]);
+    try {
+      const data = await waiterData.fetchReadyOrders();
+      const readyMap: Record<string, boolean> = {};
+      data?.forEach((order: { table_id: string | null }) => {
+        if (order.table_id) readyMap[order.table_id] = true;
+      });
+      setTableReadyOrders(readyMap);
+    } catch (error) {
+      console.error('Error fetching ready orders:', error);
+    }
+  }, [restaurant?.id, waiterData]);
 
   // ========== EFFECTS ==========
 
@@ -237,36 +224,40 @@ export default function WaiterAppRefactored({
     const channel = supabase
       .channel('waiter-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async () => {
-        const { data } = await supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number');
-        setTables((data || []) as Table[]);
+        const data = await waiterData.fetchTables();
+        setTables(data as Table[]);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tabs' }, async () => {
-        const { data } = await supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).order('number');
-        setTabs((data || []) as Tab[]);
+        const data = await waiterData.fetchTabs();
+        setTabs(data as Tab[]);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => refreshReadyOrders())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [restaurant?.id, isPublicAccess, refreshReadyOrders]);
+  }, [restaurant?.id, isPublicAccess, refreshReadyOrders, waiterData]);
 
   // Polling for public access
   useEffect(() => {
     if (!restaurant?.id || !isPublicAccess) return;
 
     const pollData = async () => {
-      const [tablesRes, tabsRes] = await Promise.all([
-        supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
-        supabase.from('tabs').select('*').eq('restaurant_id', restaurant.id).order('number'),
-      ]);
-      setTables((tablesRes.data || []) as Table[]);
-      setTabs((tabsRes.data || []) as Tab[]);
-      await refreshReadyOrders();
+      try {
+        const [tablesData, tabsData] = await Promise.all([
+          waiterData.fetchTables(),
+          waiterData.fetchTabs(),
+        ]);
+        setTables(tablesData as Table[]);
+        setTabs(tabsData as Tab[]);
+        await refreshReadyOrders();
+      } catch (error) {
+        console.error('Error polling data:', error);
+      }
     };
 
     const interval = setInterval(pollData, 5000);
     return () => clearInterval(interval);
-  }, [restaurant?.id, isPublicAccess, refreshReadyOrders]);
+  }, [restaurant?.id, isPublicAccess, refreshReadyOrders, waiterData]);
 
   // ========== HANDLERS ==========
 
@@ -328,16 +319,12 @@ export default function WaiterAppRefactored({
 
     setSavingTabCustomer(true);
     try {
-      const { error } = await supabase
-        .from('tabs')
-        .update({ 
-          customer_name: tabCustomerName.trim(),
-          customer_phone: tabCustomerPhone.trim() || null,
-          status: 'occupied'
-        })
-        .eq('id', pendingTab.id);
-
-      if (error) throw error;
+      await waiterData.updateTab({
+        tab_id: pendingTab.id,
+        status: 'occupied',
+        customer_name: tabCustomerName.trim(),
+        customer_phone: tabCustomerPhone.trim() || null,
+      });
 
       setTabs(prev => prev.map(t => 
         t.id === pendingTab.id 
@@ -380,25 +367,18 @@ export default function WaiterAppRefactored({
       const maxNumber = tabs.length > 0 ? Math.max(...tabs.map(t => t.number)) : 0;
       const nextNumber = maxNumber + 1;
 
-      const { data: newTab, error } = await supabase
-        .from('tabs')
-        .insert({
-          restaurant_id: restaurant.id,
-          number: nextNumber,
-          customer_name: newTabCustomerName.trim(),
-          customer_phone: newTabCustomerPhone.trim() || null,
-          status: 'occupied'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const result = await waiterData.createTab({
+        number: nextNumber,
+        customer_name: newTabCustomerName.trim(),
+        customer_phone: newTabCustomerPhone.trim() || null,
+        status: 'occupied'
+      });
 
       const createdTab: Tab = {
-        id: newTab.id,
-        number: newTab.number,
-        customer_name: newTab.customer_name,
-        customer_phone: newTab.customer_phone,
+        id: result.tab.id,
+        number: result.tab.number,
+        customer_name: result.tab.customer_name,
+        customer_phone: result.tab.customer_phone,
         status: 'occupied'
       };
       setTabs(prev => [...prev, createdTab]);
@@ -549,50 +529,24 @@ export default function WaiterAppRefactored({
         notes: item.notes || null,
         product_size: item.size || null,
         category_id: item.product.category_id,
-        restaurant_id: restaurant?.id,
       }));
 
-      const { data: orderResult, error: orderError } = await supabase.rpc('get_next_order_number', { 
-        _restaurant_id: restaurant?.id 
+      // Use waiterData hook for order creation
+      await waiterData.createOrder({
+        table_id: orderMode === 'table' ? selectedTable?.id : null,
+        tab_id: orderMode === 'tab' ? selectedTab?.id : null,
+        order_type: orderMode === 'tab' ? 'table' : orderMode,
+        print_status: 'pending',
+        total: orderTotal,
+        notes: orderNotes || null,
+        customer_id: customerId,
+        customer_name: orderMode === 'tab' ? selectedTab?.customer_name : (orderMode !== 'table' ? deliveryForm.customerName : null),
+        delivery_address: orderMode === 'delivery' ? fullAddress : null,
+        delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
+        delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
+        waiter_id: selectedWaiter?.id || null,
+        items: orderItems,
       });
-      
-      const orderNumber = orderResult || 1;
-
-      const { data: newOrder, error: insertError } = await supabase
-        .from('orders')
-        .insert({
-          restaurant_id: restaurant?.id,
-          table_id: orderMode === 'table' ? selectedTable?.id : null,
-          tab_id: orderMode === 'tab' ? selectedTab?.id : null,
-          order_type: orderMode === 'tab' ? 'table' : orderMode,
-          order_number: orderNumber,
-          print_status: 'pending',
-          total: orderTotal,
-          notes: orderNotes || null,
-          customer_id: customerId,
-          customer_name: orderMode === 'tab' ? selectedTab?.customer_name : (orderMode !== 'table' ? deliveryForm.customerName : null),
-          delivery_address: orderMode === 'delivery' ? fullAddress : null,
-          delivery_phone: orderMode !== 'table' && orderMode !== 'tab' ? deliveryForm.customerPhone : null,
-          delivery_fee: orderMode === 'delivery' ? deliveryForm.deliveryFee : 0,
-          waiter_id: selectedWaiter?.id || null,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      // Insert order items
-      const itemsWithOrderId = orderItems.map(item => ({
-        ...item,
-        order_id: newOrder.id,
-      }));
-
-      await supabase.from('order_items').insert(itemsWithOrderId);
-
-      // Update table/tab status if needed
-      if (orderMode === 'table' && selectedTable) {
-        await supabase.from('tables').update({ status: 'occupied' }).eq('id', selectedTable.id);
-      }
 
       const successMessage = orderMode === 'table'
         ? `Pedido da Mesa ${selectedTable?.number} enviado!`
@@ -604,13 +558,13 @@ export default function WaiterAppRefactored({
 
       toast.success(successMessage);
 
-      // Refresh data
-      const [tablesRes, tabsRes] = await Promise.all([
-        supabase.from('tables').select('*').eq('restaurant_id', restaurant?.id).order('number'),
-        supabase.from('tabs').select('*').eq('restaurant_id', restaurant?.id).order('number'),
+      // Refresh data using waiterData hook
+      const [tablesData, tabsData] = await Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchTabs(),
       ]);
-      setTables((tablesRes.data || []) as Table[]);
-      setTabs((tabsRes.data || []) as Tab[]);
+      setTables(tablesData as Table[]);
+      setTabs(tabsData as Tab[]);
 
       setView('tables');
       setSelectedTable(null);
@@ -641,18 +595,13 @@ export default function WaiterAppRefactored({
     
     setClosingTable(true);
     try {
-      await supabase
-        .from('orders')
-        .update({ 
-          status: 'closed', 
-          closed_at: new Date().toISOString(),
-          payment_method: paymentMethod,
-          cash_received: paymentMethod === 'cash' ? cashReceived : null,
-          change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : null,
-        })
-        .in('id', tableOrders.map(o => o.id));
-      
-      await supabase.from('tables').update({ status: 'available' }).eq('id', selectedTable.id);
+      await waiterData.closeOrders({
+        order_ids: tableOrders.map(o => o.id),
+        table_id: selectedTable.id,
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
+        change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : undefined,
+      });
       
       toast.success(`Mesa ${selectedTable.number} fechada com sucesso!`);
       setShowCloseModal(false);
@@ -660,8 +609,8 @@ export default function WaiterAppRefactored({
       setSelectedTable(null);
       setTableOrders([]);
       
-      const { data } = await supabase.from('tables').select('*').eq('restaurant_id', restaurant?.id).order('number');
-      setTables((data || []) as Table[]);
+      const data = await waiterData.fetchTables();
+      setTables(data as Table[]);
     } catch (error: any) {
       toast.error('Erro ao fechar mesa');
     } finally {
@@ -674,18 +623,13 @@ export default function WaiterAppRefactored({
     
     setClosingTable(true);
     try {
-      await supabase
-        .from('orders')
-        .update({ 
-          status: 'closed', 
-          closed_at: new Date().toISOString(),
-          payment_method: paymentMethod,
-          cash_received: paymentMethod === 'cash' ? cashReceived : null,
-          change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : null,
-        })
-        .in('id', tableOrders.map(o => o.id));
-      
-      await supabase.from('tabs').update({ status: 'available', customer_name: null, customer_phone: null }).eq('id', selectedTab.id);
+      await waiterData.closeOrders({
+        order_ids: tableOrders.map(o => o.id),
+        tab_id: selectedTab.id,
+        payment_method: paymentMethod,
+        cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
+        change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : undefined,
+      });
       
       toast.success(`Comanda #${selectedTab.number} fechada com sucesso!`);
       setShowCloseModal(false);
@@ -693,8 +637,8 @@ export default function WaiterAppRefactored({
       setSelectedTab(null);
       setTableOrders([]);
       
-      const { data } = await supabase.from('tabs').select('*').eq('restaurant_id', restaurant?.id).order('number');
-      setTabs((data || []) as Tab[]);
+      const data = await waiterData.fetchTabs();
+      setTabs(data as Tab[]);
     } catch (error: any) {
       toast.error('Erro ao fechar comanda');
     } finally {
