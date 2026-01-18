@@ -217,11 +217,15 @@ Deno.serve(async (req) => {
         order_items: order.order_items.map((item) => {
           // Priority for category_id:
           // 1. Direct category_id on order_item (new column)
-          // 2. category_id from joined products table
+          // 2. category_id from joined products table (can be object or array depending on Supabase response)
           // 3. Fallback: lookup by product name
-          let categoryId = item.category_id 
-            || item.products?.[0]?.category_id 
-            || null;
+          const productsCategoryId = Array.isArray(item.products) 
+            ? item.products[0]?.category_id 
+            : (item.products as { category_id: string | null } | null)?.category_id;
+          
+          let categoryId = item.category_id || productsCategoryId || null;
+          
+          console.log(`[printer-orders] Item "${item.product_name}": item.category_id=${item.category_id}, products=${JSON.stringify(item.products)}, resolved=${categoryId}`);
           
           // If still no category, try to find by product name
           if (!categoryId && item.product_name) {
