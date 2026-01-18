@@ -6,12 +6,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Building2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, User, CheckCircle, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-invite`;
 
-const registerSchema = z.object({
+// Schema for existing waiter invite
+const existingWaiterSchema = z.object({
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  confirmPassword: z.string(),
+  pin: z.string().length(4, 'PIN deve ter 4 dígitos').regex(/^\d+$/, 'PIN deve conter apenas números'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Senhas não conferem',
+  path: ['confirmPassword'],
+});
+
+// Schema for generic invite (waiter self-registration)
+const genericInviteSchema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  phone: z.string().optional(),
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   confirmPassword: z.string(),
@@ -23,6 +37,7 @@ const registerSchema = z.object({
 
 interface InviteData {
   id: string;
+  isGenericInvite: boolean;
   restaurant: {
     id: string;
     name: string;
@@ -34,7 +49,7 @@ interface InviteData {
     name: string;
     email: string | null;
     phone: string | null;
-  };
+  } | null;
 }
 
 export default function WaiterRegister() {
@@ -49,6 +64,8 @@ export default function WaiterRegister() {
   const [success, setSuccess] = useState(false);
 
   const [form, setForm] = useState({
+    name: '',
+    phone: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -82,8 +99,16 @@ export default function WaiterRegister() {
         }
 
         setInviteData(data.invite);
-        if (data.invite.waiter.email) {
+        // Pre-fill email if waiter exists
+        if (data.invite.waiter?.email) {
           setForm(prev => ({ ...prev, email: data.invite.waiter.email }));
+        }
+        // Pre-fill name and phone if waiter exists
+        if (data.invite.waiter?.name) {
+          setForm(prev => ({ ...prev, name: data.invite.waiter.name }));
+        }
+        if (data.invite.waiter?.phone) {
+          setForm(prev => ({ ...prev, phone: data.invite.waiter.phone }));
         }
       } catch (err) {
         setError('Erro ao validar convite');
@@ -99,7 +124,10 @@ export default function WaiterRegister() {
     e.preventDefault();
     setFormErrors({});
 
-    const result = registerSchema.safeParse(form);
+    const isGeneric = inviteData?.isGenericInvite;
+    const schema = isGeneric ? genericInviteSchema : existingWaiterSchema;
+    const result = schema.safeParse(form);
+
     if (!result.success) {
       const errors: Record<string, string> = {};
       result.error.errors.forEach((err) => {
@@ -124,6 +152,10 @@ export default function WaiterRegister() {
           email: form.email,
           password: form.password,
           pin: form.pin,
+          ...(isGeneric && {
+            name: form.name,
+            phone: form.phone,
+          }),
         }),
       });
 
@@ -143,10 +175,13 @@ export default function WaiterRegister() {
           password: form.password,
         });
 
-        if (!signInError) {
-          navigate(`/garcom/${inviteData?.restaurant.slug}/app`);
+        const slug = data.restaurantSlug || inviteData?.restaurant.slug;
+        if (!signInError && slug) {
+          navigate(`/garcom/${slug}/app`);
+        } else if (slug) {
+          navigate(`/garcom/${slug}`);
         } else {
-          navigate(`/garcom/${inviteData?.restaurant.slug}`);
+          navigate('/');
         }
       }, 2000);
     } catch (err: any) {
@@ -199,6 +234,8 @@ export default function WaiterRegister() {
     );
   }
 
+  const isGeneric = inviteData?.isGenericInvite;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10 p-4">
       <Card className="w-full max-w-md">
@@ -212,27 +249,73 @@ export default function WaiterRegister() {
           )}
           <CardTitle>Criar Conta de Garçom</CardTitle>
           <CardDescription>
-            Você foi convidado para trabalhar em{' '}
-            <span className="font-semibold text-foreground">
-              {inviteData?.restaurant.name}
-            </span>
+            {isGeneric ? (
+              <>
+                Cadastre-se para trabalhar em{' '}
+                <span className="font-semibold text-foreground">
+                  {inviteData?.restaurant.name}
+                </span>
+              </>
+            ) : (
+              <>
+                Você foi convidado para trabalhar em{' '}
+                <span className="font-semibold text-foreground">
+                  {inviteData?.restaurant.name}
+                </span>
+              </>
+            )}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <div className="flex items-center gap-3 p-3 bg-muted rounded-lg mb-6">
-            <User className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
-            <div>
-              <p className="font-medium">{inviteData?.waiter.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {inviteData?.waiter.phone || 'Sem telefone cadastrado'}
-              </p>
+          {/* Show waiter info only for existing waiter invites */}
+          {!isGeneric && inviteData?.waiter && (
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg mb-6">
+              <User className="h-10 w-10 text-primary p-2 bg-primary/10 rounded-full" />
+              <div>
+                <p className="font-medium">{inviteData.waiter.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {inviteData.waiter.phone || 'Sem telefone cadastrado'}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name and phone fields for generic invites */}
+            {isGeneric && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Completo *</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Seu nome completo"
+                    disabled={submitting}
+                  />
+                  {formErrors.name && (
+                    <p className="text-sm text-destructive">{formErrors.name}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="(00) 00000-0000"
+                    disabled={submitting}
+                  />
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 type="email"
@@ -247,7 +330,7 @@ export default function WaiterRegister() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password">Senha *</Label>
               <Input
                 id="password"
                 type="password"
@@ -262,7 +345,7 @@ export default function WaiterRegister() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+              <Label htmlFor="confirmPassword">Confirmar Senha *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -277,7 +360,7 @@ export default function WaiterRegister() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="pin">PIN de Acesso Rápido (4 dígitos)</Label>
+              <Label htmlFor="pin">PIN de Acesso Rápido (4 dígitos) *</Label>
               <Input
                 id="pin"
                 type="password"

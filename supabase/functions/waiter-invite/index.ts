@@ -5,6 +5,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper to hash PIN
+async function hashPin(pin: string, salt: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const pinData = encoder.encode(pin + salt);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', pinData);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -48,6 +57,9 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Check if this is a generic invite (no waiter linked yet)
+      const isGenericInvite = !invite.waiter_id;
+
       return new Response(
         JSON.stringify({ 
           valid: true, 
@@ -55,6 +67,7 @@ Deno.serve(async (req) => {
             id: invite.id,
             restaurant: invite.restaurants,
             waiter: invite.waiters,
+            isGenericInvite,
           }
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -63,7 +76,7 @@ Deno.serve(async (req) => {
 
     // POST: Register waiter with invite
     if (req.method === "POST" && action === "register") {
-      const { token, email, password, pin } = await req.json();
+      const { token, email, password, pin, name, phone } = await req.json();
 
       if (!token || !email || !password) {
         return new Response(
@@ -75,7 +88,7 @@ Deno.serve(async (req) => {
       // Validate invite
       const { data: invite, error: inviteError } = await supabase
         .from("waiter_invites")
-        .select("*, waiters(*)")
+        .select("*, waiters(*), restaurants(slug)")
         .eq("token", token)
         .is("used_at", null)
         .gt("expires_at", new Date().toISOString())
@@ -88,13 +101,23 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Create auth user
+      const isGenericInvite = !invite.waiter_id;
+      let waiterId = invite.waiter_id;
+
+      // For generic invites, we need name
+      if (isGenericInvite && !name) {
+        return new Response(
+          JSON.stringify({ error: "Name is required for registration" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Create auth user first
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // Auto-confirm email
+        email_confirm: true,
         user_metadata: {
-          waiter_id: invite.waiter_id,
           restaurant_id: invite.restaurant_id,
         }
       });
@@ -106,31 +129,67 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Update waiter with user_id and email
-      const updateData: Record<string, any> = {
-        user_id: authData.user.id,
-        email: email,
-      };
+      // For generic invite, create the waiter record
+      if (isGenericInvite) {
+        const waiterData: Record<string, any> = {
+          restaurant_id: invite.restaurant_id,
+          name: name.trim(),
+          email: email,
+          phone: phone?.trim() || null,
+          status: 'active',
+          user_id: authData.user.id,
+        };
 
-      // Hash PIN if provided
-      if (pin) {
-        // Generate salt and hash PIN
-        const encoder = new TextEncoder();
-        const salt = crypto.randomUUID();
-        const pinData = encoder.encode(pin + salt);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', pinData);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const pinHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        
-        updateData.pin_hash = pinHash;
-        updateData.pin_salt = salt;
-        updateData.pin = null; // Clear legacy plain-text PIN
+        // Hash PIN if provided
+        if (pin) {
+          const salt = crypto.randomUUID();
+          waiterData.pin_hash = await hashPin(pin, salt);
+          waiterData.pin_salt = salt;
+        }
+
+        const { data: newWaiter, error: createError } = await supabase
+          .from("waiters")
+          .insert(waiterData)
+          .select()
+          .single();
+
+        if (createError) {
+          // Rollback: delete auth user
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          return new Response(
+            JSON.stringify({ error: createError.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        waiterId = newWaiter.id;
+      } else {
+        // For existing waiter, update their record
+        const updateData: Record<string, any> = {
+          user_id: authData.user.id,
+          email: email,
+        };
+
+        if (pin) {
+          const salt = crypto.randomUUID();
+          updateData.pin_hash = await hashPin(pin, salt);
+          updateData.pin_salt = salt;
+          updateData.pin = null;
+        }
+
+        await supabase
+          .from("waiters")
+          .update(updateData)
+          .eq("id", invite.waiter_id);
       }
 
-      await supabase
-        .from("waiters")
-        .update(updateData)
-        .eq("id", invite.waiter_id);
+      // Update auth user metadata with waiter_id
+      await supabase.auth.admin.updateUserById(authData.user.id, {
+        user_metadata: {
+          waiter_id: waiterId,
+          restaurant_id: invite.restaurant_id,
+        }
+      });
 
       // Mark invite as used
       await supabase
@@ -146,23 +205,31 @@ Deno.serve(async (req) => {
           role: 'waiter'
         });
 
+      // Get the created/updated waiter
+      const { data: waiter } = await supabase
+        .from("waiters")
+        .select("*")
+        .eq("id", waiterId)
+        .single();
+
       return new Response(
         JSON.stringify({ 
           success: true, 
           user: authData.user,
-          waiter: invite.waiters
+          waiter,
+          restaurantSlug: invite.restaurants?.slug,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // POST: Generate invite link
+    // POST: Generate invite link (can be generic or for specific waiter)
     if (req.method === "POST" && action === "generate") {
       const { waiter_id, restaurant_id, created_by } = await req.json();
 
-      if (!waiter_id || !restaurant_id) {
+      if (!restaurant_id) {
         return new Response(
-          JSON.stringify({ error: "waiter_id and restaurant_id are required" }),
+          JSON.stringify({ error: "restaurant_id is required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -172,19 +239,21 @@ Deno.serve(async (req) => {
       crypto.getRandomValues(tokenBytes);
       const token = Array.from(tokenBytes).map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Delete any existing unused invites for this waiter
-      await supabase
-        .from("waiter_invites")
-        .delete()
-        .eq("waiter_id", waiter_id)
-        .is("used_at", null);
+      // If waiter_id is provided, delete any existing unused invites for this waiter
+      if (waiter_id) {
+        await supabase
+          .from("waiter_invites")
+          .delete()
+          .eq("waiter_id", waiter_id)
+          .is("used_at", null);
+      }
 
-      // Create new invite
+      // Create new invite (waiter_id can be null for generic invites)
       const { data: invite, error } = await supabase
         .from("waiter_invites")
         .insert({
           restaurant_id,
-          waiter_id,
+          waiter_id: waiter_id || null,
           token,
           created_by,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
