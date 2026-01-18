@@ -1489,9 +1489,9 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 min-h-0 overflow-hidden p-4 flex gap-4">
+          <div className="flex-1 min-h-0 overflow-hidden p-4">
             {/* Premium Kanban Columns */}
-            <div className="flex-1 h-full flex gap-4 overflow-x-auto overflow-y-hidden min-w-0 pb-2">
+            <div className="h-full flex gap-4 overflow-x-auto overflow-y-hidden pb-2">
               {/* Column: Em análise */}
               <KanbanColumn
                 id="column-pending"
@@ -1606,104 +1606,6 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   />
                 </KanbanColumn>
               )}
-            </div>
-
-            {/* Right Sidebar - Scheduled Orders & Quick Stats */}
-            <div className="w-64 shrink-0 flex flex-col gap-3 overflow-y-auto">
-              {/* Scheduled Orders Panel */}
-              {scheduledOrders.length > 0 && (
-                <div className="bg-card border rounded-xl shadow-sm overflow-hidden flex flex-col max-h-[50%]">
-                  <div className="p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-semibold">Agendados</span>
-                        <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">
-                          {scheduledOrders.length}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  <ScheduledOrdersPanel
-                    orders={scheduledOrders.map(o => ({
-                      ...o,
-                      scheduled_at: o.scheduled_at!,
-                    }))}
-                    onStartOrder={async (orderId) => {
-                      // Update order status from scheduled to pending
-                      await supabase
-                        .from('orders')
-                        .update({ 
-                          status: 'pending',
-                          print_status: 'pending',
-                        })
-                        .eq('id', orderId);
-                      toast.success('Pedido iniciado!');
-                      fetchOrders();
-                    }}
-                    onOpenDetail={(order) => {
-                      setSelectedOrder(order as Order);
-                      setShowOrderDetailModal(true);
-                    }}
-                    formatCurrency={formatCurrency}
-                    getTableNumber={getTableNumber}
-                    getTabInfo={getTabInfo}
-                  />
-                </div>
-              )}
-
-              {/* Quick Stats */}
-              <div className="flex flex-wrap gap-2">
-                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {orders.filter(o => o.table_id && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).reduce((acc, o) => {
-                      if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
-                      return acc;
-                    }, [] as string[]).length}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground font-medium">Mesas</span>
-                </div>
-
-                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                  <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                    <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {orders.filter(o => o.tab_id && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).reduce((acc, o) => {
-                      if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
-                      return acc;
-                    }, [] as string[]).length}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground font-medium">Comandas</span>
-                </div>
-
-                <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled', 'scheduled'].includes(o.status || '')).length}
-                  </span>
-                  <span className="text-[9px] text-muted-foreground font-medium">Delivery</span>
-                </div>
-
-                {scheduledOrders.length === 0 && (
-                  <div className="flex-1 min-w-[60px] bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
-                    <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <span className="text-lg font-bold text-foreground">
-                      {allScheduledOrders.length}
-                    </span>
-                    <span className="text-[9px] text-muted-foreground font-medium">Agendados</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
