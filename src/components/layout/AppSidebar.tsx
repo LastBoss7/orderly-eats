@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { useAdminRole } from '@/hooks/useAdminRole';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   Sidebar,
   SidebarContent,
@@ -104,6 +105,7 @@ export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === 'collapsed';
   const [isOpen, setIsOpen] = useState<boolean | null>(null);
+  const [isTogglingStore, setIsTogglingStore] = useState(false);
   
   // Check if any cardapio route is active
   const isCardapioActive = cardapioSubmenu.some(item => location.pathname === item.url);
@@ -148,6 +150,53 @@ export function AppSidebar() {
       supabase.removeChannel(channel);
     };
   }, [restaurant?.id]);
+
+  // Toggle store open/closed status
+  const handleToggleStore = async () => {
+    if (!restaurant?.id || isTogglingStore) return;
+    
+    setIsTogglingStore(true);
+    const newStatus = !isOpen;
+    
+    try {
+      // Check if salon_settings exists
+      const { data: existingSettings } = await supabase
+        .from('salon_settings')
+        .select('id')
+        .eq('restaurant_id', restaurant.id)
+        .maybeSingle();
+
+      if (existingSettings) {
+        const { error } = await supabase
+          .from('salon_settings')
+          .update({ 
+            is_open: newStatus,
+            last_opened_at: newStatus ? new Date().toISOString() : undefined,
+          })
+          .eq('restaurant_id', restaurant.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('salon_settings')
+          .insert({
+            restaurant_id: restaurant.id,
+            is_open: newStatus,
+            last_opened_at: newStatus ? new Date().toISOString() : undefined,
+          });
+        
+        if (error) throw error;
+      }
+      
+      setIsOpen(newStatus);
+      toast.success(newStatus ? 'Estabelecimento aberto!' : 'Estabelecimento fechado!');
+    } catch (error) {
+      console.error('Error toggling store status:', error);
+      toast.error('Erro ao alterar status do estabelecimento');
+    } finally {
+      setIsTogglingStore(false);
+    }
+  };
 
   // Mark deliveries as viewed when visiting deliveries page
   useEffect(() => {
@@ -460,19 +509,23 @@ export function AppSidebar() {
           <div className="flex flex-col items-center justify-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="relative">
-                  <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer">
+                <button
+                  onClick={handleToggleStore}
+                  disabled={isTogglingStore}
+                  className="relative group focus:outline-none disabled:opacity-50"
+                >
+                  <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer transition-transform group-hover:scale-105">
                     <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
                     <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
                       {getInitials(profile?.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <span 
-                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-background ${
+                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-background transition-colors ${
                       isOpen ? 'bg-success' : 'bg-destructive'
-                    }`}
+                    } ${isTogglingStore ? 'animate-pulse' : ''}`}
                   />
-                </div>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right" className="bg-popover">
                 <p className="font-medium">{restaurant?.name || 'Restaurante'}</p>
@@ -480,6 +533,7 @@ export function AppSidebar() {
                 <Badge className={`mt-1 text-[10px] ${isOpen ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
                   {isOpen ? 'ABERTO' : 'FECHADO'}
                 </Badge>
+                <p className="text-xs text-muted-foreground mt-1">Clique para {isOpen ? 'fechar' : 'abrir'}</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -500,19 +554,30 @@ export function AppSidebar() {
           </div>
         ) : (
           <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
-            <div className="relative">
-              <Avatar className="w-10 h-10 border-2 border-sidebar-primary">
-                <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
-                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
-                  {getInitials(profile?.full_name)}
-                </AvatarFallback>
-              </Avatar>
-              <span 
-                className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-accent ${
-                  isOpen ? 'bg-success' : 'bg-destructive'
-                }`}
-              />
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleToggleStore}
+                  disabled={isTogglingStore}
+                  className="relative group focus:outline-none disabled:opacity-50"
+                >
+                  <Avatar className="w-10 h-10 border-2 border-sidebar-primary cursor-pointer transition-transform group-hover:scale-105">
+                    <AvatarImage src={restaurant?.logo_url || undefined} alt={restaurant?.name} />
+                    <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground text-sm font-bold">
+                      {getInitials(profile?.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span 
+                    className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-sidebar-accent transition-colors ${
+                      isOpen ? 'bg-success' : 'bg-destructive'
+                    } ${isTogglingStore ? 'animate-pulse' : ''}`}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-popover">
+                <p className="text-xs">Clique para {isOpen ? 'fechar' : 'abrir'} o estabelecimento</p>
+              </TooltipContent>
+            </Tooltip>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
                 {restaurant?.name || 'Restaurante'}
@@ -520,7 +585,7 @@ export function AppSidebar() {
               <p className="text-xs text-sidebar-foreground/60 truncate">
                 {profile?.full_name}
               </p>
-              <Badge className={`text-[10px] px-1.5 py-0 mt-1 ${isOpen ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
+              <Badge className={`text-[10px] px-1.5 py-0 mt-1 cursor-pointer ${isOpen ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'}`}>
                 {isOpen ? 'ABERTO' : 'FECHADO'}
               </Badge>
             </div>
