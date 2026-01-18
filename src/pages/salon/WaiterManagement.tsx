@@ -75,9 +75,11 @@ export default function WaiterManagement() {
   const [editPin, setEditPin] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatingInvite, setGeneratingInvite] = useState<string | null>(null);
+  const [generatingGenericInvite, setGeneratingGenericInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteWaiter, setInviteWaiter] = useState<Waiter | null>(null);
+  const [isGenericInvite, setIsGenericInvite] = useState(false);
 
   useEffect(() => {
     fetchWaiters();
@@ -269,10 +271,15 @@ export default function WaiterManagement() {
     });
   };
 
-  const generateInviteLink = async (waiter: Waiter) => {
+  const generateInviteLink = async (waiter?: Waiter) => {
     if (!restaurant?.id) return;
     
-    setGeneratingInvite(waiter.id);
+    if (waiter) {
+      setGeneratingInvite(waiter.id);
+    } else {
+      setGeneratingGenericInvite(true);
+    }
+    
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-invite?action=generate`,
@@ -283,7 +290,7 @@ export default function WaiterManagement() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            waiter_id: waiter.id,
+            waiter_id: waiter?.id || null,
             restaurant_id: restaurant.id,
           }),
         }
@@ -297,7 +304,8 @@ export default function WaiterManagement() {
 
       const link = `${window.location.origin}/garcom/registro?token=${data.invite.token}`;
       setInviteLink(link);
-      setInviteWaiter(waiter);
+      setInviteWaiter(waiter || null);
+      setIsGenericInvite(!waiter);
       setShowInviteModal(true);
     } catch (error: any) {
       toast({
@@ -307,6 +315,7 @@ export default function WaiterManagement() {
       });
     } finally {
       setGeneratingInvite(null);
+      setGeneratingGenericInvite(false);
     }
   };
 
@@ -320,11 +329,13 @@ export default function WaiterManagement() {
   };
 
   const shareInviteLink = async () => {
-    if (!inviteLink || !inviteWaiter) return;
+    if (!inviteLink) return;
     
     const shareData = {
       title: `Convite - ${restaurant?.name}`,
-      text: `Olá ${inviteWaiter.name}! Você foi convidado para criar sua conta de garçom em ${restaurant?.name}. Acesse o link para completar seu cadastro:`,
+      text: isGenericInvite 
+        ? `Você foi convidado para criar sua conta de garçom em ${restaurant?.name}. Acesse o link para completar seu cadastro:`
+        : `Olá ${inviteWaiter?.name}! Você foi convidado para criar sua conta de garçom em ${restaurant?.name}. Acesse o link para completar seu cadastro:`,
       url: inviteLink,
     };
 
@@ -408,6 +419,19 @@ export default function WaiterManagement() {
               Gerencie sua equipe de garçons e atribuições
             </p>
           </div>
+          <Button 
+            variant="outline" 
+            className="gap-2"
+            onClick={() => generateInviteLink()}
+            disabled={generatingGenericInvite}
+          >
+            {generatingGenericInvite ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Link className="w-4 h-4" />
+            )}
+            Gerar Convite
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -684,7 +708,10 @@ export default function WaiterManagement() {
             <DialogHeader>
               <DialogTitle>Link de Convite Gerado</DialogTitle>
               <DialogDescription>
-                Envie este link para {inviteWaiter?.name} criar sua conta de garçom.
+                {isGenericInvite 
+                  ? 'Envie este link para um garçom criar sua conta. O garçom irá preencher seus próprios dados no cadastro.'
+                  : `Envie este link para ${inviteWaiter?.name} criar sua conta de garçom.`
+                }
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
