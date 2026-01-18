@@ -1613,6 +1613,64 @@ export type Database = {
           },
         ]
       }
+      waiter_invites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          expires_at: string
+          id: string
+          restaurant_id: string
+          token: string
+          used_at: string | null
+          waiter_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          restaurant_id: string
+          token: string
+          used_at?: string | null
+          waiter_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          expires_at?: string
+          id?: string
+          restaurant_id?: string
+          token?: string
+          used_at?: string | null
+          waiter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "waiter_invites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_metrics"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "waiter_invites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "waiter_invites_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "waiters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       waiters: {
         Row: {
           created_at: string
@@ -1626,6 +1684,7 @@ export type Database = {
           restaurant_id: string
           status: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1639,6 +1698,7 @@ export type Database = {
           restaurant_id: string
           status?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1652,6 +1712,7 @@ export type Database = {
           restaurant_id?: string
           status?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -1694,6 +1755,7 @@ export type Database = {
         }
         Returns: string
       }
+      generate_waiter_invite_token: { Args: never; Returns: string }
       get_next_order_number: {
         Args: { _restaurant_id: string }
         Returns: number

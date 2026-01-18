@@ -20,6 +20,8 @@ import {
   Copy,
   Check,
   Link,
+  Mail,
+  Share2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -48,6 +50,14 @@ interface Waiter {
   status: string;
   pin: string | null;
   pin_hash: string | null;
+  user_id: string | null;
+}
+
+interface WaiterInvite {
+  id: string;
+  token: string;
+  expires_at: string;
+  used_at: string | null;
 }
 
 export default function WaiterManagement() {
@@ -64,6 +74,10 @@ export default function WaiterManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editPin, setEditPin] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [generatingInvite, setGeneratingInvite] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteWaiter, setInviteWaiter] = useState<Waiter | null>(null);
 
   useEffect(() => {
     fetchWaiters();
@@ -253,6 +267,76 @@ export default function WaiterManagement() {
       title: 'Link copiado!',
       description: 'O link de acesso foi copiado para a área de transferência.',
     });
+  };
+
+  const generateInviteLink = async (waiter: Waiter) => {
+    if (!restaurant?.id) return;
+    
+    setGeneratingInvite(waiter.id);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-invite?action=generate`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            waiter_id: waiter.id,
+            restaurant_id: restaurant.id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao gerar convite');
+      }
+
+      const link = `${window.location.origin}/garcom/registro?token=${data.invite.token}`;
+      setInviteLink(link);
+      setInviteWaiter(waiter);
+      setShowInviteModal(true);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message,
+      });
+    } finally {
+      setGeneratingInvite(null);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    toast({
+      title: 'Link copiado!',
+      description: 'O link de convite foi copiado para a área de transferência.',
+    });
+  };
+
+  const shareInviteLink = async () => {
+    if (!inviteLink || !inviteWaiter) return;
+    
+    const shareData = {
+      title: `Convite - ${restaurant?.name}`,
+      text: `Olá ${inviteWaiter.name}! Você foi convidado para criar sua conta de garçom em ${restaurant?.name}. Acesse o link para completar seu cadastro:`,
+      url: inviteLink,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // User cancelled sharing
+      }
+    } else {
+      await copyInviteLink();
+    }
   };
 
   const removeWaiter = async (id: string) => {
@@ -462,6 +546,11 @@ export default function WaiterManagement() {
                       <Badge variant={waiter.status === 'active' ? 'default' : 'secondary'}>
                         {waiter.status === 'active' ? 'Ativo' : 'Inativo'}
                       </Badge>
+                      {waiter.user_id && (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          Conta vinculada
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {waiter.email || 'Sem e-mail'} • {waiter.phone || 'Sem telefone'}
@@ -480,13 +569,26 @@ export default function WaiterManagement() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {!waiter.user_id && (
+                        <DropdownMenuItem 
+                          onClick={() => generateInviteLink(waiter)}
+                          disabled={generatingInvite === waiter.id}
+                        >
+                          {generatingInvite === waiter.id ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Mail className="w-4 h-4 mr-2" />
+                          )}
+                          Gerar link de convite
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => {
                         setEditingWaiter(waiter);
                         setEditPin(waiter.pin || '');
                         setIsEditDialogOpen(true);
                       }}>
                         <KeyRound className="w-4 h-4 mr-2" />
-                        {waiter.pin ? 'Editar PIN' : 'Criar PIN'}
+                        {waiter.pin || waiter.pin_hash ? 'Editar PIN' : 'Criar PIN'}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => toggleWaiterStatus(waiter.id, waiter.status)}>
                         {waiter.status === 'active' ? 'Desativar' : 'Ativar'}
@@ -571,6 +673,36 @@ export default function WaiterManagement() {
               </Button>
               <Button onClick={handleEditPin} disabled={editPin.length < 4}>
                 Salvar PIN
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invite Link Dialog */}
+        <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Link de Convite Gerado</DialogTitle>
+              <DialogDescription>
+                Envie este link para {inviteWaiter?.name} criar sua conta de garçom.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted rounded-lg break-all text-sm">
+                {inviteLink}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Este link expira em 7 dias. O garçom poderá criar sua conta e definir um PIN de acesso rápido.
+              </p>
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={copyInviteLink} className="gap-2">
+                <Copy className="w-4 h-4" />
+                Copiar Link
+              </Button>
+              <Button onClick={shareInviteLink} className="gap-2">
+                <Share2 className="w-4 h-4" />
+                Compartilhar
               </Button>
             </DialogFooter>
           </DialogContent>
