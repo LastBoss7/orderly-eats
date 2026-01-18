@@ -729,6 +729,16 @@ export default function WaiterAppRefactored({
 
   // ========== RENDER ==========
 
+  // Debug log
+  console.log('WaiterApp Debug:', { 
+    loading, 
+    view, 
+    restaurantId: restaurant?.id, 
+    tablesCount: tables.length, 
+    tabsCount: tabs.length,
+    selectedWaiter: selectedWaiter?.name 
+  });
+
   if (loading) {
     return (
       <motion.div 
