@@ -21,6 +21,9 @@ import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
 import { VirtualizedColumn } from '@/components/dashboard/VirtualizedColumn';
 import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { PremiumOrderCard } from '@/components/dashboard/PremiumOrderCard';
+import { KanbanColumn } from '@/components/dashboard/KanbanColumn';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -1453,264 +1456,27 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           <DashboardSkeleton key="skeleton" />
         ) : (
           <DashboardContent key="content">
-        <div className="bg-card border-b px-3 py-2 flex-shrink-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <SidebarTrigger />
-
-            {/* Store Logo & Status - compact */}
-            <button
-              onClick={() => setShowStoreControlModal(true)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all text-xs ${
-                isStoreOpen 
-                  ? 'bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20' 
-                  : 'bg-muted border-muted-foreground/20 text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {restaurant?.logo_url ? (
-                <img 
-                  src={restaurant.logo_url} 
-                  alt={restaurant.name} 
-                  className="w-5 h-5 rounded-full object-cover"
-                />
-              ) : (
-                <Store className="w-4 h-4" />
-              )}
-              <span className="font-medium hidden sm:inline">
-                {isStoreOpen ? 'Aberta' : 'Fechada'}
-              </span>
-              {isStoreOpen ? (
-                <Power className="w-3 h-3" />
-              ) : (
-                <PowerOff className="w-3 h-3" />
-              )}
-            </button>
-            
-            {/* Filter tabs - compact */}
-            <div className="flex items-center gap-0.5 bg-muted p-0.5 rounded-lg overflow-x-auto">
-              <button 
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'all' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                onClick={() => setFilter('all')}
-                title="Todos"
-              >
-                <span className="flex items-center gap-1">
-                  Todos
-                  {orderCounts.all > 0 && (
-                    <Badge variant="secondary" className="h-4 min-w-[16px] px-1 text-[10px]">
-                      {orderCounts.all}
-                    </Badge>
-                  )}
-                </span>
-              </button>
-              <button 
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'table' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                onClick={() => setFilter('table')}
-                title="Mesa"
-              >
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  <UtensilsCrossed className="w-3 h-3" />
-                  {orderCounts.table > 0 && (
-                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-emerald-500 hover:bg-emerald-500 text-white">
-                      {orderCounts.table}
-                    </Badge>
-                  )}
-                </span>
-              </button>
-              <button 
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'tab' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                onClick={() => setFilter('tab')}
-                title="Comanda"
-              >
-                <span className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
-                  <User className="w-3 h-3" />
-                  {orderCounts.tab > 0 && (
-                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-violet-500 hover:bg-violet-500 text-white">
-                      {orderCounts.tab}
-                    </Badge>
-                  )}
-                </span>
-              </button>
-              <button 
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'delivery' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                onClick={() => setFilter('delivery')}
-                title="Delivery"
-              >
-                <span className="flex items-center gap-1">
-                  <Bike className="w-3 h-3 text-blue-500" />
-                  {orderCounts.delivery > 0 && (
-                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-blue-500 hover:bg-blue-500 text-white">
-                      {orderCounts.delivery}
-                    </Badge>
-                  )}
-                </span>
-              </button>
-              <button 
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${filter === 'counter' ? 'bg-background shadow-sm' : 'hover:bg-background/50'}`}
-                onClick={() => setFilter('counter')}
-                title="Balcão"
-              >
-                <span className="flex items-center gap-1">
-                  <Package className="w-3 h-3 text-amber-500" />
-                  {orderCounts.counter > 0 && (
-                    <Badge className="h-4 min-w-[16px] px-1 text-[10px] bg-amber-500 hover:bg-amber-500 text-white">
-                      {orderCounts.counter}
-                    </Badge>
-                  )}
-                </span>
-              </button>
-            </div>
-
-            {/* Search - compact */}
-            <div className="flex-1 min-w-[160px] max-w-xs">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar pedido..."
-                  className="pl-7 h-8 text-xs"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Actions */}
-            {/* Actions - compact */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" className="h-8 text-xs" onClick={() => {
-                  setNewOrderInitialType(undefined);
-                  setShowNewOrderModal(true);
-                }}>
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  <span className="hidden sm:inline">Novo</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <div className="space-y-1">
-                  <p className="font-medium flex items-center gap-1 text-xs">
-                    <Keyboard className="w-3 h-3" /> Atalhos
-                  </p>
-                  <div className="text-[10px] space-y-0.5">
-                    {SHORTCUT_DESCRIPTIONS.slice(0, 3).map((s, i) => (
-                      <div key={i} className="flex justify-between gap-2">
-                        <span className="text-muted-foreground">{s.keys}</span>
-                        <span>{s.description}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-            
-            {/* Icon buttons */}
-            <div className="flex items-center gap-0.5">
-              {/* Compact Mode Toggle */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className={`h-8 w-8 ${isCompactMode ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`}
-                    onClick={() => setIsCompactMode(!isCompactMode)}
-                  >
-                    {isCompactMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">{isCompactMode ? 'Modo expandido' : 'Modo compacto'}</p>
-                </TooltipContent>
-              </Tooltip>
-              
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className={`h-8 w-8 ${soundEnabled ? 'text-primary' : 'text-muted-foreground'}`}
-                onClick={toggleSound}
-                title={soundEnabled ? 'Som ativado' : 'Som desativado'}
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              </Button>
-              
-              {/* Activity Badge */}
-              {recentActivity.length > 0 && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative flex items-center">
-                      <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-medium"
-                      >
-                        <motion.div
-                          animate={{ scale: [1, 1.2, 1] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
-                        >
-                          <Activity className="w-3.5 h-3.5" />
-                        </motion.div>
-                        <motion.span
-                          key={recentActivity.length}
-                          initial={{ scale: 1.3 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 15 }}
-                        >
-                          {recentActivity.length}
-                        </motion.span>
-                      </motion.div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <div className="space-y-1">
-                      <p className="font-medium text-xs flex items-center gap-1">
-                        <Activity className="w-3 h-3" /> Atividade recente (5 min)
-                      </p>
-                      <div className="text-[10px] space-y-0.5 max-h-32 overflow-y-auto">
-                        {recentActivity.slice(-5).reverse().map((activity, i) => {
-                          const order = orders.find(o => o.id === activity.orderId);
-                          const statusLabels: Record<string, string> = {
-                            'preparing': '🔥 Em preparo',
-                            'ready': '✅ Pronto',
-                            'served': '🍽️ Servido',
-                            'delivered': '📦 Entregue',
-                            'out_for_delivery': '🚚 Em entrega',
-                          };
-                          return (
-                            <div key={i} className="flex justify-between gap-3">
-                              <span className="text-muted-foreground">
-                                {order ? `#${getOrderDisplayNumber(order)}` : 'Pedido'}
-                              </span>
-                              <span>{statusLabels[activity.status] || activity.status}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              <Button variant="ghost" size="icon" className="h-8 w-8 relative">
-                <Bell className="w-4 h-4" />
-                {notifications.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center">
-                    {notifications.length}
-                  </span>
-                )}
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setShowPrintSettingsModal(true)}
-                title="Impressão"
-              >
-                <Printer className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Settings className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+        {/* Premium Header */}
+        <DashboardHeader
+          isStoreOpen={isStoreOpen}
+          restaurantName={restaurant?.name || ''}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filter={filter}
+          onFilterChange={setFilter}
+          orderCounts={orderCounts}
+          isCompactMode={isCompactMode}
+          onCompactModeToggle={() => setIsCompactMode(!isCompactMode)}
+          soundEnabled={soundEnabled}
+          onSoundToggle={toggleSound}
+          notificationCount={notifications.length}
+          onNewOrder={() => {
+            setNewOrderInitialType(undefined);
+            setShowNewOrderModal(true);
+          }}
+          onPrintSettings={() => setShowPrintSettingsModal(true)}
+          onStoreControl={() => setShowStoreControlModal(true)}
+        />
 
         {/* Kanban Board with DnD */}
         <DndContext 
@@ -1719,200 +1485,161 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex-1 min-h-0 overflow-hidden p-2 flex gap-2">
-            {/* Kanban Columns */}
-            <div className="flex-1 h-full flex gap-2 kanban-scroll overflow-x-auto min-w-0">
+          <div className="flex-1 min-h-0 overflow-hidden p-4 flex gap-4">
+            {/* Premium Kanban Columns */}
+            <div className="flex-1 h-full flex gap-4 overflow-x-auto min-w-0 pb-2">
               {/* Column: Em análise */}
-              <DroppableColumn 
-                id="column-pending" 
-                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column analysis"
+              <KanbanColumn
+                id="column-pending"
+                title="Em análise"
+                count={pendingOrders.length}
+                variant="analysis"
+                emptyIcon={<span className="text-4xl">↩️</span>}
+                emptyMessage={autoAccept ? 'Pedidos aceitos automaticamente' : 'Sem pedidos pendentes'}
+                headerContent={
+                  <div className="p-3 bg-orange-50/80 dark:bg-orange-950/20">
+                    <div className="text-xs space-y-1 text-muted-foreground">
+                      <p className="flex items-center justify-between">
+                        <span><span className="font-semibold text-foreground">Balcão:</span> {prepTimes.counter_min}-{prepTimes.counter_max}min</span>
+                        <button 
+                          className="text-primary hover:underline font-medium"
+                          onClick={() => setShowPrepTimeModal(true)}
+                        >
+                          Editar
+                        </button>
+                      </p>
+                      <p><span className="font-semibold text-foreground">Delivery:</span> {prepTimes.delivery_min}-{prepTimes.delivery_max}min</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-orange-200/50 dark:border-orange-800/50">
+                      <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
+                      <span className="text-xs font-medium">Auto-aceitar</span>
+                    </div>
+                  </div>
+                }
               >
-                <div className="kanban-header analysis py-3 px-4">
-                  <span className="text-sm font-bold">Em análise</span>
-                  <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
-                    {pendingOrders.length}
-                  </Badge>
-                </div>
-                
-                {/* Auto accept toggle - styled panel */}
-                <div className="p-3 bg-orange-100/50 dark:bg-orange-900/20 border-b border-orange-200 dark:border-orange-800">
-                  <div className="text-xs space-y-1 text-muted-foreground">
-                    <p className="flex items-center justify-between">
-                      <span><span className="font-semibold text-foreground">Balcão:</span> {prepTimes.counter_min} a {prepTimes.counter_max} min</span>
-                      <span 
-                        className="text-primary cursor-pointer hover:underline font-medium"
-                        onClick={() => setShowPrepTimeModal(true)}
-                      >
-                        Editar
-                      </span>
-                    </p>
-                    <p><span className="font-semibold text-foreground">Delivery:</span> {prepTimes.delivery_min} a {prepTimes.delivery_max} min</p>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-orange-200 dark:border-orange-700">
-                    <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
-                    <span className="text-xs font-medium">Aceitar os pedidos automaticamente</span>
-                  </div>
-                </div>
-
-                {pendingOrders.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                    <div className="w-10 h-10 mb-3 opacity-50 text-3xl">↩</div>
-                    <p className="text-sm font-medium">
-                      {autoAccept ? 'Todos os pedidos são aceitos automaticamente' : 'Sem pedidos pendentes'}
-                    </p>
-                  </div>
-                ) : (
+                {pendingOrders.length > 0 && (
                   <VirtualizedColumn
                     items={pendingOrders}
                     renderItem={(order) => (
                       <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
                     )}
                     getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 60 : 120}
+                    estimateSize={isCompactMode ? 80 : 180}
                   />
                 )}
-              </DroppableColumn>
+              </KanbanColumn>
 
               {/* Column: Em produção */}
-              <DroppableColumn 
-                id="column-preparing" 
-                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column production"
+              <KanbanColumn
+                id="column-preparing"
+                title="Em produção"
+                count={preparingOrders.length}
+                variant="production"
+                hasDelayed={preparingOrders.some(o => isDelayed(o))}
+                emptyIcon={<ChefHat className="w-10 h-10" />}
+                emptyMessage="Nenhum pedido em produção"
               >
-                <div className="kanban-header production py-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold">Em produção</span>
-                    {preparingOrders.some(o => isDelayed(o)) && (
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                {preparingOrders.length > 0 && (
+                  <VirtualizedColumn
+                    items={preparingOrders}
+                    renderItem={(order) => (
+                      <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
                     )}
-                  </div>
-                  <Badge className="bg-gray-800/20 text-gray-800 border-gray-800/20 h-6 min-w-[28px] text-xs font-bold">
-                    {preparingOrders.length}
-                  </Badge>
-                </div>
-                
-                <VirtualizedColumn
-                  items={preparingOrders}
-                  renderItem={(order) => (
-                    <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
-                  )}
-                  getItemKey={(order) => order.id}
-                  estimateSize={isCompactMode ? 60 : 120}
-                  emptyState={
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                      <ChefHat className="w-10 h-10 mb-3 opacity-30" />
-                      <p className="text-sm font-medium">Nenhum pedido em produção</p>
-                    </div>
-                  }
-                />
-              </DroppableColumn>
+                    getItemKey={(order) => order.id}
+                    estimateSize={isCompactMode ? 80 : 180}
+                  />
+                )}
+              </KanbanColumn>
 
-              {/* Column: Prontos para entrega */}
-              <DroppableColumn 
-                id="column-ready" 
-                className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column ready"
+              {/* Column: Prontos */}
+              <KanbanColumn
+                id="column-ready"
+                title="Prontos"
+                count={readyOrders.length}
+                variant="ready"
+                emptyIcon={<UtensilsCrossed className="w-10 h-10" />}
+                emptyMessage="Nenhum pedido pronto"
+                headerAction={
+                  readyOrders.length > 0 ? (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-6 text-xs px-2 bg-white/90 text-emerald-700 border-white/40 hover:bg-white font-semibold"
+                      onClick={handleFinalizeAllReady}
+                    >
+                      Finalizar todos
+                    </Button>
+                  ) : undefined
+                }
               >
-                <div className="kanban-header ready py-3 px-4">
-                  <span className="text-sm font-bold">Prontos para entrega</span>
-                  <div className="flex items-center gap-2">
-                    {readyOrders.length > 0 && (
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-6 text-xs px-2 bg-white/90 text-emerald-700 border-white/50 hover:bg-white hover:text-emerald-800 font-semibold"
-                        onClick={handleFinalizeAllReady}
-                      >
-                        Finalizar
-                      </Button>
+                {readyOrders.length > 0 && (
+                  <VirtualizedColumn
+                    items={readyOrders}
+                    renderItem={(order) => (
+                      <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
                     )}
-                    <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
-                      {readyOrders.length}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <VirtualizedColumn
-                  items={readyOrders}
-                  renderItem={(order) => (
-                    <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
-                  )}
-                  getItemKey={(order) => order.id}
-                  estimateSize={isCompactMode ? 60 : 120}
-                  emptyState={
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                      <UtensilsCrossed className="w-10 h-10 mb-3 opacity-30" />
-                      <p className="text-sm font-medium">Nenhum pedido pronto</p>
-                    </div>
-                  }
-                />
-              </DroppableColumn>
+                    getItemKey={(order) => order.id}
+                    estimateSize={isCompactMode ? 80 : 180}
+                  />
+                )}
+              </KanbanColumn>
 
-              {/* Served Orders Column - Only for table/tab orders awaiting table close */}
+              {/* Column: Servidos */}
               {servedOrders.length > 0 && (
-                <DroppableColumn 
-                  id="served" 
-                  className="w-56 md:w-64 lg:w-72 flex-shrink-0 kanban-column served"
+                <KanbanColumn
+                  id="served"
+                  title="Servidos"
+                  count={servedOrders.length}
+                  variant="served"
                 >
-                  <div className="kanban-header served py-3 px-4">
-                    <span className="text-sm font-bold">🍽️ Servidos</span>
-                    <Badge className="bg-white/30 text-white border-white/40 h-6 min-w-[28px] text-xs font-bold">
-                      {servedOrders.length}
-                    </Badge>
-                  </div>
-                  
                   <VirtualizedColumn
                     items={servedOrders}
                     renderItem={(order) => (
                       <DraggableOrderCard key={order.id} order={order} />
                     )}
                     getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 60 : 120}
+                    estimateSize={isCompactMode ? 80 : 180}
                   />
-                  <p className="text-xs text-center text-muted-foreground mt-2 px-3">
-                    Aguardando fechamento de mesa/comanda
-                  </p>
-                </DroppableColumn>
+                </KanbanColumn>
               )}
             </div>
 
-            {/* Right Sidebar - Table/Tab Stats */}
-            <div className="w-11 flex-shrink-0 flex flex-col gap-1.5">
-              {/* Open Tables Counter */}
-              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
-                <div className="w-6 h-6 rounded-md bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <UtensilsCrossed className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+            {/* Right Sidebar - Quick Stats */}
+            <div className="w-14 flex-shrink-0 flex flex-col gap-2">
+              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <UtensilsCrossed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <span className="text-sm font-bold text-foreground">
+                <span className="text-lg font-bold text-foreground">
                   {orders.filter(o => o.table_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
                     if (!acc.includes(o.table_id!)) acc.push(o.table_id!);
                     return acc;
                   }, [] as string[]).length}
                 </span>
-                <span className="text-[8px] text-muted-foreground text-center leading-tight">Mesas</span>
+                <span className="text-[9px] text-muted-foreground font-medium">Mesas</span>
               </div>
 
-              {/* Open Tabs Counter */}
-              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
-                <div className="w-6 h-6 rounded-md bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
-                  <User className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+                  <User className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 </div>
-                <span className="text-sm font-bold text-foreground">
+                <span className="text-lg font-bold text-foreground">
                   {orders.filter(o => o.tab_id && !['delivered', 'cancelled'].includes(o.status || '')).reduce((acc, o) => {
                     if (!acc.includes(o.tab_id!)) acc.push(o.tab_id!);
                     return acc;
                   }, [] as string[]).length}
                 </span>
-                <span className="text-[8px] text-muted-foreground text-center leading-tight">Comandas</span>
+                <span className="text-[9px] text-muted-foreground font-medium">Comandas</span>
               </div>
 
-              {/* Delivery Counter */}
-              <div className="bg-card border rounded-md p-1.5 flex flex-col items-center gap-0.5">
-                <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Bike className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+              <div className="bg-card border rounded-xl p-2 flex flex-col items-center gap-1 shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Bike className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-sm font-bold text-foreground">
+                <span className="text-lg font-bold text-foreground">
                   {orders.filter(o => o.order_type === 'delivery' && !['delivered', 'cancelled'].includes(o.status || '')).length}
                 </span>
-                <span className="text-[8px] text-muted-foreground text-center leading-tight">Delivery</span>
+                <span className="text-[9px] text-muted-foreground font-medium">Delivery</span>
               </div>
             </div>
           </div>
