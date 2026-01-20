@@ -26,33 +26,38 @@ export function WaiterPinLogin({ restaurantId, restaurantName, onLogin, onBack }
     setPinError(null);
     
     try {
-      const { data: waiter, error: queryError } = await supabase
-        .from('waiters')
-        .select('id, name, status, restaurant_id')
-        .eq('restaurant_id', restaurantId)
-        .eq('pin', pinValue)
-        .maybeSingle();
+      // Use the edge function for PIN authentication (supports hashed PINs)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-auth`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            action: 'authenticate',
+            restaurant_id: restaurantId,
+            pin: pinValue,
+          }),
+        }
+      );
 
-      if (queryError) {
-        console.error('Query error:', queryError);
-        setPinError('Erro ao verificar PIN');
+      const result = await response.json();
+
+      if (!response.ok || !result.authenticated) {
+        setPinError(result.error || 'PIN não encontrado');
         setPinInput('');
         return;
       }
 
-      if (!waiter) {
-        setPinError('PIN não encontrado');
-        setPinInput('');
-        return;
-      }
-
-      if (waiter.status !== 'active') {
+      if (result.waiter.status !== 'active') {
         setPinError('Garçom inativo');
         setPinInput('');
         return;
       }
 
-      onLogin(waiter);
+      onLogin(result.waiter);
     } catch (error) {
       console.error('Login exception:', error);
       setPinError('Erro ao autenticar');

@@ -900,13 +900,13 @@ export default function WaiterAppRefactored({
             setCustomers([]);
             return;
           }
-          const { data } = await supabase
-            .from('customers')
-            .select('*')
-            .eq('restaurant_id', restaurant.id)
-            .or(`phone.ilike.%${term}%,name.ilike.%${term}%`)
-            .limit(5);
-          setCustomers((data || []) as Customer[]);
+          try {
+            const data = await waiterData.searchCustomers(term);
+            setCustomers((data || []) as Customer[]);
+          } catch (error) {
+            console.error('Error searching customers:', error);
+            setCustomers([]);
+          }
         }}
         onProceed={() => setView('delivery-order')}
       />
