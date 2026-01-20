@@ -157,19 +157,70 @@ export function PrinterStatusPanel() {
 
   const handleTestPrint = async () => {
     toast.info('Enviando teste de impressão...');
-    // Create a test print log
     if (!profile?.restaurant_id) return;
     
-    await supabase.from('print_logs').insert({
-      restaurant_id: profile.restaurant_id,
-      event_type: 'test',
-      status: 'pending',
-      printer_name: 'Teste',
-      order_number: 'TESTE',
-      items_count: 1,
-    });
-    
-    toast.success('Teste enviado! Verifique o aplicativo de impressão.');
+    try {
+      // Create a REAL test order that the Electron app will pick up
+      const { data: testOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: profile.restaurant_id,
+          order_type: 'counter',
+          customer_name: 'TESTE DE IMPRESSÃO',
+          total: 0,
+          status: 'test',
+          print_status: 'pending',
+          notes: JSON.stringify({
+            isTest: true,
+            testType: 'connection_test',
+            timestamp: new Date().toISOString(),
+          }),
+        })
+        .select('id, order_number')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create test item
+      await supabase.from('order_items').insert({
+        order_id: testOrder.id,
+        restaurant_id: profile.restaurant_id,
+        product_name: 'Teste de Conexão',
+        product_price: 0,
+        quantity: 1,
+        notes: 'Este é um teste de impressão automática',
+      });
+
+      // Log the test print
+      await supabase.from('print_logs').insert({
+        restaurant_id: profile.restaurant_id,
+        order_id: testOrder.id,
+        order_number: testOrder.order_number?.toString() || 'TESTE',
+        event_type: 'test',
+        status: 'pending',
+        printer_name: 'Electron App',
+        items_count: 1,
+      });
+      
+      toast.success('Teste enviado! Verifique o aplicativo de impressão.', {
+        description: 'O pedido de teste aparecerá na impressora em alguns segundos.',
+      });
+
+      // Delete test order after 2 minutes (Electron should have printed it)
+      setTimeout(async () => {
+        try {
+          await supabase.from('order_items').delete().eq('order_id', testOrder.id);
+          await supabase.from('orders').delete().eq('id', testOrder.id);
+        } catch (e) {
+          console.log('Test order cleanup:', e);
+        }
+      }, 120000);
+    } catch (error: any) {
+      console.error('Error creating test print:', error);
+      toast.error('Erro ao criar teste de impressão', {
+        description: error.message,
+      });
+    }
   };
 
   const handleClearPending = async () => {
