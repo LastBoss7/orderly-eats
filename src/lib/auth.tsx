@@ -16,6 +16,7 @@ interface Restaurant {
   slug: string;
   logo_url: string | null;
   is_active: boolean;
+  is_approved: boolean;
   suspended_at: string | null;
   suspended_reason: string | null;
 }
@@ -28,7 +29,7 @@ interface AuthContextType {
   loading: boolean;
   isSuspended: boolean;
   suspendedReason: string | null;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; suspended?: boolean; suspendedReason?: string }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; suspended?: boolean; suspendedReason?: string; pendingApproval?: boolean; restaurantName?: string }>;
   signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null; userId?: string; userEmail?: string }>;
   signOut: () => Promise<void>;
 }
@@ -56,10 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileData) {
         setProfile(profileData);
 
-        // Fetch restaurant with is_active status
+        // Fetch restaurant with is_active and is_approved status
         const { data: restaurantData } = await supabase
           .from('restaurants')
-          .select('id, name, slug, logo_url, is_active, suspended_at, suspended_reason')
+          .select('id, name, slug, logo_url, is_active, is_approved, suspended_at, suspended_reason')
           .eq('id', profileData.restaurant_id)
           .maybeSingle();
 
@@ -130,18 +131,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileData) {
         const { data: restaurantData } = await supabase
           .from('restaurants')
-          .select('is_active, suspended_reason')
+          .select('name, is_active, is_approved, suspended_reason')
           .eq('id', profileData.restaurant_id)
           .maybeSingle();
           
-        if (restaurantData && restaurantData.is_active === false) {
-          // Sign out the user immediately
-          await supabase.auth.signOut();
-          return { 
-            error: null, 
-            suspended: true, 
-            suspendedReason: restaurantData.suspended_reason || 'Acesso revogado pelo administrador' 
-          };
+        if (restaurantData) {
+          // Check if restaurant is not approved yet
+          if (!restaurantData.is_approved) {
+            await supabase.auth.signOut();
+            return { 
+              error: null, 
+              pendingApproval: true, 
+              restaurantName: restaurantData.name 
+            };
+          }
+          
+          // Check if restaurant is suspended
+          if (restaurantData.is_active === false) {
+            await supabase.auth.signOut();
+            return { 
+              error: null, 
+              suspended: true, 
+              suspendedReason: restaurantData.suspended_reason || 'Acesso revogado pelo administrador' 
+            };
+          }
         }
       }
     }

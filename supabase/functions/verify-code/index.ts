@@ -86,13 +86,14 @@ Deno.serve(async (req) => {
 
         console.log('Creating restaurant and profile for user:', userId, metadata)
 
-        // Create restaurant
+        // Create restaurant with is_approved = false (pending approval)
         const { data: restaurantData, error: restaurantError } = await supabaseAdmin
           .from('restaurants')
           .insert({
             name: metadata.restaurant_name,
             slug: metadata.restaurant_slug,
             cnpj: metadata.cnpj,
+            is_approved: false, // Requires manual approval after payment
           })
           .select('id')
           .single()
