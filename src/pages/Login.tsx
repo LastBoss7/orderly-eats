@@ -106,6 +106,8 @@ export default function Login() {
   const [cnpjValidated, setCnpjValidated] = useState(false);
   const [cnpjData, setCnpjData] = useState<CNPJData | null>(null);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   
   // Suspended account state
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
@@ -216,6 +218,64 @@ export default function Login() {
     if (digits.length === 14) {
       validateCNPJOnServer(cnpj);
     }
+  };
+
+  // Email validation helper
+  const validateEmail = (email: string): string => {
+    if (!email) return '';
+    const trimmed = email.trim();
+    
+    // Basic format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      return 'Formato de email inválido';
+    }
+    
+    // Check for common typos in domains
+    const commonTypos: Record<string, string> = {
+      'gmial.com': 'gmail.com',
+      'gmal.com': 'gmail.com',
+      'gmail.co': 'gmail.com',
+      'gmail.con': 'gmail.com',
+      'gmai.com': 'gmail.com',
+      'gamil.com': 'gmail.com',
+      'hotmal.com': 'hotmail.com',
+      'hotmai.com': 'hotmail.com',
+      'hotmail.co': 'hotmail.com',
+      'hotmail.con': 'hotmail.com',
+      'outloo.com': 'outlook.com',
+      'outlok.com': 'outlook.com',
+      'outlook.co': 'outlook.com',
+      'yaho.com': 'yahoo.com',
+      'yahoo.co': 'yahoo.com',
+      'yahoo.con': 'yahoo.com',
+      'yahooo.com': 'yahoo.com',
+    };
+    
+    const domain = trimmed.split('@')[1]?.toLowerCase();
+    if (domain && commonTypos[domain]) {
+      return `Você quis dizer @${commonTypos[domain]}?`;
+    }
+    
+    // Check for invalid TLDs
+    const tld = domain?.split('.').pop();
+    if (tld && tld.length < 2) {
+      return 'Domínio de email inválido';
+    }
+    
+    return '';
+  };
+
+  const handleEmailChange = (value: string) => {
+    setSignupEmail(value);
+    if (emailTouched) {
+      setEmailError(validateEmail(value));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+    setEmailError(validateEmail(signupEmail));
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -510,15 +570,33 @@ export default function Login() {
                   <Label htmlFor="signup-email" className="text-sm font-medium">
                     E-mail <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    className="h-12 border-border/60"
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={signupEmail}
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      onBlur={handleEmailBlur}
+                      className={`h-12 pr-12 ${
+                        emailError 
+                          ? 'border-destructive' 
+                          : emailTouched && signupEmail && !emailError 
+                            ? 'border-success' 
+                            : 'border-border/60'
+                      }`}
+                      required
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      {emailTouched && signupEmail && !emailError && (
+                        <CheckCircle2 className="h-5 w-5 text-success" />
+                      )}
+                      {emailError && <AlertCircle className="h-5 w-5 text-destructive" />}
+                    </div>
+                  </div>
+                  {emailError && (
+                    <p className="text-sm text-destructive">{emailError}</p>
+                  )}
                 </div>
 
                 {/* Password */}
