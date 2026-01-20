@@ -19,13 +19,20 @@ export const usePrintNotifications = (restaurantId: string | null) => {
           filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
-          const oldStatus = (payload.old as any)?.print_status;
-          const newStatus = (payload.new as any)?.print_status;
+          const oldPrintStatus = (payload.old as any)?.print_status;
+          const newPrintStatus = (payload.new as any)?.print_status;
           const orderNumber = (payload.new as any)?.order_number;
           const orderType = (payload.new as any)?.order_type;
 
-          // Only show notification when print_status changes to 'printed'
-          if (oldStatus !== 'printed' && newStatus === 'printed') {
+          // Only show notification when print_status EXPLICITLY changes to 'printed'
+          // Must have both old and new values, and they must be different
+          const printStatusActuallyChanged = 
+            oldPrintStatus !== undefined && 
+            newPrintStatus !== undefined &&
+            oldPrintStatus !== newPrintStatus &&
+            newPrintStatus === 'printed';
+
+          if (printStatusActuallyChanged) {
             const typeLabel = 
               orderType === 'table' ? 'Mesa' :
               orderType === 'counter' ? 'Balcão' :
