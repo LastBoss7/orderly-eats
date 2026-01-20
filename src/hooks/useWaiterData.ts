@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data`;
@@ -32,16 +32,11 @@ interface UseWaiterDataOptions {
 
 export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWaiterDataOptions) {
   const [loading, setLoading] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchFromEdge = useCallback(async (action: string, params: Record<string, string> = {}) => {
     const cacheKey = `edge:${restaurantId}:${action}:${JSON.stringify(params)}`;
     const cached = getCached(cacheKey);
     if (cached) return cached;
-
-    // Abort previous request if still pending
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
 
     const searchParams = new URLSearchParams({
       restaurant_id: restaurantId,
@@ -54,11 +49,12 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
         'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         'Content-Type': 'application/json',
       },
-      signal: abortControllerRef.current.signal,
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch data');
+      const errorText = await response.text();
+      console.error(`Edge function error for ${action}:`, errorText);
+      throw new Error(`Failed to fetch data: ${action}`);
     }
 
     const result = await response.json();
