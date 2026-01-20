@@ -318,6 +318,11 @@ async function sendHeartbeat() {
   const restaurantId = store.get('restaurantId');
   if (!restaurantId) return;
 
+  const supabaseUrl = store.get('supabaseUrl');
+  const supabaseKey = store.get('supabaseKey');
+  
+  if (!supabaseUrl || !supabaseKey) return;
+
   try {
     // Get current printers count
     let printersCount = 0;
@@ -329,11 +334,11 @@ async function sendHeartbeat() {
     }
 
     // Use Edge Function to bypass RLS issues
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/printer-heartbeat`, {
+    const response = await fetch(`${supabaseUrl}/functions/v1/printer-heartbeat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
+        'apikey': supabaseKey,
       },
       body: JSON.stringify({
         restaurant_id: restaurantId,

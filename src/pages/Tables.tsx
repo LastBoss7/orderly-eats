@@ -89,6 +89,7 @@ export default function Tables() {
       const { data, error } = await supabase
         .from('tables')
         .select('*')
+        .eq('restaurant_id', restaurant.id)
         .order('number');
 
       if (error) throw error;

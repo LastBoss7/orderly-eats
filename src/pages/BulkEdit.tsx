@@ -100,8 +100,8 @@ export default function BulkEdit() {
 
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        supabase.from('products').select('*').order('name'),
-        supabase.from('categories').select('*').order('name'),
+        supabase.from('products').select('*').eq('restaurant_id', restaurant.id).order('name'),
+        supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('name'),
       ]);
 
       setProducts(productsRes.data || []);

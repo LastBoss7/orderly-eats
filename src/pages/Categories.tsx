@@ -43,6 +43,7 @@ export default function Categories() {
       const { data, error } = await supabase
         .from('categories')
         .select('*')
+        .eq('restaurant_id', restaurant.id)
         .order('sort_order');
 
       if (error) throw error;

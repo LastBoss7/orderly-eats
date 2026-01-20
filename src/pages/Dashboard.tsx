@@ -405,7 +405,8 @@ export default function Dashboard() {
   };
 
   const fetchTables = async () => {
-    const { data } = await supabase.from('tables').select('id, number');
+    if (!restaurant?.id) return;
+    const { data } = await supabase.from('tables').select('id, number').eq('restaurant_id', restaurant.id);
     if (data) setTables(data);
   };
 
