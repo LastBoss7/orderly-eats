@@ -531,25 +531,25 @@ export default function WaiterAppRefactored({
       }
 
       let customerId = selectedCustomer?.id || null;
-      if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer && !isPublicAccess) {
-        const { data: newCustomer, error: customerError } = await supabase
-          .from('customers')
-          .insert({
-            restaurant_id: restaurant?.id,
+      // Use edge function to create customer (works for waiters without auth.uid())
+      if ((orderMode === 'delivery' || orderMode === 'takeaway') && !selectedCustomer && deliveryForm.customerName.trim()) {
+        try {
+          const result = await waiterData.createCustomer({
             name: deliveryForm.customerName.trim(),
             phone: deliveryForm.customerPhone.trim(),
-            address: deliveryForm.address.trim() || null,
-            number: deliveryForm.number.trim() || null,
-            complement: deliveryForm.complement.trim() || null,
-            neighborhood: deliveryForm.neighborhood.trim() || null,
-            city: deliveryForm.city.trim() || null,
-            cep: deliveryForm.cep.trim() || null,
-          })
-          .select()
-          .single();
-
-        if (!customerError && newCustomer) {
-          customerId = newCustomer.id;
+            address: deliveryForm.address.trim() || undefined,
+            number: deliveryForm.number.trim() || undefined,
+            complement: deliveryForm.complement.trim() || undefined,
+            neighborhood: deliveryForm.neighborhood.trim() || undefined,
+            city: deliveryForm.city.trim() || undefined,
+            cep: deliveryForm.cep.trim() || undefined,
+          });
+          if (result.success && result.customer) {
+            customerId = result.customer.id;
+          }
+        } catch (customerError) {
+          console.error('Error creating customer:', customerError);
+          // Continue without customer ID - order can still be placed
         }
       }
 

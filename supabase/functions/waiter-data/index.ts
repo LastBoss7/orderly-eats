@@ -395,6 +395,139 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST create customer
+    if (req.method === "POST" && action === "create-customer") {
+      const body = await req.json();
+      
+      const { data: newCustomer, error } = await supabase
+        .from("customers")
+        .insert({
+          restaurant_id: restaurantId,
+          name: body.name,
+          phone: body.phone,
+          address: body.address || null,
+          number: body.number || null,
+          complement: body.complement || null,
+          neighborhood: body.neighborhood || null,
+          city: body.city || null,
+          cep: body.cep || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ success: true, customer: newCustomer }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET search customers
+    if (action === "search-customers") {
+      const search = url.searchParams.get("search") || "";
+      
+      if (search.length < 2) {
+        return new Response(
+          JSON.stringify({ data: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .or(`phone.ilike.%${search}%,name.ilike.%${search}%`)
+        .limit(10);
+
+      if (error) throw error;
+      return new Response(
+        JSON.stringify({ data }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // GET tab total
+    if (action === "tab-total") {
+      const tabId = url.searchParams.get("tab_id");
+      if (!tabId) {
+        return new Response(
+          JSON.stringify({ error: "tab_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("total")
+        .eq("restaurant_id", restaurantId)
+        .eq("tab_id", tabId)
+        .in("status", ["pending", "preparing", "ready"]);
+
+      if (error) throw error;
+      const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
+      return new Response(
+        JSON.stringify({ total }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST add order to existing (for adding more items to a table/tab)
+    if (req.method === "POST" && action === "add-to-order") {
+      const body = await req.json();
+      
+      // Get next order number atomically
+      const { data: orderNumber, error: orderNumberError } = await supabase
+        .rpc('get_next_order_number', { _restaurant_id: restaurantId });
+
+      if (orderNumberError) throw orderNumberError;
+      
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          table_id: body.table_id || null,
+          tab_id: body.tab_id || null,
+          order_type: body.order_type,
+          status: "pending",
+          print_status: body.print_status || "pending",
+          total: body.total,
+          notes: body.notes || null,
+          waiter_id: body.waiter_id || null,
+          order_number: orderNumber,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Insert order items
+      if (body.items && body.items.length > 0) {
+        const orderItems = body.items.map((item: any) => ({
+          restaurant_id: restaurantId,
+          order_id: order.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_price: item.product_price,
+          quantity: item.quantity,
+          notes: item.notes || null,
+          product_size: item.product_size || null,
+          category_id: item.category_id || null,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("order_items")
+          .insert(orderItems);
+
+        if (itemsError) throw itemsError;
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, order }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
