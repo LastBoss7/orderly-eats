@@ -85,6 +85,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed, restaurantId: propRe
       const { data, error } = await supabase
         .from('orders')
         .select(`*, order_items (*)`)
+        .eq('restaurant_id', effectiveRestaurantId)
         .eq('tab_id', tab.id)
         .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });

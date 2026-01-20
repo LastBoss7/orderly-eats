@@ -103,6 +103,7 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
       const { data, error } = await supabase
         .from('orders')
         .select(`*, order_items (*)`)
+        .eq('restaurant_id', effectiveRestaurantId)
         .eq('table_id', table.id)
         .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
