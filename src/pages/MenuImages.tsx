@@ -23,15 +23,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Mock data for demonstration
-const mockImages = [
-  { id: '1', name: 'pizza-margherita.jpg', url: '/placeholder.svg', category: 'Pizzas', size: '245 KB', date: '2024-01-10' },
-  { id: '2', name: 'hamburguer-classic.jpg', url: '/placeholder.svg', category: 'Hambúrgueres', size: '312 KB', date: '2024-01-09' },
-  { id: '3', name: 'salada-caesar.jpg', url: '/placeholder.svg', category: 'Saladas', size: '189 KB', date: '2024-01-08' },
-  { id: '4', name: 'refrigerante.jpg', url: '/placeholder.svg', category: 'Bebidas', size: '156 KB', date: '2024-01-07' },
-  { id: '5', name: 'sobremesa-chocolate.jpg', url: '/placeholder.svg', category: 'Sobremesas', size: '278 KB', date: '2024-01-06' },
-  { id: '6', name: 'entrada-bruschetta.jpg', url: '/placeholder.svg', category: 'Entradas', size: '201 KB', date: '2024-01-05' },
-];
+// Empty array - no mock data, ready for real storage integration
+const mockImages: { id: string; name: string; url: string; category: string; size: string; date: string }[] = [];
 
 export default function MenuImages() {
   const [searchTerm, setSearchTerm] = useState('');
