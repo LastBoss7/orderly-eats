@@ -56,7 +56,7 @@ export function DashboardLayout({ children, showHeader = false }: DashboardLayou
               Voltar ao Login
             </Button>
             <a 
-              href="https://wa.me/5511999999999?text=Olá! Preciso de ajuda com meu cadastro no Gamako."
+              href="https://wa.me/5511997150342?text=Olá! Preciso de ajuda com meu cadastro no Gamako."
               target="_blank"
               rel="noopener noreferrer"
               className="block"
