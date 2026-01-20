@@ -689,7 +689,7 @@ export default function Login() {
             <Button
               variant="outline"
               className="w-full flex items-center gap-2"
-              onClick={() => window.open('https://wa.me/5511999999999?text=Olá! Gostaria de saber sobre a liberação do meu cadastro no Gamako.', '_blank')}
+              onClick={() => window.open('https://wa.me/5511997150342?text=Olá! Gostaria de saber sobre a liberação do meu cadastro no Gamako.', '_blank')}
             >
               <MessageCircle className="h-4 w-4" />
               Falar com Suporte
