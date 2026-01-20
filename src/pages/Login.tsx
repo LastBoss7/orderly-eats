@@ -742,11 +742,14 @@ export default function Login() {
       </div>
 
       {/* Right Side - Promo with Gestão Inteligente Image */}
-      <div className="hidden lg:block w-[55%] relative overflow-hidden">
+      <div 
+        className="hidden lg:flex w-[55%] items-center justify-center relative overflow-hidden"
+        style={{ backgroundColor: '#c4d4e0' }}
+      >
         <img 
           src={gestaoInteligente} 
           alt="Gestão Inteligente - Gamako" 
-          className="absolute inset-0 w-full h-full object-cover"
+          className="max-w-[90%] max-h-[90vh] object-contain drop-shadow-2xl"
         />
       </div>
 
