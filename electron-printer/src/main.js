@@ -1309,11 +1309,21 @@ ipcMain.handle('app-quit', () => {
   app.quit();
 });
 
+// Check if started with --minimized flag (auto-start with Windows)
+const startMinimized = process.argv.includes('--minimized');
+
 // App Events
 app.whenReady().then(() => {
   printerService = new PrinterService();
   createWindow();
   createTray();
+  
+  // If started with --minimized, hide window immediately
+  if (startMinimized && mainWindow) {
+    mainWindow.hide();
+    console.log('[App] Started minimized to tray');
+  }
+  
   initializeSupabase();
   
   // Setup auto-launch with Windows
@@ -1327,7 +1337,8 @@ app.whenReady().then(() => {
 });
 
 /**
- * Setup auto-launch on Windows startup
+ * Setup auto-launch on Windows startup using Windows Registry
+ * This is more reliable than setLoginItemSettings for portable apps
  */
 function setupAutoLaunch() {
   if (process.platform !== 'win32') return;
@@ -1336,21 +1347,78 @@ function setupAutoLaunch() {
   const appPath = app.getPath('exe');
   const appName = 'GamakoPrintService';
   
-  // Use Electron's setLoginItemSettings for auto-start
-  app.setLoginItemSettings({
-    openAtLogin: autoStart,
-    path: appPath,
-    args: ['--minimized'],
-  });
-  
-  console.log(`[AutoStart] ${autoStart ? 'Enabled' : 'Disabled'} auto-start on login`);
+  try {
+    // Method 1: Use Electron's built-in API (works for installed apps)
+    app.setLoginItemSettings({
+      openAtLogin: autoStart,
+      path: appPath,
+      args: ['--minimized'],
+      name: appName,
+    });
+    
+    console.log(`[AutoStart] Electron API: ${autoStart ? 'Enabled' : 'Disabled'}`);
+    
+    // Method 2: Also use Windows Registry directly (more reliable for portable apps)
+    const { exec } = require('child_process');
+    const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+    const escapedPath = appPath.replace(/\\/g, '\\\\');
+    
+    if (autoStart) {
+      // Add to registry with --minimized flag
+      const regCommand = `reg add "${regPath}" /v "${appName}" /t REG_SZ /d "\\"${escapedPath}\\" --minimized" /f`;
+      exec(regCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error('[AutoStart] Registry add error:', error.message);
+        } else {
+          console.log('[AutoStart] Registry entry added successfully');
+        }
+      });
+    } else {
+      // Remove from registry
+      const regCommand = `reg delete "${regPath}" /v "${appName}" /f`;
+      exec(regCommand, (error, stdout, stderr) => {
+        // Ignore errors when key doesn't exist
+        if (!error) {
+          console.log('[AutoStart] Registry entry removed successfully');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[AutoStart] Error:', error.message);
+  }
 }
 
 // IPC handler to toggle auto-start
 ipcMain.handle('set-auto-start', async (event, enabled) => {
   store.set('autoStart', enabled);
   setupAutoLaunch();
+  sendToRenderer('log', enabled ? '✓ Iniciar com Windows ativado' : '✓ Iniciar com Windows desativado');
   return { success: true, autoStart: enabled };
+});
+
+// IPC handler to check current auto-start status
+ipcMain.handle('get-auto-start-status', async () => {
+  const enabled = store.get('autoStart');
+  
+  // Also verify Windows Registry
+  if (process.platform === 'win32') {
+    const { exec } = require('child_process');
+    const regPath = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+    const appName = 'GamakoPrintService';
+    
+    return new Promise((resolve) => {
+      exec(`reg query "${regPath}" /v "${appName}"`, (error, stdout) => {
+        const inRegistry = !error && stdout.includes(appName);
+        resolve({ 
+          enabled, 
+          inRegistry,
+          synced: enabled === inRegistry 
+        });
+      });
+    });
+  }
+  
+  return { enabled, inRegistry: false, synced: true };
 });
 
 app.on('window-all-closed', () => {
