@@ -316,7 +316,7 @@ const MAX_HEARTBEAT_RETRIES = 3;
 
 async function sendHeartbeat() {
   const restaurantId = store.get('restaurantId');
-  if (!restaurantId || !supabase) return;
+  if (!restaurantId) return;
 
   try {
     // Get current printers count
@@ -328,27 +328,31 @@ async function sendHeartbeat() {
       printersCount = printers.length;
     }
 
-    const { error } = await supabase
-      .from('printer_heartbeats')
-      .upsert({
+    // Use Edge Function to bypass RLS issues
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/printer-heartbeat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
         restaurant_id: restaurantId,
         client_id: clientId,
-        client_name: 'Impressora de Pedidos',
+        client_name: 'Gamako Print Service',
         client_version: app.getVersion ? app.getVersion() : '1.0.0',
         platform: process.platform,
-        last_heartbeat_at: new Date().toISOString(),
         is_printing: isPrinting,
         pending_orders: pendingOrdersCount,
         printers_count: printersCount,
-      }, {
-        onConflict: 'restaurant_id,client_id',
-      });
+      }),
+    });
 
-    if (error) {
-      console.error('Heartbeat error:', error);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Heartbeat error:', errorData);
       heartbeatRetryCount++;
       if (heartbeatRetryCount >= MAX_HEARTBEAT_RETRIES) {
-        sendToRenderer('log', `⚠ Falha ao enviar heartbeat: ${error.message}`);
+        sendToRenderer('log', `⚠ Falha ao enviar heartbeat: ${errorData.error || response.statusText}`);
       }
     } else {
       heartbeatRetryCount = 0;
