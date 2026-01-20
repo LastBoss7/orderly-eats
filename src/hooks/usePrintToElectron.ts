@@ -16,6 +16,7 @@ interface ReprintOrderOptions {
 
 interface UsePrintToElectronOptions {
   restaurantId?: string;
+  useEdgeFunction?: boolean; // When true, uses edge function instead of direct Supabase calls (for public access)
 }
 
 /**
@@ -25,12 +26,14 @@ interface UsePrintToElectronOptions {
  * 
  * @param options - Opções do hook
  * @param options.restaurantId - ID do restaurante (opcional, usa o do auth se não fornecido)
+ * @param options.useEdgeFunction - Se true, usa edge function para bypass RLS (para acesso público)
  */
 export function usePrintToElectron(options?: UsePrintToElectronOptions) {
   const { restaurant } = useAuth();
   
   // Use provided restaurantId or fall back to auth restaurant
   const effectiveRestaurantId = options?.restaurantId || restaurant?.id;
+  const useEdgeFunction = options?.useEdgeFunction || false;
 
   /**
    * Marca um pedido para impressão (print_status = 'pending')
@@ -168,7 +171,43 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
     }
 
     try {
-      // Create a temporary order for the conference print
+      // If using edge function (public access like waiter app), call edge function
+      if (useEdgeFunction) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=print-conference&restaurant_id=${effectiveRestaurantId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              entity_type: params.entityType,
+              entity_number: params.entityNumber,
+              customer_name: params.customerName,
+              total: params.total,
+              service_charge: params.serviceCharge || null,
+              discount: params.discount || 0,
+              addition: params.addition || 0,
+              split_count: params.splitCount || 1,
+              is_final_receipt: params.isFinalReceipt || false,
+              payments: params.payments || [],
+              items: params.items,
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Erro ao enviar conferência');
+        }
+
+        toast.success('Conferência enviada para impressão!');
+        return true;
+      }
+
+      // Original direct Supabase call (for authenticated users)
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -244,7 +283,7 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
       });
       return false;
     }
-  }, [effectiveRestaurantId, options?.restaurantId, restaurant?.id]);
+  }, [effectiveRestaurantId, options?.restaurantId, restaurant?.id, useEdgeFunction]);
 
   /**
    * Imprime relatório de fechamento de caixa

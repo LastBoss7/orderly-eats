@@ -554,6 +554,72 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST print conference (for printing table/tab receipt)
+    if (req.method === "POST" && action === "print-conference") {
+      const body = await req.json();
+      
+      // Create a temporary order for the conference print
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          restaurant_id: restaurantId,
+          order_type: 'conference',
+          customer_name: body.customer_name || `${body.entity_type === 'table' ? 'Mesa' : 'Comanda'} ${body.entity_number}`,
+          total: body.total,
+          service_charge: body.service_charge || null,
+          status: 'conference',
+          print_status: 'pending',
+          notes: JSON.stringify({
+            entityType: body.entity_type,
+            entityNumber: body.entity_number,
+            discount: body.discount || 0,
+            addition: body.addition || 0,
+            serviceCharge: body.service_charge || 0,
+            splitCount: body.split_count || 1,
+            isConference: !body.is_final_receipt,
+            isFinalReceipt: body.is_final_receipt || false,
+            payments: body.payments || [],
+          }),
+        })
+        .select('id, order_number')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Add items to the order
+      if (body.items && body.items.length > 0) {
+        const itemsToInsert = body.items.map((item: any) => ({
+          order_id: order.id,
+          restaurant_id: restaurantId,
+          product_name: item.product_name,
+          product_price: item.product_price,
+          quantity: item.quantity,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from("order_items")
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Log the conference print
+      await supabase.from("print_logs").insert({
+        restaurant_id: restaurantId,
+        order_id: order.id,
+        order_number: order.order_number?.toString() || null,
+        event_type: 'print',
+        status: 'pending',
+        printer_name: 'Electron App',
+        items_count: body.items?.length || 0,
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, order }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
