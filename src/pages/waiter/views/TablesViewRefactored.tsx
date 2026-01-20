@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
   Bike, 
@@ -53,7 +52,74 @@ interface TablesViewRefactoredProps {
   onCloseCreateTabModal: () => void;
 }
 
-export function TablesViewRefactored({
+// Memoized table button to prevent re-renders
+const TableButton = memo(function TableButton({
+  table,
+  hasReadyOrder,
+  onClick,
+}: {
+  table: Table;
+  hasReadyOrder: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-sm active:scale-95 transition-transform ${
+        table.status === 'available' 
+          ? 'bg-emerald-500 text-white' 
+          : table.status === 'closing' 
+            ? 'bg-amber-500 text-white' 
+            : 'bg-rose-500 text-white'
+      }`}
+    >
+      <span className="font-bold text-sm">Mesa {table.number}</span>
+      {hasReadyOrder && (
+        <Badge className="bg-white text-emerald-700 text-[10px] font-bold w-fit animate-pulse">
+          🔔 Pronto!
+        </Badge>
+      )}
+      {table.status === 'available' && (
+        <span className="text-[10px] text-white/80">Disponível</span>
+      )}
+    </button>
+  );
+});
+
+// Memoized tab button
+const TabButton = memo(function TabButton({
+  tab,
+  onClick,
+}: {
+  tab: Tab;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-sm active:scale-95 transition-transform ${
+        tab.status === 'available' 
+          ? 'bg-emerald-500 text-white' 
+          : tab.status === 'closing' 
+            ? 'bg-amber-500 text-white' 
+            : 'bg-rose-500 text-white'
+      }`}
+    >
+      <span className="font-bold text-sm">#{tab.number}</span>
+      {tab.customer_name && (
+        <p className="text-[10px] text-white/90 truncate flex items-center gap-1">
+          <User className="w-3 h-3" />
+          {tab.customer_name}
+        </p>
+      )}
+      {tab.status === 'available' && !tab.customer_name && (
+        <span className="text-[10px] text-white/80">Disponível</span>
+      )}
+    </button>
+  );
+});
+
+export const TablesViewRefactored = memo(function TablesViewRefactored({
   waiter,
   restaurantName,
   tables,
@@ -98,13 +164,11 @@ export function TablesViewRefactored({
            t.customer_name?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
+  const occupiedTablesCount = tables.filter(t => t.status !== 'available').length;
+  const occupiedTabsCount = tabs.filter(t => t.status === 'occupied').length;
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="min-h-screen bg-background flex flex-col"
-    >
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 bg-primary text-primary-foreground z-10 shadow-lg">
         <div className="flex items-center gap-3 p-4 pb-2">
@@ -129,42 +193,34 @@ export function TablesViewRefactored({
         <div className="flex px-4">
           <button
             onClick={() => setActiveTab('mesas')}
-            className={`flex-1 py-3 text-center font-semibold transition-all relative ${
+            className={`flex-1 py-3 text-center font-semibold transition-colors relative ${
               activeTab === 'mesas' 
                 ? 'text-primary-foreground' 
-                : 'text-primary-foreground/60 hover:text-primary-foreground/80'
+                : 'text-primary-foreground/60'
             }`}
           >
             <span className="flex items-center justify-center gap-2">
               <Users className="w-4 h-4" />
-              Mesas ({tables.filter(t => t.status !== 'available').length}/{tables.length})
+              Mesas ({occupiedTablesCount}/{tables.length})
             </span>
             {activeTab === 'mesas' && (
-              <motion.div 
-                layoutId="activeTabIndicator"
-                className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary-foreground rounded-full" 
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary-foreground rounded-full" />
             )}
           </button>
           <button
             onClick={() => setActiveTab('comandas')}
-            className={`flex-1 py-3 text-center font-semibold transition-all relative ${
+            className={`flex-1 py-3 text-center font-semibold transition-colors relative ${
               activeTab === 'comandas' 
                 ? 'text-primary-foreground' 
-                : 'text-primary-foreground/60 hover:text-primary-foreground/80'
+                : 'text-primary-foreground/60'
             }`}
           >
             <span className="flex items-center justify-center gap-2">
               <ClipboardList className="w-4 h-4" />
-              Comandas ({tabs.filter(t => t.status === 'occupied').length})
+              Comandas ({occupiedTabsCount})
             </span>
             {activeTab === 'comandas' && (
-              <motion.div 
-                layoutId="activeTabIndicator"
-                className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary-foreground rounded-full" 
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
+              <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-primary-foreground rounded-full" />
             )}
           </button>
         </div>
@@ -222,226 +278,143 @@ export function TablesViewRefactored({
       {/* Content */}
       <ScrollArea className="flex-1 px-3 pb-3">
         {activeTab === 'mesas' ? (
-          <motion.div 
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.03 } },
-            }}
-            className="py-3 grid grid-cols-3 gap-2"
-          >
-            {filteredTables.map((table) => {
-              const hasReadyOrder = tableReadyOrders[table.id];
-              
-              return (
-                <motion.button
-                  key={table.id}
-                  variants={{
-                    hidden: { opacity: 0, y: 20, scale: 0.9 },
-                    visible: { opacity: 1, y: 0, scale: 1 },
-                  }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => onTableClick(table)}
-                  className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-md ${
-                    table.status === 'available' 
-                      ? 'bg-emerald-500 text-white' 
-                      : table.status === 'closing' 
-                        ? 'bg-amber-500 text-white' 
-                        : 'bg-rose-500 text-white'
-                  }`}
-                >
-                  <span className="font-bold text-sm">Mesa {table.number}</span>
-                  {hasReadyOrder && (
-                    <Badge className="bg-white text-emerald-700 text-[10px] font-bold w-fit">
-                      🔔 Pronto!
-                    </Badge>
-                  )}
-                  {table.status === 'available' && (
-                    <span className="text-[10px] text-white/80">Disponível</span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </motion.div>
+          <div className="py-3 grid grid-cols-3 gap-2">
+            {filteredTables.map((table) => (
+              <TableButton
+                key={table.id}
+                table={table}
+                hasReadyOrder={tableReadyOrders[table.id] || false}
+                onClick={() => onTableClick(table)}
+              />
+            ))}
+          </div>
         ) : (
-          <motion.div 
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.03 } },
-            }}
-            className="py-3 grid grid-cols-3 gap-2"
-          >
+          <div className="py-3 grid grid-cols-3 gap-2">
             {/* Create New Tab Button */}
-            <motion.button
-              variants={{
-                hidden: { opacity: 0, y: 20, scale: 0.9 },
-                visible: { opacity: 1, y: 0, scale: 1 },
-              }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={onCreateTab}
-              className="rounded-xl p-3 min-h-[80px] flex flex-col items-center justify-center text-center border-2 border-dashed border-primary/40 bg-primary/5"
+              className="rounded-xl p-3 min-h-[80px] flex flex-col items-center justify-center text-center border-2 border-dashed border-primary/40 bg-primary/5 active:scale-95 transition-transform"
             >
               <Plus className="w-5 h-5 text-primary mb-1" />
               <span className="font-semibold text-xs text-primary">Nova</span>
-            </motion.button>
+            </button>
             
             {filteredTabs.map((tab) => (
-              <motion.button
+              <TabButton
                 key={tab.id}
-                variants={{
-                  hidden: { opacity: 0, y: 20, scale: 0.9 },
-                  visible: { opacity: 1, y: 0, scale: 1 },
-                }}
-                whileTap={{ scale: 0.95 }}
+                tab={tab}
                 onClick={() => onTabClick(tab)}
-                className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-md ${
-                  tab.status === 'available' 
-                    ? 'bg-emerald-500 text-white' 
-                    : tab.status === 'closing' 
-                      ? 'bg-amber-500 text-white' 
-                      : 'bg-rose-500 text-white'
-                }`}
-              >
-                <span className="font-bold text-sm">#{tab.number}</span>
-                {tab.customer_name && (
-                  <p className="text-[10px] text-white/90 truncate flex items-center gap-1">
-                    <User className="w-3 h-3" />
-                    {tab.customer_name}
-                  </p>
-                )}
-                {tab.status === 'available' && !tab.customer_name && (
-                  <span className="text-[10px] text-white/80">Disponível</span>
-                )}
-              </motion.button>
+              />
             ))}
-          </motion.div>
+          </div>
         )}
       </ScrollArea>
 
       {/* Tab Customer Modal */}
-      <AnimatePresence>
-        {showTabCustomerModal && pendingTab && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-            onClick={onCloseTabCustomerModal}
+      {showTabCustomerModal && pendingTab && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={onCloseTabCustomerModal}
+        >
+          <div 
+            className="bg-card w-full max-w-sm rounded-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card w-full max-w-sm rounded-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-bold">Comanda #{pendingTab.number}</h3>
-                <Button variant="ghost" size="icon" onClick={onCloseTabCustomerModal}>
-                  <X className="w-5 h-5" />
-                </Button>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold">Comanda #{pendingTab.number}</h3>
+              <Button variant="ghost" size="icon" onClick={onCloseTabCustomerModal}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Nome do cliente *</Label>
+                <Input
+                  placeholder="Nome"
+                  value={tabCustomerName}
+                  onChange={(e) => onTabCustomerNameChange(e.target.value)}
+                  className="mt-1"
+                  autoFocus
+                />
               </div>
-              
-              <div className="p-4 space-y-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Nome do cliente *</Label>
-                  <Input
-                    placeholder="Nome"
-                    value={tabCustomerName}
-                    onChange={(e) => onTabCustomerNameChange(e.target.value)}
-                    className="mt-1"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Telefone (opcional)</Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={tabCustomerPhone}
-                    onChange={(e) => onTabCustomerPhoneChange(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <Button 
-                  className="w-full h-12"
-                  onClick={onSaveTabCustomer}
-                  disabled={savingTabCustomer || !tabCustomerName.trim()}
-                >
-                  {savingTabCustomer ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Abrir Comanda'
-                  )}
-                </Button>
+              <div>
+                <Label className="text-sm text-muted-foreground">Telefone (opcional)</Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={tabCustomerPhone}
+                  onChange={(e) => onTabCustomerPhoneChange(e.target.value)}
+                  className="mt-1"
+                />
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <Button 
+                className="w-full h-12"
+                onClick={onSaveTabCustomer}
+                disabled={savingTabCustomer || !tabCustomerName.trim()}
+              >
+                {savingTabCustomer ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Abrir Comanda'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Tab Modal */}
-      <AnimatePresence>
-        {showCreateTabModal && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-            onClick={onCloseCreateTabModal}
+      {showCreateTabModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={onCloseCreateTabModal}
+        >
+          <div 
+            className="bg-card w-full max-w-sm rounded-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card w-full max-w-sm rounded-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-bold">Nova Comanda</h3>
-                <Button variant="ghost" size="icon" onClick={onCloseCreateTabModal}>
-                  <X className="w-5 h-5" />
-                </Button>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold">Nova Comanda</h3>
+              <Button variant="ghost" size="icon" onClick={onCloseCreateTabModal}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Nome do cliente *</Label>
+                <Input
+                  placeholder="Nome"
+                  value={newTabCustomerName}
+                  onChange={(e) => onNewTabCustomerNameChange(e.target.value)}
+                  className="mt-1"
+                  autoFocus
+                />
               </div>
-              
-              <div className="p-4 space-y-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Nome do cliente *</Label>
-                  <Input
-                    placeholder="Nome"
-                    value={newTabCustomerName}
-                    onChange={(e) => onNewTabCustomerNameChange(e.target.value)}
-                    className="mt-1"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Telefone (opcional)</Label>
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    value={newTabCustomerPhone}
-                    onChange={(e) => onNewTabCustomerPhoneChange(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <Button 
-                  className="w-full h-12"
-                  onClick={onCreateNewTab}
-                  disabled={creatingTab || !newTabCustomerName.trim()}
-                >
-                  {creatingTab ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    'Criar Comanda'
-                  )}
-                </Button>
+              <div>
+                <Label className="text-sm text-muted-foreground">Telefone (opcional)</Label>
+                <Input
+                  placeholder="(00) 00000-0000"
+                  value={newTabCustomerPhone}
+                  onChange={(e) => onNewTabCustomerPhoneChange(e.target.value)}
+                  className="mt-1"
+                />
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+              <Button 
+                className="w-full h-12"
+                onClick={onCreateNewTab}
+                disabled={creatingTab || !newTabCustomerName.trim()}
+              >
+                {creatingTab ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  'Criar Comanda'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-}
+});

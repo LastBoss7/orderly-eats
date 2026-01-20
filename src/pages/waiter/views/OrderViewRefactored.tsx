@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
   Search, 
@@ -28,7 +27,6 @@ import {
   DeliveryForm,
   ProductSize,
   formatCurrency,
-  getProductPrice,
   getSizeLabel,
 } from '../types';
 
@@ -53,7 +51,197 @@ interface OrderViewRefactoredProps {
   onCategoryChange?: (categoryId: string | null) => void;
 }
 
-export function OrderViewRefactored({
+// Memoized product button
+const ProductButton = memo(function ProductButton({
+  product,
+  totalQty,
+  minPrice,
+  viewMode,
+  onClick,
+}: {
+  product: Product;
+  totalQty: number;
+  minPrice: number;
+  viewMode: 'list' | 'grid';
+  onClick: () => void;
+}) {
+  if (viewMode === 'grid') {
+    return (
+      <button
+        className={`flex flex-col p-2 bg-card rounded-xl border text-left transition-colors relative ${
+          totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
+        }`}
+        onClick={onClick}
+      >
+        {totalQty > 0 && (
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10">
+            {totalQty}
+          </div>
+        )}
+        
+        <div className="w-full aspect-square rounded-lg bg-muted overflow-hidden mb-2">
+          {product.image_url ? (
+            <img 
+              src={product.image_url} 
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+              <Package className="w-8 h-8" />
+            </div>
+          )}
+        </div>
+        
+        <p className="font-medium text-sm truncate">{product.name}</p>
+        {product.has_sizes && (
+          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-block mt-0.5">P/M/G</span>
+        )}
+        <p className="text-primary font-semibold text-sm mt-1">
+          {product.has_sizes ? `A partir de ${formatCurrency(minPrice)}` : formatCurrency(product.price)}
+        </p>
+      </button>
+    );
+  }
+  
+  return (
+    <button
+      className={`flex items-center gap-3 p-3 bg-card rounded-xl border text-left transition-colors ${
+        totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
+      }`}
+      onClick={onClick}
+    >
+      <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0">
+        {product.image_url ? (
+          <img 
+            src={product.image_url} 
+            alt={product.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+            <Package className="w-6 h-6" />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="font-medium truncate">{product.name}</p>
+          {product.has_sizes && (
+            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">P/M/G</span>
+          )}
+        </div>
+        <p className="text-primary font-semibold text-sm">
+          {product.has_sizes ? `A partir de ${formatCurrency(minPrice)}` : formatCurrency(product.price)}
+        </p>
+      </div>
+      
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+        totalQty > 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+      }`}>
+        {totalQty > 0 ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
+      </div>
+    </button>
+  );
+});
+
+// Memoized cart item
+const CartItemRow = memo(function CartItemRow({
+  item,
+  itemKey,
+  isEditing,
+  onUpdateQuantity,
+  onUpdateItemNotes,
+  onRemoveFromCart,
+  onToggleEdit,
+}: {
+  item: CartItem;
+  itemKey: string;
+  isEditing: boolean;
+  onUpdateQuantity: (delta: number) => void;
+  onUpdateItemNotes: (notes: string) => void;
+  onRemoveFromCart: () => void;
+  onToggleEdit: () => void;
+}) {
+  return (
+    <div className="bg-muted/50 rounded-lg p-2">
+      <div className="flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">
+            {item.product.name}
+            {item.size && (
+              <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">
+                {getSizeLabel(item.size)}
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)}</p>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onUpdateQuantity(-1)}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onUpdateQuantity(1)}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`h-7 w-7 ${item.notes ? 'text-primary' : 'text-muted-foreground'}`}
+            onClick={onToggleEdit}
+          >
+            <MessageSquare className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive"
+            onClick={onRemoveFromCart}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+      
+      {isEditing && (
+        <div className="mt-2">
+          <Input
+            placeholder="Obs: sem cebola, bem passado..."
+            value={item.notes}
+            onChange={(e) => onUpdateItemNotes(e.target.value)}
+            className="h-8 text-xs"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onToggleEdit();
+            }}
+          />
+        </div>
+      )}
+      
+      {item.notes && !isEditing && (
+        <p className="mt-1 text-xs text-muted-foreground bg-muted rounded px-2 py-0.5 truncate">
+          💬 {item.notes}
+        </p>
+      )}
+    </div>
+  );
+});
+
+export const OrderViewRefactored = memo(function OrderViewRefactored({
   orderMode,
   table,
   tab,
@@ -84,21 +272,23 @@ export function OrderViewRefactored({
   // Load first category products on mount
   useEffect(() => {
     if (onCategoryChange && categories.length > 0 && products.length === 0) {
-      // Load first category by default
       onCategoryChange(categories[0].id);
       setSelectedCategory(categories[0].id);
     }
   }, [categories, onCategoryChange, products.length]);
 
-  const handleCategorySelect = (categoryId: string | null) => {
+  const handleCategorySelect = useCallback((categoryId: string | null) => {
     setSelectedCategory(categoryId);
     if (onCategoryChange) {
       onCategoryChange(categoryId);
     }
-  };
+  }, [onCategoryChange]);
 
-  // With lazy loading, products already filtered by category from backend
-  // Only filter by search term locally
+  const handleViewModeChange = useCallback((mode: 'list' | 'grid') => {
+    setMenuViewMode(mode);
+    localStorage.setItem('waiter_menu_view_mode', mode);
+  }, []);
+
   const filteredProducts = products.filter(p => {
     const matchesSearch = !searchTerm || 
       p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -118,12 +308,7 @@ export function OrderViewRefactored({
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -50 }}
-      className="min-h-screen bg-background flex flex-col"
-    >
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 bg-primary text-primary-foreground p-4 z-10 shadow-lg">
         <div className="flex items-center gap-3">
@@ -161,10 +346,7 @@ export function OrderViewRefactored({
               variant={menuViewMode === 'list' ? 'default' : 'ghost'}
               size="icon"
               className="h-10 w-10 rounded-none"
-              onClick={() => {
-                setMenuViewMode('list');
-                localStorage.setItem('waiter_menu_view_mode', 'list');
-              }}
+              onClick={() => handleViewModeChange('list')}
             >
               <LayoutList className="w-4 h-4" />
             </Button>
@@ -172,10 +354,7 @@ export function OrderViewRefactored({
               variant={menuViewMode === 'grid' ? 'default' : 'ghost'}
               size="icon"
               className="h-10 w-10 rounded-none"
-              onClick={() => {
-                setMenuViewMode('grid');
-                localStorage.setItem('waiter_menu_view_mode', 'grid');
-              }}
+              onClick={() => handleViewModeChange('grid')}
             >
               <LayoutGrid className="w-4 h-4" />
             </Button>
@@ -232,86 +411,15 @@ export function OrderViewRefactored({
               ? Math.min(...[product.price_small, product.price_medium, product.price_large].filter((p): p is number => p != null && p > 0))
               : product.price;
             
-            if (menuViewMode === 'grid') {
-              return (
-                <button
-                  key={product.id}
-                  className={`flex flex-col p-2 bg-card rounded-xl border text-left transition-all relative ${
-                    totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
-                  }`}
-                  onClick={() => onProductClick(product)}
-                >
-                  {totalQty > 0 && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10">
-                      {totalQty}
-                    </div>
-                  )}
-                  
-                  <div className="w-full aspect-square rounded-lg bg-muted overflow-hidden mb-2">
-                    {product.image_url ? (
-                      <img 
-                        src={product.image_url} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        <Package className="w-8 h-8" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="font-medium text-sm truncate">{product.name}</p>
-                  {product.has_sizes && (
-                    <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-block mt-0.5">P/M/G</span>
-                  )}
-                  <p className="text-primary font-semibold text-sm mt-1">
-                    {product.has_sizes ? `A partir de ${formatCurrency(minPrice)}` : formatCurrency(product.price)}
-                  </p>
-                </button>
-              );
-            }
-            
             return (
-              <button
+              <ProductButton
                 key={product.id}
-                className={`flex items-center gap-3 p-3 bg-card rounded-xl border text-left transition-all ${
-                  totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
-                }`}
+                product={product}
+                totalQty={totalQty}
+                minPrice={minPrice}
+                viewMode={menuViewMode}
                 onClick={() => onProductClick(product)}
-              >
-                <div className="w-14 h-14 rounded-lg bg-muted overflow-hidden shrink-0">
-                  {product.image_url ? (
-                    <img 
-                      src={product.image_url} 
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      <Package className="w-6 h-6" />
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium truncate">{product.name}</p>
-                    {product.has_sizes && (
-                      <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">P/M/G</span>
-                    )}
-                  </div>
-                  <p className="text-primary font-semibold text-sm">
-                    {product.has_sizes ? `A partir de ${formatCurrency(minPrice)}` : formatCurrency(product.price)}
-                  </p>
-                </div>
-                
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                  totalQty > 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {totalQty > 0 ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
-                </div>
-              </button>
+              />
             );
           })}
         </div>
@@ -328,77 +436,16 @@ export function OrderViewRefactored({
                 const isEditingThis = editingItemNotes === itemKey;
                 
                 return (
-                  <div key={itemKey} className="bg-muted/50 rounded-lg p-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">
-                          {item.product.name}
-                          {item.size && (
-                            <span className="ml-1 text-[10px] bg-primary/10 text-primary px-1 py-0.5 rounded">
-                              {getSizeLabel(item.size)}
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => onUpdateQuantity(item.product.id, item.size, -1)}
-                        >
-                          <Minus className="w-3 h-3" />
-                        </Button>
-                        <span className="w-6 text-center font-medium text-sm">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => onUpdateQuantity(item.product.id, item.size, 1)}
-                        >
-                          <Plus className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-7 w-7 ${item.notes ? 'text-primary' : 'text-muted-foreground'}`}
-                          onClick={() => setEditingItemNotes(isEditingThis ? null : itemKey)}
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive"
-                          onClick={() => onRemoveFromCart(item.product.id, item.size)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {isEditingThis && (
-                      <div className="mt-2">
-                        <Input
-                          placeholder="Obs: sem cebola, bem passado..."
-                          value={item.notes}
-                          onChange={(e) => onUpdateItemNotes(item.product.id, item.size, e.target.value)}
-                          className="h-8 text-xs"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') setEditingItemNotes(null);
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    {item.notes && !isEditingThis && (
-                      <p className="mt-1 text-xs text-muted-foreground bg-muted rounded px-2 py-0.5 truncate">
-                        💬 {item.notes}
-                      </p>
-                    )}
-                  </div>
+                  <CartItemRow
+                    key={itemKey}
+                    item={item}
+                    itemKey={itemKey}
+                    isEditing={isEditingThis}
+                    onUpdateQuantity={(delta) => onUpdateQuantity(item.product.id, item.size, delta)}
+                    onUpdateItemNotes={(notes) => onUpdateItemNotes(item.product.id, item.size, notes)}
+                    onRemoveFromCart={() => onRemoveFromCart(item.product.id, item.size)}
+                    onToggleEdit={() => setEditingItemNotes(isEditingThis ? null : itemKey)}
+                  />
                 );
               })}
             </div>
@@ -442,6 +489,6 @@ export function OrderViewRefactored({
           </div>
         </div>
       )}
-    </motion.div>
+    </div>
   );
-}
+});
