@@ -4,14 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Card,
   CardContent,
@@ -19,17 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Pencil, Trash2, Package, GripVertical } from 'lucide-react';
+import { Plus, Loader2, Pencil, Trash2, Package, GripVertical, Layers, CirclePlus, Hash, CheckCircle } from 'lucide-react';
 import { CategoryAddonLinker } from '@/components/products/CategoryAddonLinker';
+import { 
+  PremiumDialog, 
+  PremiumFormSection, 
+  PremiumInputGroup,
+  PremiumToggleRow 
+} from '@/components/ui/premium-dialog';
 
 interface AddonGroup {
   id: string;
@@ -336,155 +328,216 @@ export default function Addons() {
               Gerencie grupos de adicionais e extras do cardápio
             </p>
           </div>
-          <Dialog
-            open={showGroupDialog}
-            onOpenChange={(open) => {
-              setShowGroupDialog(open);
-              if (!open) resetGroupForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Grupo
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingGroup ? 'Editar Grupo' : 'Novo Grupo de Adicionais'}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>Nome do Grupo *</Label>
-                  <Input
-                    placeholder="Ex: Molhos, Extras, Acompanhamentos"
-                    value={groupName}
-                    onChange={(e) => setGroupName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Input
-                    placeholder="Descrição opcional"
-                    value={groupDescription}
-                    onChange={(e) => setGroupDescription(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Mínimo de seleções</Label>
+          <Button onClick={() => setShowGroupDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Grupo
+          </Button>
+        </div>
+
+        {/* Premium Group Dialog */}
+        <PremiumDialog
+          open={showGroupDialog}
+          onOpenChange={(open) => {
+            setShowGroupDialog(open);
+            if (!open) resetGroupForm();
+          }}
+          title={editingGroup ? 'Editar Grupo' : 'Novo Grupo de Adicionais'}
+          description={editingGroup 
+            ? 'Atualize as configurações do grupo de adicionais'
+            : 'Crie um grupo para organizar adicionais semelhantes'
+          }
+          icon={<Layers className="w-6 h-6" />}
+        >
+          <div className="space-y-5 pt-4">
+            <PremiumFormSection>
+              <PremiumInputGroup 
+                label="Nome do grupo" 
+                required
+                hint="Ex: Molhos, Extras, Acompanhamentos"
+              >
+                <Input
+                  placeholder="Digite o nome..."
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  className="h-11"
+                />
+              </PremiumInputGroup>
+
+              <PremiumInputGroup 
+                label="Descrição" 
+                hint="Opcional - ajuda o cliente a entender as opções"
+              >
+                <Input
+                  placeholder="Descrição breve..."
+                  value={groupDescription}
+                  onChange={(e) => setGroupDescription(e.target.value)}
+                  className="h-11"
+                />
+              </PremiumInputGroup>
+            </PremiumFormSection>
+
+            <PremiumFormSection 
+              variant="highlighted"
+              title="Regras de seleção"
+              description="Quantos itens o cliente pode escolher"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <PremiumInputGroup label="Mínimo">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <Hash className="w-4 h-4" />
+                    </div>
                     <Input
                       type="number"
                       min="0"
                       value={minSelections}
                       onChange={(e) => setMinSelections(e.target.value)}
+                      className="h-11"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Máximo de seleções</Label>
+                </PremiumInputGroup>
+                <PremiumInputGroup label="Máximo">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                      <Hash className="w-4 h-4" />
+                    </div>
                     <Input
                       type="number"
                       min="1"
                       value={maxSelections}
                       onChange={(e) => setMaxSelections(e.target.value)}
+                      className="h-11"
                     />
                   </div>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label className="font-medium">Obrigatório</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Cliente deve escolher pelo menos uma opção
-                    </p>
-                  </div>
-                  <Switch
-                    checked={isRequired}
-                    onCheckedChange={setIsRequired}
-                  />
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleSaveGroup}
-                  disabled={savingGroup}
-                >
-                  {savingGroup ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : editingGroup ? (
-                    'Salvar Alterações'
-                  ) : (
-                    'Criar Grupo'
-                  )}
-                </Button>
+                </PremiumInputGroup>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </PremiumFormSection>
 
-        {/* Addon Dialog */}
-        <Dialog
+            <PremiumToggleRow
+              label="Obrigatório"
+              description="Cliente deve escolher pelo menos uma opção"
+              icon={<CheckCircle className="w-5 h-5" />}
+            >
+              <Switch
+                checked={isRequired}
+                onCheckedChange={setIsRequired}
+              />
+            </PremiumToggleRow>
+
+            <Button
+              className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              onClick={handleSaveGroup}
+              disabled={savingGroup}
+            >
+              {savingGroup ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : editingGroup ? (
+                <>
+                  <Pencil className="w-5 h-5 mr-2" />
+                  Salvar Alterações
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Criar Grupo
+                </>
+              )}
+            </Button>
+          </div>
+        </PremiumDialog>
+
+        {/* Premium Addon Dialog */}
+        <PremiumDialog
           open={showAddonDialog}
           onOpenChange={(open) => {
             setShowAddonDialog(open);
             if (!open) resetAddonForm();
           }}
+          title={editingAddon ? 'Editar Adicional' : 'Novo Adicional'}
+          description={editingAddon 
+            ? 'Atualize as informações do adicional'
+            : 'Adicione uma nova opção ao grupo'
+          }
+          icon={<CirclePlus className="w-6 h-6" />}
         >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {editingAddon ? 'Editar Adicional' : 'Novo Adicional'}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Nome *</Label>
+          <div className="space-y-5 pt-4">
+            <PremiumFormSection>
+              <PremiumInputGroup 
+                label="Nome do adicional" 
+                required
+                hint="Ex: Bacon, Queijo extra, Molho especial"
+              >
                 <Input
-                  placeholder="Ex: Bacon, Queijo extra, Molho especial"
+                  placeholder="Digite o nome..."
                   value={addonName}
                   onChange={(e) => setAddonName(e.target.value)}
+                  className="h-11"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Preço</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={addonPrice}
-                  onChange={(e) => setAddonPrice(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Deixe 0 para adicionais gratuitos
-                </p>
-              </div>
-              <Button
-                className="w-full"
-                onClick={handleSaveAddon}
-                disabled={savingAddon}
+              </PremiumInputGroup>
+
+              <PremiumInputGroup 
+                label="Preço adicional" 
+                hint="Deixe 0 para adicionais gratuitos"
               >
-                {savingAddon ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : editingAddon ? (
-                  'Salvar Alterações'
-                ) : (
-                  'Criar Adicional'
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">R$</span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={addonPrice}
+                    onChange={(e) => setAddonPrice(e.target.value)}
+                    className="h-11 pl-10"
+                  />
+                </div>
+              </PremiumInputGroup>
+            </PremiumFormSection>
+
+            <Button
+              className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              onClick={handleSaveAddon}
+              disabled={savingAddon}
+            >
+              {savingAddon ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : editingAddon ? (
+                <>
+                  <Pencil className="w-5 h-5 mr-2" />
+                  Salvar Alterações
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Criar Adicional
+                </>
+              )}
+            </Button>
+          </div>
+        </PremiumDialog>
 
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div className="text-center space-y-4">
+              <div className="relative inline-flex">
+                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+              <p className="text-muted-foreground animate-pulse">Carregando adicionais...</p>
+            </div>
           </div>
         ) : groups.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Package className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhum grupo de adicionais</h3>
+              <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                <Package className="w-10 h-10 text-muted-foreground/50" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Nenhum grupo de adicionais</h3>
               <p className="text-muted-foreground mb-4">
                 Crie grupos para organizar os adicionais do seu cardápio
               </p>
@@ -499,31 +552,41 @@ export default function Addons() {
             {groups.map((group) => {
               const groupAddons = getGroupAddons(group.id);
               return (
-                <Card key={group.id} className={!group.is_active ? 'opacity-60' : ''}>
+                <Card 
+                  key={group.id} 
+                  className={`transition-all duration-300 hover:shadow-lg ${!group.is_active ? 'opacity-60' : ''}`}
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-lg">{group.name}</CardTitle>
-                          {group.is_required && (
-                            <Badge variant="secondary" className="text-xs">
-                              Obrigatório
-                            </Badge>
-                          )}
-                          {!group.is_active && (
-                            <Badge variant="outline" className="text-xs">
-                              Inativo
-                            </Badge>
-                          )}
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                            <Layers className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <CardTitle className="text-lg">{group.name}</CardTitle>
+                              {group.is_required && (
+                                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 text-xs">
+                                  Obrigatório
+                                </Badge>
+                              )}
+                              {!group.is_active && (
+                                <Badge variant="outline" className="text-xs">
+                                  Inativo
+                                </Badge>
+                              )}
+                            </div>
+                            {group.description && (
+                              <CardDescription>{group.description}</CardDescription>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Seleção: {group.min_selections} - {group.max_selections} itens
+                            </p>
+                          </div>
                         </div>
-                        {group.description && (
-                          <CardDescription>{group.description}</CardDescription>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Seleção: {group.min_selections} - {group.max_selections} itens
-                        </p>
                         {/* Category Links */}
-                        <div className="mt-2">
+                        <div className="mt-3 ml-12">
                           <CategoryAddonLinker 
                             groupId={group.id} 
                             restaurantId={restaurant?.id || ''} 
@@ -538,6 +601,7 @@ export default function Addons() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="hover:bg-primary/10 hover:text-primary"
                           onClick={() => openEditGroupDialog(group)}
                         >
                           <Pencil className="w-4 h-4" />
@@ -545,6 +609,7 @@ export default function Addons() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="hover:bg-destructive/10"
                           onClick={() => deleteGroup(group)}
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
@@ -554,7 +619,7 @@ export default function Addons() {
                   </CardHeader>
                   <CardContent>
                     {groupAddons.length === 0 ? (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
+                      <div className="text-center py-6 text-muted-foreground text-sm border-2 border-dashed rounded-xl">
                         Nenhum adicional neste grupo
                       </div>
                     ) : (
@@ -562,20 +627,24 @@ export default function Addons() {
                         {groupAddons.map((addon) => (
                           <div
                             key={addon.id}
-                            className={`flex items-center justify-between p-3 rounded-lg border ${
+                            className={`group flex items-center justify-between p-3 rounded-xl border transition-all hover:border-primary/30 hover:shadow-sm ${
                               !addon.is_available ? 'opacity-50 bg-muted/30' : 'bg-muted/10'
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <GripVertical className="w-4 h-4 text-muted-foreground" />
+                              <GripVertical className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground cursor-grab" />
                               <div>
                                 <p className="font-medium">{addon.name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {addon.price > 0 ? `+ ${formatCurrency(addon.price)}` : 'Grátis'}
+                                  {addon.price > 0 ? (
+                                    <span className="text-success font-medium">+ {formatCurrency(addon.price)}</span>
+                                  ) : (
+                                    <span className="text-muted-foreground">Grátis</span>
+                                  )}
                                 </p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Switch
                                 checked={addon.is_available}
                                 onCheckedChange={() => toggleAddonAvailable(addon)}
@@ -583,6 +652,7 @@ export default function Addons() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="hover:bg-primary/10 hover:text-primary"
                                 onClick={() => openEditAddonDialog(addon)}
                               >
                                 <Pencil className="w-4 h-4" />
@@ -590,6 +660,7 @@ export default function Addons() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="hover:bg-destructive/10"
                                 onClick={() => deleteAddon(addon)}
                               >
                                 <Trash2 className="w-4 h-4 text-destructive" />
@@ -601,7 +672,7 @@ export default function Addons() {
                     )}
                     <Button
                       variant="outline"
-                      className="w-full mt-3"
+                      className="w-full mt-4 h-11 border-dashed hover:border-primary hover:bg-primary/5"
                       onClick={() => openAddAddonDialog(group.id)}
                     >
                       <Plus className="w-4 h-4 mr-2" />

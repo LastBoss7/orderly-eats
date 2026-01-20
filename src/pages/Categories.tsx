@@ -4,17 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, FolderOpen, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Loader2, FolderOpen, Pencil, Trash2, Tag, ArrowUpDown } from 'lucide-react';
+import { 
+  PremiumDialog, 
+  PremiumFormSection, 
+  PremiumInputGroup 
+} from '@/components/ui/premium-dialog';
 
 interface Category {
   id: string;
@@ -151,95 +148,132 @@ export default function Categories() {
               Organize os produtos em categorias
             </p>
           </div>
-          <Dialog
-            open={showDialog}
-            onOpenChange={(open) => {
-              setShowDialog(open);
-              if (!open) resetForm();
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Categoria
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    placeholder="Ex: Bebidas"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ordem de exibição</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Categorias com número menor aparecem primeiro
-                  </p>
-                </div>
-                <Button
-                  className="w-full"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : editingCategory ? (
-                    'Salvar Alterações'
-                  ) : (
-                    'Criar Categoria'
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setShowDialog(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Categoria
+          </Button>
         </div>
+
+        {/* Premium Dialog */}
+        <PremiumDialog
+          open={showDialog}
+          onOpenChange={(open) => {
+            setShowDialog(open);
+            if (!open) resetForm();
+          }}
+          title={editingCategory ? 'Editar Categoria' : 'Nova Categoria'}
+          description={editingCategory 
+            ? 'Atualize as informações da categoria'
+            : 'Crie uma nova categoria para organizar seus produtos'
+          }
+          icon={<Tag className="w-6 h-6" />}
+        >
+          <div className="space-y-5 pt-4">
+            <PremiumFormSection>
+              <PremiumInputGroup 
+                label="Nome da categoria" 
+                required
+                hint="Ex: Bebidas, Lanches, Sobremesas"
+              >
+                <Input
+                  placeholder="Digite o nome..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-11"
+                />
+              </PremiumInputGroup>
+            </PremiumFormSection>
+
+            <PremiumFormSection 
+              variant="highlighted"
+              title="Ordenação"
+              description="Defina a posição desta categoria no menu"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <ArrowUpDown className="w-5 h-5" />
+                </div>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  className="flex-1 h-11"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Números menores aparecem primeiro no cardápio
+              </p>
+            </PremiumFormSection>
+
+            <Button
+              className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : editingCategory ? (
+                <>
+                  <Pencil className="w-5 h-5 mr-2" />
+                  Salvar Alterações
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Criar Categoria
+                </>
+              )}
+            </Button>
+          </div>
+        </PremiumDialog>
 
         {/* Categories Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-center space-y-4">
+              <div className="relative inline-flex">
+                <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+              <p className="text-muted-foreground animate-pulse">Carregando categorias...</p>
+            </div>
           </div>
         ) : categories.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <FolderOpen className="w-16 h-16 mb-4 opacity-50" />
-            <p className="text-lg">Nenhuma categoria cadastrada</p>
+            <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+              <FolderOpen className="w-10 h-10 opacity-50" />
+            </div>
+            <p className="text-lg font-medium">Nenhuma categoria cadastrada</p>
             <p className="text-sm">Clique em "Nova Categoria" para começar</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((category) => (
-              <Card key={category.id}>
+              <Card 
+                key={category.id} 
+                className="group hover:shadow-lg hover:border-primary/30 transition-all duration-300"
+              >
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FolderOpen className="w-5 h-5 text-primary" />
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      <FolderOpen className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">{category.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-semibold text-foreground">{category.name}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <ArrowUpDown className="w-3 h-3" />
                         Ordem: {category.sort_order}
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="hover:bg-primary/10 hover:text-primary"
                       onClick={() => openEditDialog(category)}
                     >
                       <Pencil className="w-4 h-4" />
@@ -247,7 +281,7 @@ export default function Categories() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => handleDelete(category.id)}
                     >
                       <Trash2 className="w-4 h-4" />
