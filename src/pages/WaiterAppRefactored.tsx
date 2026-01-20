@@ -129,13 +129,14 @@ export default function WaiterAppRefactored({
   const [newTabCustomerPhone, setNewTabCustomerPhone] = useState('');
   const [creatingTab, setCreatingTab] = useState(false);
 
-  // Use the waiter data hook - Edge Function for public access, direct Supabase for authenticated
+  // Use the waiter data hook - Always use Edge Function for waiters
+  // Waiters don't have auth.uid() so RLS policies block direct Supabase access
   // Memoize restaurantId to prevent hook recreation
   const restaurantId = useMemo(() => restaurant?.id || '', [restaurant?.id]);
   
   const waiterData = useWaiterData({
     restaurantId,
-    useEdgeFunction: isPublicAccess,
+    useEdgeFunction: true, // Always use edge function - waiters don't have auth.uid()
   });
 
   // Track if initial load happened
