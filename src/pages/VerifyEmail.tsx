@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Loader2, CheckCircle2, XCircle, Mail, RefreshCw, ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-full.png';
 import { toast } from 'sonner';
-import { motion, AnimatePresence } from 'framer-motion';
 
 type VerificationStatus = 'input' | 'loading' | 'success' | 'error';
 
@@ -15,12 +13,20 @@ export default function VerifyEmail() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<VerificationStatus>('input');
   const [errorMessage, setErrorMessage] = useState('');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState<string[]>(['', '', '', '', '', '']);
   const [isResending, setIsResending] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const userId = searchParams.get('userId');
   const email = searchParams.get('email');
+
+  // Focus first input on mount
+  useEffect(() => {
+    if (inputRefs.current[0]) {
+      inputRefs.current[0].focus();
+    }
+  }, []);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -30,8 +36,67 @@ export default function VerifyEmail() {
     }
   }, [countdown]);
 
-  const handleVerify = async () => {
-    if (code.length !== 6) {
+  // Auto-submit when all 6 digits are entered
+  useEffect(() => {
+    const fullCode = code.join('');
+    if (fullCode.length === 6 && code.every(d => d !== '')) {
+      handleVerify(fullCode);
+    }
+  }, [code]);
+
+  const handleInputChange = (index: number, value: string) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, '').slice(-1);
+    
+    const newCode = [...code];
+    newCode[index] = digit;
+    setCode(newCode);
+
+    // Move to next input if digit entered
+    if (digit && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!code[index] && index > 0) {
+        // Move to previous input if current is empty
+        inputRefs.current[index - 1]?.focus();
+        const newCode = [...code];
+        newCode[index - 1] = '';
+        setCode(newCode);
+      } else {
+        // Clear current input
+        const newCode = [...code];
+        newCode[index] = '';
+        setCode(newCode);
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pastedData) {
+      const newCode = [...code];
+      for (let i = 0; i < pastedData.length && i < 6; i++) {
+        newCode[i] = pastedData[i];
+      }
+      setCode(newCode);
+      // Focus last filled input or the next empty one
+      const lastIndex = Math.min(pastedData.length, 5);
+      inputRefs.current[lastIndex]?.focus();
+    }
+  };
+
+  const handleVerify = async (codeString?: string) => {
+    const fullCode = codeString || code.join('');
+    if (fullCode.length !== 6) {
       toast.error('Digite o código completo de 6 dígitos');
       return;
     }
@@ -46,7 +111,7 @@ export default function VerifyEmail() {
 
     try {
       const { data, error } = await supabase.functions.invoke('verify-code', {
-        body: { userId, code },
+        body: { userId, code: fullCode },
       });
 
       if (error) {
@@ -86,10 +151,11 @@ export default function VerifyEmail() {
 
       if (data?.success) {
         toast.success('Novo código enviado para seu email!');
-        setCode('');
+        setCode(['', '', '', '', '', '']);
         setStatus('input');
         setErrorMessage('');
         setCountdown(60);
+        inputRefs.current[0]?.focus();
       }
     } catch (err) {
       toast.error('Erro ao reenviar código');
@@ -98,76 +164,21 @@ export default function VerifyEmail() {
     }
   };
 
-  // Animation variants
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { duration: 0.5, ease: "easeOut" as const }
-    },
-    exit: { 
-      opacity: 0, 
-      y: -20,
-      transition: { duration: 0.3 }
-    }
-  };
-
-  const iconVariants = {
-    hidden: { scale: 0, rotate: -180 },
-    visible: { 
-      scale: 1, 
-      rotate: 0,
-      transition: { 
-        type: "spring" as const,
-        stiffness: 200,
-        damping: 15,
-        delay: 0.2
-      }
-    }
-  };
-
-  const successIconVariants = {
-    hidden: { scale: 0, opacity: 0 },
-    visible: { 
-      scale: 1, 
-      opacity: 1,
-      transition: { 
-        type: "spring" as const,
-        stiffness: 300,
-        damping: 20
-      }
-    }
-  };
-
-  const pulseVariants = {
-    animate: {
-      scale: [1, 1.05, 1],
-      opacity: [0.5, 0.8, 0.5],
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        ease: "easeInOut" as const
-      }
-    }
+  const resetForm = () => {
+    setCode(['', '', '', '', '', '']);
+    setStatus('input');
+    setErrorMessage('');
+    inputRefs.current[0]?.focus();
   };
 
   if (!userId || !email) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
-        <motion.div 
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          className="w-full max-w-md bg-card rounded-2xl shadow-2xl p-8 text-center border border-border/50"
-        >
+        <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl p-8 text-center border border-border/50">
           <img src={logoGamako} alt="Gamako" className="h-12 mx-auto mb-8" />
-          <motion.div 
-            variants={iconVariants}
-            className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6"
-          >
+          <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-6">
             <Mail className="h-12 w-12 text-muted-foreground" />
-          </motion.div>
+          </div>
           <h1 className="text-2xl font-bold text-foreground mb-3">Sessão Inválida</h1>
           <p className="text-muted-foreground mb-8">
             Por favor, faça login novamente para verificar seu email.
@@ -176,7 +187,7 @@ export default function VerifyEmail() {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Ir para o login
           </Button>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -189,247 +200,164 @@ export default function VerifyEmail() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-success/5 rounded-full blur-3xl" />
       </div>
 
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-        className="relative w-full max-w-md bg-card/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 text-center border border-border/50"
-      >
+      <div className="relative w-full max-w-md bg-card/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 text-center border border-border/50">
         <img src={logoGamako} alt="Gamako" className="h-12 mx-auto mb-8" />
 
-        <AnimatePresence mode="wait">
-          {status === 'input' && (
-            <motion.div 
-              key="input"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={containerVariants}
-              className="space-y-6"
-            >
-              {/* Animated icon */}
-              <div className="relative">
-                <motion.div 
-                  variants={pulseVariants}
-                  animate="animate"
-                  className="absolute inset-0 w-24 h-24 rounded-full bg-primary/20 mx-auto"
+        {status === 'input' && (
+          <div className="space-y-6">
+            {/* Icon */}
+            <div className="relative">
+              <div className="absolute inset-0 w-24 h-24 rounded-full bg-primary/20 mx-auto animate-pulse" />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center mx-auto shadow-lg shadow-primary/30">
+                <ShieldCheck className="h-12 w-12 text-white" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-foreground">Verificar Email</h1>
+              <p className="text-muted-foreground text-sm">
+                Digite o código de 6 dígitos enviado para
+              </p>
+              <p className="text-foreground font-semibold bg-muted/50 py-2 px-4 rounded-lg inline-block text-sm">
+                {email}
+              </p>
+            </div>
+            
+            {/* Custom OTP Input - More responsive and smooth */}
+            <div className="flex justify-center gap-2 py-4" onPaste={handlePaste}>
+              {code.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleInputChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold border-2 rounded-xl bg-background text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none caret-primary"
+                  autoComplete="one-time-code"
                 />
-                <motion.div 
-                  variants={iconVariants}
-                  className="relative w-24 h-24 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center mx-auto shadow-lg shadow-primary/30"
-                >
-                  <ShieldCheck className="h-12 w-12 text-white" />
-                </motion.div>
-              </div>
+              ))}
+            </div>
 
-              <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-foreground">Verificar Email</h1>
-                <p className="text-muted-foreground text-sm">
-                  Digite o código de 6 dígitos enviado para
-                </p>
-                <p className="text-foreground font-semibold bg-muted/50 py-2 px-4 rounded-lg inline-block">
-                  {email}
-                </p>
-              </div>
-              
-              <div className="flex justify-center py-2">
-                <InputOTP
-                  maxLength={6}
-                  value={code}
-                  onChange={setCode}
-                  className="gap-2"
-                >
-                  <InputOTPGroup className="gap-2">
-                    {[0, 1, 2, 3, 4, 5].map((index) => (
-                      <InputOTPSlot 
-                        key={index}
-                        index={index} 
-                        className="w-12 h-14 text-xl font-bold border-2 rounded-xl transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-primary/20"
-                      />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
+            <Button 
+              onClick={() => handleVerify()} 
+              className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-base font-semibold shadow-lg shadow-primary/25"
+              disabled={code.some(d => d === '')}
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Verificar Código
+            </Button>
 
+            <div className="pt-4 border-t border-border/50">
+              <p className="text-sm text-muted-foreground mb-3">Não recebeu o código?</p>
               <Button 
-                onClick={handleVerify} 
-                className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-base font-semibold shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
-                disabled={code.length !== 6}
+                variant="outline" 
+                onClick={handleResendCode}
+                disabled={isResending || countdown > 0}
+                className="w-full h-11 border-2 hover:bg-muted/50"
               >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                Verificar Código
+                {isResending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enviando...
+                  </>
+                ) : countdown > 0 ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reenviar em {countdown}s
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Reenviar código
+                  </>
+                )}
               </Button>
+            </div>
 
-              <div className="pt-4 border-t border-border/50">
-                <p className="text-sm text-muted-foreground mb-3">Não recebeu o código?</p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleResendCode}
-                  disabled={isResending || countdown > 0}
-                  className="w-full h-11 border-2 hover:bg-muted/50 transition-all duration-200"
-                >
-                  {isResending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Enviando...
-                    </>
-                  ) : countdown > 0 ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Reenviar em {countdown}s
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Reenviar código
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              <button 
-                onClick={() => navigate('/login')}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Voltar para o login
-              </button>
-            </motion.div>
-          )}
-
-          {status === 'loading' && (
-            <motion.div 
-              key="loading"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={containerVariants}
-              className="space-y-6 py-8"
+            <button 
+              onClick={() => navigate('/login')}
+              className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary mx-auto"
-              />
-              <div>
-                <h1 className="text-xl font-bold text-foreground">Verificando...</h1>
-                <p className="text-muted-foreground mt-2">Aguarde um momento</p>
-              </div>
-            </motion.div>
-          )}
+              <ArrowLeft className="w-4 h-4" />
+              Voltar para o login
+            </button>
+          </div>
+        )}
 
-          {status === 'success' && (
-            <motion.div 
-              key="success"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={containerVariants}
-              className="space-y-6"
+        {status === 'loading' && (
+          <div className="space-y-6 py-8">
+            <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary mx-auto animate-spin" />
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Verificando...</h1>
+              <p className="text-muted-foreground mt-2">Aguarde um momento</p>
+            </div>
+          </div>
+        )}
+
+        {status === 'success' && (
+          <div className="space-y-6">
+            {/* Success icon */}
+            <div className="relative">
+              <div className="absolute inset-0 w-24 h-24 rounded-full bg-success/20 mx-auto animate-pulse" />
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-success to-success/80 flex items-center justify-center mx-auto shadow-lg shadow-success/30">
+                <CheckCircle2 className="h-12 w-12 text-white" />
+              </div>
+              <div className="absolute -top-2 -right-8">
+                <Sparkles className="w-8 h-8 text-warning" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-foreground">
+                Email Verificado! 🎉
+              </h1>
+              <p className="text-muted-foreground">
+                Sua conta foi ativada com sucesso. Faça login para acessar o sistema.
+              </p>
+            </div>
+
+            <Button 
+              onClick={() => navigate('/login')} 
+              className="w-full h-12 bg-gradient-to-r from-success to-success/90 hover:from-success/90 hover:to-success text-base font-semibold shadow-lg shadow-success/25"
             >
-              {/* Animated success icon with confetti effect */}
-              <div className="relative">
-                <motion.div 
-                  variants={pulseVariants}
-                  animate="animate"
-                  className="absolute inset-0 w-24 h-24 rounded-full bg-success/20 mx-auto"
-                />
-                <motion.div 
-                  variants={successIconVariants}
-                  className="relative w-24 h-24 rounded-full bg-gradient-to-br from-success to-success/80 flex items-center justify-center mx-auto shadow-lg shadow-success/30"
-                >
-                  <CheckCircle2 className="h-12 w-12 text-white" />
-                </motion.div>
-                {/* Sparkles decoration */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5 }}
-                  className="absolute -top-2 -right-2"
-                >
-                  <Sparkles className="w-8 h-8 text-warning" />
-                </motion.div>
-              </div>
+              Fazer login
+            </Button>
+          </div>
+        )}
 
-              <div className="space-y-2">
-                <motion.h1 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-2xl font-bold text-foreground"
-                >
-                  Email Verificado! 🎉
-                </motion.h1>
-                <motion.p 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-muted-foreground"
-                >
-                  Sua conta foi ativada com sucesso. Faça login para acessar o sistema.
-                </motion.p>
-              </div>
+        {status === 'error' && (
+          <div className="space-y-6">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center mx-auto shadow-lg shadow-destructive/30">
+              <XCircle className="h-12 w-12 text-white" />
+            </div>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold text-foreground">Código Inválido</h1>
+              <p className="text-muted-foreground">{errorMessage}</p>
+            </div>
+
+            <div className="space-y-3">
+              <Button 
+                onClick={resetForm} 
+                className="w-full h-11"
               >
-                <Button 
-                  onClick={() => navigate('/login')} 
-                  className="w-full h-12 bg-gradient-to-r from-success to-success/90 hover:from-success/90 hover:to-success text-base font-semibold shadow-lg shadow-success/25 transition-all duration-300"
-                >
-                  Fazer login
-                </Button>
-              </motion.div>
-            </motion.div>
-          )}
-
-          {status === 'error' && (
-            <motion.div 
-              key="error"
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              variants={containerVariants}
-              className="space-y-6"
-            >
-              <motion.div 
-                variants={iconVariants}
-                className="w-24 h-24 rounded-full bg-gradient-to-br from-destructive to-destructive/80 flex items-center justify-center mx-auto shadow-lg shadow-destructive/30"
+                Tentar novamente
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleResendCode}
+                disabled={isResending || countdown > 0}
+                className="w-full h-11 border-2"
               >
-                <XCircle className="h-12 w-12 text-white" />
-              </motion.div>
-
-              <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-foreground">Código Inválido</h1>
-                <p className="text-muted-foreground">{errorMessage}</p>
-              </div>
-
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => {
-                    setCode('');
-                    setStatus('input');
-                    setErrorMessage('');
-                  }} 
-                  className="w-full h-11"
-                >
-                  Tentar novamente
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={handleResendCode}
-                  disabled={isResending || countdown > 0}
-                  className="w-full h-11 border-2"
-                >
-                  {isResending ? 'Enviando...' : countdown > 0 ? `Reenviar em ${countdown}s` : 'Reenviar código'}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+                {isResending ? 'Enviando...' : countdown > 0 ? `Reenviar em ${countdown}s` : 'Reenviar código'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
