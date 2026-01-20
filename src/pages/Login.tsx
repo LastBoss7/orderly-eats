@@ -67,6 +67,15 @@ const formatCNPJ = (value: string): string => {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 };
 
+// Format phone as user types - (11) 99999-9999
+const formatPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  
+  if (digits.length <= 2) return digits.length > 0 ? `(${digits}` : '';
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+};
+
 interface CNPJData {
   razao_social: string;
   nome_fantasia: string;
@@ -108,6 +117,7 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailTouched, setEmailTouched] = useState(false);
+  const [phone, setPhone] = useState('');
   
   // Suspended account state
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
@@ -307,7 +317,7 @@ export default function Login() {
     
     setIsLoading(true);
 
-    const result = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj);
+    const result = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj, phone.replace(/\D/g, ''));
 
     if (result.error) {
       toast({
@@ -597,6 +607,24 @@ export default function Login() {
                   {emailError && (
                     <p className="text-sm text-destructive">{emailError}</p>
                   )}
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone" className="text-sm font-medium">
+                    Telefone <span className="text-muted-foreground text-xs">(opcional)</span>
+                  </Label>
+                  <div className="relative">
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      placeholder="(11) 99999-9999"
+                      value={phone}
+                      onChange={(e) => setPhone(formatPhone(e.target.value))}
+                      className="h-12 pl-11 border-border/60"
+                    />
+                  </div>
                 </div>
 
                 {/* Password */}

@@ -30,7 +30,7 @@ interface AuthContextType {
   isSuspended: boolean;
   suspendedReason: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null; suspended?: boolean; suspendedReason?: string; pendingApproval?: boolean; restaurantName?: string }>;
-  signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => Promise<{ error: Error | null; userId?: string; userEmail?: string }>;
+  signUp: (email: string, password: string, restaurantName: string, fullName: string, cnpj: string, phone?: string) => Promise<{ error: Error | null; userId?: string; userEmail?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  const signUp = async (email: string, password: string, restaurantName: string, fullName: string, cnpj: string) => {
+  const signUp = async (email: string, password: string, restaurantName: string, fullName: string, cnpj: string, phone?: string) => {
     try {
       // Generate slug and cnpj digits for storage
       const slug = restaurantName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -181,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             restaurant_slug: uniqueSlug,
             cnpj: cnpjDigits,
             full_name: fullName,
+            phone: phone || '',
             pending_setup: true,
           },
         },
