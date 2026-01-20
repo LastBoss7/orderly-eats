@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, ChefHat, ArrowLeft, Delete } from 'lucide-react';
 import { toast } from 'sonner';
 import logoGamako from '@/assets/logo-gamako-full.png';
+import { saveRecentRestaurant } from './WaiterHome';
 
 interface Restaurant {
   id: string;
@@ -146,6 +147,13 @@ export default function WaiterLogin() {
         restaurant,
         loginTime: new Date().toISOString(),
       }));
+
+      // Save restaurant to recent list
+      saveRecentRestaurant({
+        slug: restaurant.slug,
+        name: restaurant.name,
+        logoUrl: restaurant.logo_url,
+      });
 
       toast.success(`Bem-vindo, ${waiter.name}!`);
       navigate(`/garcom/${slug}/app`);
