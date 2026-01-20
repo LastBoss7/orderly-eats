@@ -313,18 +313,44 @@ Deno.serve(async (req) => {
     if (req.method === "POST" && action === "close-orders") {
       const body = await req.json();
       
+      // Determine payment method for orders
+      // If mixed payments, use 'mixed' as payment_method on orders
+      const isMixedPayment = body.payments && body.payments.length > 0;
+      const paymentMethodForOrders = isMixedPayment ? 'mixed' : body.payment_method;
+      
       for (const orderId of body.order_ids) {
         await supabase
           .from("orders")
           .update({
             status: "delivered",
-            payment_method: body.payment_method,
+            payment_method: paymentMethodForOrders,
             cash_received: body.cash_received || null,
             change_given: body.change_given || null,
+            split_people: body.split_count || null,
             closed_at: new Date().toISOString(),
           })
           .eq("id", orderId)
           .eq("restaurant_id", restaurantId);
+      }
+
+      // Save mixed payments to tab_payments table
+      if (isMixedPayment && body.tab_id) {
+        for (const payment of body.payments) {
+          const changeGiven = payment.method === 'cash' && payment.cashReceived && payment.cashReceived > payment.amount
+            ? payment.cashReceived - payment.amount
+            : null;
+            
+          await supabase
+            .from("tab_payments")
+            .insert({
+              restaurant_id: restaurantId,
+              tab_id: body.tab_id,
+              payment_method: payment.method,
+              amount: payment.amount,
+              cash_received: payment.cashReceived || null,
+              change_given: changeGiven,
+            });
+        }
       }
 
       // Update table status

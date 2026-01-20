@@ -6,5 +6,5 @@ export { TabCard } from './TabCard';
 export { ProductCard } from './ProductCard';
 export { CartSummary } from './CartSummary';
 export { SizeModal } from './SizeModal';
-export { PaymentModal } from './PaymentModal';
+export { PaymentModal, type PaymentEntry } from './PaymentModal';
 export { TableActionModal } from './TableActionModal';

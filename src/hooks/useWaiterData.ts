@@ -277,22 +277,53 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     payment_method: string;
     cash_received?: number;
     change_given?: number;
+    split_count?: number;
+    payments?: Array<{
+      id: string;
+      method: string;
+      amount: number;
+      cashReceived?: number;
+    }>;
   }) => {
     if (useEdgeFunction) {
       return postToEdge('close-orders', data);
     }
+
+    const isMixedPayment = data.payments && data.payments.length > 0;
+    const paymentMethodForOrders = isMixedPayment ? 'mixed' : data.payment_method;
 
     for (const orderId of data.order_ids) {
       await supabase
         .from('orders')
         .update({
           status: 'delivered',
-          payment_method: data.payment_method,
+          payment_method: paymentMethodForOrders,
           cash_received: data.cash_received || null,
           change_given: data.change_given || null,
+          split_people: data.split_count || null,
           closed_at: new Date().toISOString(),
         })
         .eq('id', orderId);
+    }
+
+    // Save mixed payments to tab_payments table
+    if (isMixedPayment && data.tab_id) {
+      for (const payment of data.payments!) {
+        const changeGiven = payment.method === 'cash' && payment.cashReceived && payment.cashReceived > payment.amount
+          ? payment.cashReceived - payment.amount
+          : null;
+          
+        await supabase
+          .from('tab_payments')
+          .insert({
+            restaurant_id: restaurantId,
+            tab_id: data.tab_id,
+            payment_method: payment.method,
+            amount: payment.amount,
+            cash_received: payment.cashReceived || null,
+            change_given: changeGiven,
+          });
+      }
     }
 
     if (data.table_id) {
