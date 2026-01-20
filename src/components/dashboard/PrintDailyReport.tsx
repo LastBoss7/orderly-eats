@@ -238,6 +238,8 @@ export function printDailyReport(data: DailyReportData) {
       ${footerHtml}
       <p>Relatório gerado automaticamente</p>
       <p>${new Date().toLocaleString('pt-BR')}</p>
+      <p style="margin-top: 10px; font-weight: bold;">Powered By: Gamako</p>
+      <p>Cadastre já: gamako.com.br</p>
     </div>
   `;
 
