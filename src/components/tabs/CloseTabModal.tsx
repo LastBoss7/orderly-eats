@@ -176,6 +176,7 @@ export function CloseTabModal({
           const { data, error } = await supabase
             .from('tab_payments')
             .select('*')
+            .eq('restaurant_id', restaurant?.id)
             .eq('tab_id', tab.id)
             .order('created_at', { ascending: true });
           
@@ -396,6 +397,7 @@ export function CloseTabModal({
       const { data } = await supabase
         .from('tab_payments')
         .select('*')
+        .eq('restaurant_id', restaurant?.id)
         .eq('tab_id', tab.id)
         .order('created_at', { ascending: true });
       

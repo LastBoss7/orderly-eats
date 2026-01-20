@@ -130,6 +130,8 @@ export default function Tables() {
   }, [restaurant?.id, fetchTables]);
 
   const fetchTableOrders = async (tableId: string, includeDelivered = false) => {
+    if (!restaurant?.id) return [];
+    
     try {
       let query = supabase
         .from('orders')
@@ -137,6 +139,7 @@ export default function Tables() {
           *,
           order_items (*)
         `)
+        .eq('restaurant_id', restaurant.id)
         .eq('table_id', tableId);
 
       if (includeDelivered) {

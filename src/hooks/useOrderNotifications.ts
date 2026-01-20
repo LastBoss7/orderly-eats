@@ -161,6 +161,7 @@ export function useOrderNotifications(restaurantId: string | undefined) {
       const { data: delayedOrders } = await supabase
         .from('orders')
         .select('id')
+        .eq('restaurant_id', restaurantId)
         .in('status', ['pending', 'preparing'])
         .lt('created_at', thirtyMinutesAgo);
 
