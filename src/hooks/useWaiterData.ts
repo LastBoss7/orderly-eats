@@ -382,6 +382,72 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     return { success: true };
   }, [useEdgeFunction, postToEdge]);
 
+  const createCustomer = useCallback(async (data: {
+    name: string;
+    phone: string;
+    address?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    cep?: string;
+  }) => {
+    if (useEdgeFunction) {
+      return postToEdge('create-customer', data);
+    }
+
+    const { data: newCustomer, error } = await supabase
+      .from('customers')
+      .insert({
+        restaurant_id: restaurantId,
+        name: data.name,
+        phone: data.phone,
+        address: data.address || null,
+        number: data.number || null,
+        complement: data.complement || null,
+        neighborhood: data.neighborhood || null,
+        city: data.city || null,
+        cep: data.cep || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, customer: newCustomer };
+  }, [restaurantId, useEdgeFunction, postToEdge]);
+
+  const searchCustomers = useCallback(async (search: string) => {
+    if (search.length < 2) return [];
+    
+    if (useEdgeFunction) {
+      const result = await fetchFromEdge('search-customers', { search });
+      return result.data || [];
+    }
+
+    const { data } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .or(`phone.ilike.%${search}%,name.ilike.%${search}%`)
+      .limit(10);
+    
+    return data || [];
+  }, [restaurantId, useEdgeFunction, fetchFromEdge]);
+
+  const fetchTabTotal = useCallback(async (tabId: string) => {
+    if (useEdgeFunction) {
+      const result = await fetchFromEdge('tab-total', { tab_id: tabId });
+      return result.total || 0;
+    }
+    const { data } = await supabase
+      .from('orders')
+      .select('total')
+      .eq('restaurant_id', restaurantId)
+      .eq('tab_id', tabId)
+      .in('status', ['pending', 'preparing', 'ready']);
+    return data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
+  }, [restaurantId, useEdgeFunction, fetchFromEdge]);
+
   return {
     loading,
     fetchTables,
@@ -392,10 +458,13 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     fetchTabOrders,
     fetchReadyOrders,
     fetchTableTotal,
+    fetchTabTotal,
     createOrder,
     closeOrders,
     updateTab,
     createTab,
     updateTable,
+    createCustomer,
+    searchCustomers,
   };
 }
