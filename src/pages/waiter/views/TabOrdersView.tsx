@@ -232,6 +232,7 @@ export function TabOrdersView({
             variant="outline" 
             className="h-14 flex flex-col items-center gap-1"
             onClick={onPrintReceipt}
+            disabled={orders.length === 0}
           >
             <FileText className="w-5 h-5" />
             <span className="text-xs">Conferência</span>
@@ -250,6 +251,7 @@ export function TabOrdersView({
             variant="outline" 
             className="h-14 flex flex-col items-center gap-1"
             onClick={onCloseTab}
+            disabled={orders.length === 0}
           >
             <DollarSign className="w-5 h-5" />
             <span className="text-xs">Fechar</span>
