@@ -489,7 +489,30 @@ class PrinterService {
       lines.push(this.center(this.sanitizeText(restaurantInfo.name.toUpperCase()), width));
     }
     
+    // Restaurant Address (from layout settings)
+    if (layout.showAddress !== false && restaurantInfo.address) {
+      this.wrapText(this.sanitizeText(restaurantInfo.address), width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
+    }
+    
+    // Restaurant Phone (from layout settings)
+    if (layout.showPhone !== false && restaurantInfo.phone) {
+      lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
+    }
+    
+    // Restaurant CNPJ (from layout settings)
+    if (layout.showCnpj !== false && restaurantInfo.cnpj) {
+      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
+    }
+    
     lines.push(div);
+    
+    // Receipt title (customizable)
+    if (layout.receiptTitle) {
+      lines.push(this.center(layout.receiptTitle, width));
+      lines.push('');
+    }
     
     // Order number - BIG
     if (layout.showOrderNumber !== false) {
@@ -629,8 +652,23 @@ class PrinterService {
     // Footer
     if (layout.footerMessage) {
       lines.push(this.center(this.sanitizeText(layout.footerMessage), width));
-    } else {
-      lines.push(this.center('Obrigado pela preferencia!', width));
+    }
+    
+    // Custom footer lines
+    if (layout.customFooterLine1) {
+      lines.push(this.center(this.sanitizeText(layout.customFooterLine1), width));
+    }
+    if (layout.customFooterLine2) {
+      lines.push(this.center(this.sanitizeText(layout.customFooterLine2), width));
+    }
+    if (layout.customFooterLine3) {
+      lines.push(this.center(this.sanitizeText(layout.customFooterLine3), width));
+    }
+    
+    // Default footer (Powered by Gamako)
+    if (layout.showDefaultFooter !== false) {
+      lines.push('');
+      lines.push(this.center('Powered By: Gamako', width));
     }
     
     // Extra lines for paper feed

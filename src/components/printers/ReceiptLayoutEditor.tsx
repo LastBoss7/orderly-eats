@@ -277,7 +277,7 @@ export function ReceiptLayoutEditor() {
     };
 
     // ============================================
-    // HEADER - Date/Time + Restaurant Name (centered)
+    // HEADER - Date/Time + Restaurant Info (centered)
     // ============================================
     if (layout.showDateTime) {
       const now = new Date(sampleOrder.created_at);
@@ -290,7 +290,30 @@ export function ReceiptLayoutEditor() {
       lines.push(center(restaurantInfo.name));
     }
 
+    // Restaurant Address (from layout settings)
+    if (layout.showAddress && restaurantInfo?.address) {
+      lines.push(center(restaurantInfo.address));
+    }
+
+    // Restaurant Phone (from layout settings)
+    if (layout.showPhone && restaurantInfo?.phone) {
+      lines.push(center(`Tel: ${restaurantInfo.phone}`));
+    }
+
+    // Restaurant CNPJ (from layout settings)
+    if (layout.showCnpj && restaurantInfo?.cnpj) {
+      lines.push(center(`CNPJ: ${restaurantInfo.cnpj}`));
+    }
+
     lines.push(thinDivider);
+
+    // ============================================
+    // RECEIPT TITLE (customizable)
+    // ============================================
+    if (layout.receiptTitle) {
+      lines.push(center(layout.receiptTitle));
+      lines.push('');
+    }
 
     // ============================================
     // ORDER NUMBER (centered)
