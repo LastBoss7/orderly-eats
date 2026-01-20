@@ -478,7 +478,7 @@ export function ReceiptLayoutEditor() {
         lines.push('');
       }
       lines.push(center('Powered By: Gamako'));
-      lines.push(center('https://gamako.com.br'));
+      lines.push(center('Cadastre ja: gamako.com.br'));
     }
 
     return lines.join('\n');

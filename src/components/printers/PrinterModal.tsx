@@ -186,7 +186,7 @@ export function PrinterModal({
 
     // Footer
     lines.push(center('Powered By: Gamako'));
-    lines.push(center('Acesse: https://gamako.com.br'));
+    lines.push(center('Cadastre ja: gamako.com.br'));
 
     return lines.join('\n');
   };
