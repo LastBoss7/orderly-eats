@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { useAdminRole } from '@/hooks/useAdminRole';
+
 import {
   Download,
   Upload,
@@ -27,7 +27,7 @@ interface InstallerFile {
 
 export function PrinterAppDownload() {
   const { profile } = useAuth();
-  const { isAdmin } = useAdminRole();
+  
   const [files, setFiles] = useState<InstallerFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -187,11 +187,11 @@ export function PrinterAppDownload() {
               </div>
             </div>
           ) : (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
               <div className="flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-                <p className="text-sm text-amber-700 dark:text-amber-300">
-                  Nenhum instalador disponível ainda. {isAdmin ? 'Faça o upload abaixo.' : 'Entre em contato com o administrador.'}
+                <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  Nenhum instalador disponível ainda. Entre em contato com o suporte.
                 </p>
               </div>
             </div>
@@ -211,79 +211,6 @@ export function PrinterAppDownload() {
         </CardContent>
       </Card>
 
-      {/* Admin Upload Section */}
-      {isAdmin && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Upload className="w-5 h-5" />
-              Gerenciar Instaladores
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Button variant="outline" disabled={uploading} asChild>
-                <label className="cursor-pointer">
-                  {uploading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4 mr-2" />
-                  )}
-                  {uploading ? 'Enviando...' : 'Upload Novo Instalador'}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".exe,.zip,.msi,.dmg,.AppImage"
-                    onChange={handleUpload}
-                    disabled={uploading}
-                  />
-                </label>
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                .exe, .zip, .msi, .dmg, .AppImage (máx. 100MB)
-              </p>
-            </div>
-
-            {/* File List */}
-            {files.length > 0 && (
-              <div className="border rounded-lg divide-y">
-                {files.map((file) => (
-                  <div key={file.name} className="flex items-center justify-between p-3 gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <FileArchive className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(file.size)} • {format(new Date(file.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={file.url} download>
-                          <Download className="w-4 h-4" />
-                        </a>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(file.name)}
-                        disabled={deleting === file.name}
-                      >
-                        {deleting === file.name ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

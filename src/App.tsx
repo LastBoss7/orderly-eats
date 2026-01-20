@@ -37,7 +37,7 @@ import Analytics from "./pages/Analytics";
 import TabHistory from "./pages/TabHistory";
 import ClosingHistory from "./pages/ClosingHistory";
 import RestaurantSettings from "./pages/RestaurantSettings";
-import AdminDashboard from "./pages/AdminDashboard";
+
 import Addons from "./pages/Addons";
 import NFCeSettings from "./pages/NFCeSettings";
 import SoundSettings from "./pages/SoundSettings";
@@ -119,7 +119,7 @@ const AnimatedRoutes = () => {
           <Route path="/restaurant-settings" element={<RestaurantSettings />} />
           <Route path="/nfce-settings" element={<NFCeSettings />} />
           <Route path="/sound-settings" element={<SoundSettings />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </motion.div>
