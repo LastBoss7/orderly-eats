@@ -66,9 +66,11 @@ export function TableActionModal({
                 variant="outline" 
                 className="w-full h-12 justify-start gap-3"
                 onClick={onViewOrders}
+                disabled={total === 0}
               >
                 <Eye className="w-4 h-4" />
                 Ver pedidos
+                {total === 0 && <span className="text-xs text-muted-foreground ml-auto">Sem pedidos</span>}
               </Button>
             </motion.div>
             
@@ -77,9 +79,11 @@ export function TableActionModal({
                 variant="outline" 
                 className="w-full h-12 justify-start gap-3"
                 onClick={onPrintReceipt}
+                disabled={total === 0}
               >
                 <Printer className="w-4 h-4" />
                 Imprimir conferência
+                {total === 0 && <span className="text-xs text-muted-foreground ml-auto">Sem pedidos</span>}
               </Button>
             </motion.div>
             
@@ -88,9 +92,11 @@ export function TableActionModal({
                 variant="outline" 
                 className="w-full h-12 justify-start gap-3"
                 onClick={onCloseTable}
+                disabled={total === 0}
               >
                 <DollarSign className="w-4 h-4" />
                 Fechar conta
+                {total === 0 && <span className="text-xs text-muted-foreground ml-auto">Sem pedidos</span>}
               </Button>
             </motion.div>
             
