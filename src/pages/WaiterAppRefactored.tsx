@@ -14,6 +14,7 @@ import {
   PaymentModal,
   PaymentEntry,
   InstallPWA,
+  SplashScreen,
 } from './waiter/components';
 import { TablesViewRefactored } from './waiter/views/TablesViewRefactored';
 import { OrderViewRefactored } from './waiter/views/OrderViewRefactored';
@@ -68,6 +69,12 @@ export default function WaiterAppRefactored({
   const [view, setView] = useState<AppView>(externalWaiter ? 'tables' : 'login');
   const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(externalWaiter || null);
   const [loading, setLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    // Show splash only once per session in standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const hasSeenSplash = sessionStorage.getItem('waiter-splash-seen');
+    return isStandalone && !hasSeenSplash;
+  });
 
   // Data states
   const [tables, setTables] = useState<Table[]>([]);
@@ -793,6 +800,18 @@ export default function WaiterAppRefactored({
   };
 
   // ========== RENDER ==========
+
+  // Splash Screen (only for PWA standalone mode)
+  if (showSplash) {
+    return (
+      <SplashScreen 
+        onComplete={() => {
+          sessionStorage.setItem('waiter-splash-seen', 'true');
+          setShowSplash(false);
+        }} 
+      />
+    );
+  }
 
   if (loading) {
     return (

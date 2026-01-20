@@ -9,3 +9,4 @@ export { SizeModal } from './SizeModal';
 export { PaymentModal, type PaymentEntry } from './PaymentModal';
 export { TableActionModal } from './TableActionModal';
 export { InstallPWA } from './InstallPWA';
+export { SplashScreen } from './SplashScreen';
