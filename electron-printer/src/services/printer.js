@@ -76,7 +76,7 @@ class PrinterService {
     lines.push('');
     lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
     lines.push('');
-    lines.push(this.center('Gamako Print Service', width));
+    lines.push(this.center('powered by https://gamako.com.br', width));
     lines.push('');
     lines.push('');
     lines.push('');
@@ -696,7 +696,7 @@ class PrinterService {
     // Default footer (Powered by Gamako)
     if (layout.showDefaultFooter !== false) {
       lines.push('');
-      lines.push(this.center('Powered By: Gamako', width));
+      lines.push(this.center('powered by https://gamako.com.br', width));
     }
     
     // Extra lines for paper feed
@@ -815,6 +815,7 @@ class PrinterService {
     lines.push('');
     lines.push(this.center('Obrigado pela preferencia!', width));
     lines.push('');
+    lines.push(this.center('powered by https://gamako.com.br', width));
     lines.push('');
     lines.push('');
     lines.push('');
@@ -925,6 +926,7 @@ class PrinterService {
     lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
     
     lines.push('');
+    lines.push(this.center('powered by https://gamako.com.br', width));
     lines.push('');
     lines.push('');
     lines.push('');
