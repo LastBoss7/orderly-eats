@@ -76,21 +76,31 @@ export default function Products() {
     if (!restaurant?.id) return;
 
     try {
-      const [productsRes, categoriesRes, addonLinksRes] = await Promise.all([
+      const [productsRes, categoriesRes] = await Promise.all([
         supabase.from('products').select('*').eq('restaurant_id', restaurant.id).order('name'),
         supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('name'),
-        supabase.from('product_addon_groups').select('product_id, addon_group_id'),
       ]);
 
-      setProducts(productsRes.data || []);
+      const productsData = productsRes.data || [];
+      setProducts(productsData);
       setCategories(categoriesRes.data || []);
       
-      // Count addon groups per product
-      const counts: Record<string, number> = {};
-      (addonLinksRes.data || []).forEach(link => {
-        counts[link.product_id] = (counts[link.product_id] || 0) + 1;
-      });
-      setProductAddonCounts(counts);
+      // Only fetch addon links for products of this restaurant
+      const productIds = productsData.map(p => p.id);
+      let addonCounts: Record<string, number> = {};
+      
+      if (productIds.length > 0) {
+        const { data: addonLinksData } = await supabase
+          .from('product_addon_groups')
+          .select('product_id, addon_group_id')
+          .in('product_id', productIds);
+        
+        (addonLinksData || []).forEach(link => {
+          addonCounts[link.product_id] = (addonCounts[link.product_id] || 0) + 1;
+        });
+      }
+      
+      setProductAddonCounts(addonCounts);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
