@@ -13,6 +13,7 @@ import {
   SizeModal,
   PaymentModal,
   PaymentEntry,
+  InstallPWA,
 } from './waiter/components';
 import { TablesViewRefactored } from './waiter/views/TablesViewRefactored';
 import { OrderViewRefactored } from './waiter/views/OrderViewRefactored';
@@ -820,6 +821,7 @@ export default function WaiterAppRefactored({
   if (view === 'tables') {
     return (
       <>
+        <InstallPWA />
         <TablesViewRefactored
           waiter={selectedWaiter!}
           restaurantName={restaurant?.name || ''}
