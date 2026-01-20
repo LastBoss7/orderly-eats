@@ -59,13 +59,6 @@ export type Database = {
             foreignKeyName: "addon_groups_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "addon_groups_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -112,13 +105,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "addon_groups"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "addons_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "addons_restaurant_id_fkey"
@@ -191,13 +177,6 @@ export type Database = {
           sort_order?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "categories_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
           {
             foreignKeyName: "categories_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -342,13 +321,6 @@ export type Database = {
             foreignKeyName: "daily_closings_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "daily_closings_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -389,13 +361,6 @@ export type Database = {
           vehicle_type?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "delivery_drivers_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
           {
             foreignKeyName: "delivery_drivers_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -577,13 +542,6 @@ export type Database = {
             foreignKeyName: "nfce_invoices_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "nfce_invoices_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -659,13 +617,6 @@ export type Database = {
             foreignKeyName: "nfce_settings_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: true
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "nfce_settings_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: true
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -732,13 +683,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "order_items_restaurant_id_fkey"
@@ -868,13 +812,6 @@ export type Database = {
             foreignKeyName: "orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "orders_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -999,13 +936,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "printer_heartbeats_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
           {
             foreignKeyName: "printer_heartbeats_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -1160,13 +1090,6 @@ export type Database = {
             foreignKeyName: "products_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "products_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1204,13 +1127,6 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "profiles_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
           {
             foreignKeyName: "profiles_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -1472,13 +1388,6 @@ export type Database = {
             foreignKeyName: "tab_payments_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "tab_payments_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1524,13 +1433,6 @@ export type Database = {
             foreignKeyName: "tables_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "tables_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1568,13 +1470,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "tabs_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
           {
             foreignKeyName: "tabs_restaurant_id_fkey"
             columns: ["restaurant_id"]
@@ -1702,13 +1597,6 @@ export type Database = {
             foreignKeyName: "waiter_invites_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "waiter_invites_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1775,31 +1663,6 @@ export type Database = {
       }
     }
     Views: {
-      admin_restaurant_metrics: {
-        Row: {
-          account_active: boolean | null
-          address: string | null
-          cnpj: string | null
-          daily_order_counter: number | null
-          is_open: boolean | null
-          orders_today: number | null
-          phone: string | null
-          restaurant_created_at: string | null
-          restaurant_id: string | null
-          restaurant_name: string | null
-          revenue_today: number | null
-          slug: string | null
-          suspended_at: string | null
-          suspended_reason: string | null
-          total_categories: number | null
-          total_orders: number | null
-          total_products: number | null
-          total_revenue: number | null
-          total_tables: number | null
-          total_waiters: number | null
-        }
-        Relationships: []
-      }
       nfce_invoices_safe: {
         Row: {
           cancel_reason: string | null
@@ -1891,13 +1754,6 @@ export type Database = {
             foreignKeyName: "nfce_invoices_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
-          },
-          {
-            foreignKeyName: "nfce_invoices_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1962,13 +1818,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "printers"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "nfce_settings_restaurant_id_fkey"
-            columns: ["restaurant_id"]
-            isOneToOne: true
-            referencedRelation: "admin_restaurant_metrics"
-            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "nfce_settings_restaurant_id_fkey"
