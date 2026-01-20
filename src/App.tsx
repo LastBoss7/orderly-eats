@@ -14,7 +14,7 @@ import POS from "./pages/POS";
 import Tables from "./pages/Tables";
 import Products from "./pages/Products";
 import Categories from "./pages/Categories";
-import MenuImages from "./pages/MenuImages";
+
 import BulkEdit from "./pages/BulkEdit";
 import Deliveries from "./pages/Deliveries";
 import DeliverySettings from "./pages/DeliverySettings";
@@ -94,7 +94,7 @@ const AnimatedRoutes = () => {
           <Route path="/products" element={<Products />} />
           <Route path="/addons" element={<Addons />} />
           <Route path="/categories" element={<Categories />} />
-          <Route path="/menu-images" element={<MenuImages />} />
+          
           <Route path="/bulk-edit" element={<BulkEdit />} />
           <Route path="/deliveries" element={<Deliveries />} />
           <Route path="/delivery-settings" element={<DeliverySettings />} />
