@@ -167,14 +167,15 @@ class PrinterService {
       fs.writeFileSync(tmpFile, data);
       console.log('[PrintText] Temp file:', tmpFile);
       console.log('[PrintText] Target printer:', printerName);
+      console.log('[PrintText] Data size:', data.length, 'bytes');
       
       // Escape printer name for commands
       const safePrinter = printerName.replace(/"/g, '').replace(/'/g, '');
       
-      // Try methods in order of reliability
+      // Try methods in order of reliability - Win32 API first (most reliable for thermal printers)
       const methods = [
-        { name: 'RawPrint (PowerShell)', fn: () => this.printRawSimple(tmpFile, safePrinter) },
         { name: 'Win32 API', fn: () => this.printWin32Api(tmpFile, safePrinter) },
+        { name: 'RawPrint (PowerShell)', fn: () => this.printRawSimple(tmpFile, safePrinter) },
         { name: 'Copy Share', fn: () => this.printCopyToShare(tmpFile, safePrinter) },
         { name: 'LPR', fn: () => this.printLpr(tmpFile, safePrinter) },
       ];
@@ -272,10 +273,13 @@ class PrinterService {
   }
 
   /**
-   * Method 1: Windows Print API via PowerShell (most reliable)
+   * Method 1: Windows Print API via PowerShell (most reliable for thermal printers)
    */
   async printWin32Api(filePath, printerName) {
     return new Promise((resolve, reject) => {
+      console.log('[PrintWin32Api] Starting with printer:', printerName);
+      console.log('[PrintWin32Api] File:', filePath);
+      
       // PowerShell script that uses Windows API for RAW printing
       // Using array join to avoid template literal issues with special characters
       const escapedFilePath = filePath.replace(/\\/g, '\\\\');
@@ -284,8 +288,12 @@ class PrinterService {
         "$printerName = '" + printerName + "'",
         "$filePath = '" + escapedFilePath + "'",
         "",
+        "Write-Host 'Printer:' $printerName",
+        "Write-Host 'File:' $filePath",
+        "",
         "# Read the binary data",
         "$bytes = [System.IO.File]::ReadAllBytes($filePath)",
+        "Write-Host 'Bytes read:' $bytes.Length",
         "",
         "# Add the required type for RAW printing",
         'Add-Type -TypeDefinition @"',
@@ -321,33 +329,38 @@ class PrinterService {
         '    [DllImport("winspool.drv", SetLastError = true)]',
         "    public static extern bool ClosePrinter(IntPtr hPrinter);",
         "",
-        "    public static void SendRawData(string printerName, byte[] data) {",
+        "    public static int SendRawData(string printerName, byte[] data) {",
         "        IntPtr hPrinter;",
         "        if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {",
-        '            throw new Exception("Erro ao abrir impressora: " + Marshal.GetLastWin32Error());',
+        "            int error = Marshal.GetLastWin32Error();",
+        '            throw new Exception("OpenPrinter failed. Error: " + error);',
         "        }",
         "",
         "        try {",
         "            var docInfo = new DOCINFO { ",
-        '                pDocName = "Pedido", ',
+        '                pDocName = "Gamako Order", ',
         "                pOutputFile = null, ",
         '                pDataType = "RAW" ',
         "            };",
         "",
         "            if (!StartDocPrinter(hPrinter, 1, ref docInfo)) {",
-        '                throw new Exception("Erro StartDoc: " + Marshal.GetLastWin32Error());',
+        "                int error = Marshal.GetLastWin32Error();",
+        '                throw new Exception("StartDocPrinter failed. Error: " + error);',
         "            }",
         "",
         "            try {",
         "                if (!StartPagePrinter(hPrinter)) {",
-        '                    throw new Exception("Erro StartPage: " + Marshal.GetLastWin32Error());',
+        "                    int error = Marshal.GetLastWin32Error();",
+        '                    throw new Exception("StartPagePrinter failed. Error: " + error);',
         "                }",
         "",
         "                try {",
         "                    int written;",
         "                    if (!WritePrinter(hPrinter, data, data.Length, out written)) {",
-        '                        throw new Exception("Erro Write: " + Marshal.GetLastWin32Error());',
+        "                        int error = Marshal.GetLastWin32Error();",
+        '                        throw new Exception("WritePrinter failed. Error: " + error);',
         "                    }",
+        "                    return written;",
         "                } finally {",
         "                    EndPagePrinter(hPrinter);",
         "                }",
@@ -361,26 +374,41 @@ class PrinterService {
         "}",
         '"@',
         "",
-        "[RawPrinterHelper]::SendRawData($printerName, $bytes)",
-        'Write-Host "OK"',
+        "try {",
+        "    $written = [RawPrinterHelper]::SendRawData($printerName, $bytes)",
+        "    Write-Host 'Bytes written:' $written",
+        "    if ($written -gt 0) {",
+        "        Write-Host 'OK'",
+        "    } else {",
+        "        throw 'Zero bytes written to printer'",
+        "    }",
+        "} catch {",
+        "    Write-Host 'ERROR:' $_.Exception.Message",
+        "    throw",
+        "}",
       ].join("\r\n");
 
       // Save script to temp file
       const psFile = path.join(os.tmpdir(), "gamako_ps_" + Date.now() + ".ps1");
       fs.writeFileSync(psFile, psScript, 'utf8');
+      console.log('[PrintWin32Api] Script file:', psFile);
 
       exec(
-        'powershell -ExecutionPolicy Bypass -File "' + psFile + '"',
+        'powershell -NoProfile -ExecutionPolicy Bypass -File "' + psFile + '"',
         { timeout: 30000, windowsHide: true },
         (error, stdout, stderr) => {
+          console.log('[PrintWin32Api] stdout:', stdout);
+          console.log('[PrintWin32Api] stderr:', stderr);
+          console.log('[PrintWin32Api] error:', error?.message);
+          
           this.cleanup(psFile);
           
           if (error) {
-            reject(new Error(stderr || error.message));
+            reject(new Error(stderr?.trim() || error.message));
           } else if (stdout.includes('OK')) {
             resolve(true);
           } else {
-            reject(new Error(stderr || 'Unknown error'));
+            reject(new Error(stderr?.trim() || stdout?.trim() || 'Unknown error'));
           }
         }
       );
