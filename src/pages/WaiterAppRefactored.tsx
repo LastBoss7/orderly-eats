@@ -61,9 +61,12 @@ export default function WaiterAppRefactored({
 }: WaiterAppProps = {}) {
   const { restaurant: authRestaurant, signOut } = useAuth();
   const restaurant = externalRestaurant || authRestaurant;
-  const { shouldAutoPrint } = usePrintSettings();
-  const { printConference, reprintOrder } = usePrintToElectron({ restaurantId: restaurant?.id });
   const isPublicAccess = !!externalRestaurant;
+  const { shouldAutoPrint } = usePrintSettings();
+  const { printConference, reprintOrder } = usePrintToElectron({ 
+    restaurantId: restaurant?.id,
+    useEdgeFunction: isPublicAccess, // Use edge function for public access to bypass RLS
+  });
 
   // Core states
   const [view, setView] = useState<AppView>(externalWaiter ? 'tables' : 'login');
