@@ -90,6 +90,7 @@ const bottomMenuItems = [
   { title: 'Fechamentos', url: '/closing-history', icon: Wallet },
   { title: 'Tempo de Preparo', url: '/prep-time-report', icon: Clock },
   { title: 'Meu Desempenho', url: '/analytics', icon: BarChart3 },
+  { title: 'Relatórios de Vendas', url: '/sales-reports', icon: Receipt },
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
   { title: 'Sons', url: '/sound-settings', icon: Volume2 },

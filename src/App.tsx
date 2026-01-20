@@ -34,6 +34,7 @@ import PrintLogs from "./pages/PrintLogs";
 import Printers from "./pages/Printers";
 import PrepTimeReport from "./pages/PrepTimeReport";
 import Analytics from "./pages/Analytics";
+import SalesReports from "./pages/SalesReports";
 import TabHistory from "./pages/TabHistory";
 import ClosingHistory from "./pages/ClosingHistory";
 import RestaurantSettings from "./pages/RestaurantSettings";
@@ -114,6 +115,7 @@ const AnimatedRoutes = () => {
           <Route path="/printers" element={<Printers />} />
           <Route path="/prep-time-report" element={<PrepTimeReport />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/sales-reports" element={<SalesReports />} />
           <Route path="/tab-history" element={<TabHistory />} />
           <Route path="/closing-history" element={<ClosingHistory />} />
           <Route path="/restaurant-settings" element={<RestaurantSettings />} />
