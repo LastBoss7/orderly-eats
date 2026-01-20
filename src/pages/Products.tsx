@@ -4,14 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -21,10 +13,17 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Package, Pencil, ImagePlus, X, Image, Sparkles, CirclePlus, LayoutGrid, List, AlertTriangle } from 'lucide-react';
+import { Plus, Loader2, Package, Pencil, Sparkles, CirclePlus, LayoutGrid, List, AlertTriangle, Ruler, FolderOpen, ShoppingBag, DollarSign } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { MenuImportModal } from '@/components/products/MenuImportModal';
 import { ProductAddonLinker } from '@/components/products/ProductAddonLinker';
+import { 
+  PremiumDialog, 
+  PremiumFormSection, 
+  PremiumInputGroup,
+  PremiumToggleRow,
+  PremiumImageUpload 
+} from '@/components/ui/premium-dialog';
 
 interface Category {
   id: string;
@@ -85,7 +84,6 @@ export default function Products() {
       setProducts(productsData);
       setCategories(categoriesRes.data || []);
       
-      // Only fetch addon links for products of this restaurant
       const productIds = productsData.map(p => p.id);
       let addonCounts: Record<string, number> = {};
       
@@ -139,7 +137,7 @@ export default function Products() {
     setPriceMedium(product.price_medium?.toString() || '');
     setPriceLarge(product.price_large?.toString() || '');
     setImageUrl(product.image_url);
-    setSelectedAddonGroups([]); // Will be loaded by ProductAddonLinker
+    setSelectedAddonGroups([]);
     setShowDialog(true);
   };
 
@@ -147,7 +145,6 @@ export default function Products() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (4MB limit)
     if (file.size > 4 * 1024 * 1024) {
       toast({
         variant: 'destructive',
@@ -157,7 +154,6 @@ export default function Products() {
       return;
     }
 
-    // Check file type
     if (!file.type.startsWith('image/')) {
       toast({
         variant: 'destructive',
@@ -210,7 +206,6 @@ export default function Products() {
       return;
     }
 
-    // Validate prices based on hasSizes
     if (hasSizes) {
       if (!priceSmall && !priceMedium && !priceLarge) {
         toast({
@@ -231,9 +226,7 @@ export default function Products() {
       }
     }
 
-    // Warning for missing category (non-blocking)
     const showCategoryWarning = !categoryId;
-
     setSaving(true);
 
     try {
@@ -272,14 +265,11 @@ export default function Products() {
         productId = data.id;
       }
 
-      // Update addon group links
-      // First, delete existing links
       await supabase
         .from('product_addon_groups')
         .delete()
         .eq('product_id', productId);
 
-      // Then, insert new links
       if (selectedAddonGroups.length > 0) {
         const links = selectedAddonGroups.map(groupId => ({
           product_id: productId,
@@ -293,10 +283,8 @@ export default function Products() {
         if (linkError) throw linkError;
       }
 
-      // Show success toast
       toast({ title: editingProduct ? 'Produto atualizado!' : 'Produto criado!' });
       
-      // Show warning about missing category after success
       if (showCategoryWarning) {
         setTimeout(() => {
           toast({
@@ -363,13 +351,6 @@ export default function Products() {
               Gerencie o cardápio do restaurante
             </p>
           </div>
-          <Dialog
-            open={showDialog}
-            onOpenChange={(open) => {
-              setShowDialog(open);
-              if (!open) resetForm();
-            }}
-          >
           <div className="flex items-center gap-2">
             {/* View Mode Toggle */}
             <ToggleGroup 
@@ -399,160 +380,162 @@ export default function Products() {
               <span className="hidden sm:inline">Importar com IA</span>
               <span className="sm:hidden">IA</span>
             </Button>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Novo Produto</span>
-                <span className="sm:hidden">Novo</span>
-              </Button>
-            </DialogTrigger>
+            <Button onClick={() => setShowDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Novo Produto</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
           </div>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProduct ? 'Editar Produto' : 'Novo Produto'}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto">
-                {/* Image Upload */}
-                <div className="space-y-2">
-                  <Label>Foto do Produto</Label>
-                  <div className="flex items-start gap-4">
-                    {imageUrl ? (
-                      <div className="relative">
-                        <img 
-                          src={imageUrl} 
-                          alt="Produto" 
-                          className="w-24 h-24 object-cover rounded-lg border"
-                        />
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={removeImage}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/50">
-                        <Image className="w-8 h-8 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageUpload}
-                          disabled={uploadingImage}
-                        />
-                        <div className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-muted transition-colors">
-                          {uploadingImage ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <ImagePlus className="w-4 h-4" />
-                          )}
-                          <span className="text-sm">
-                            {uploadingImage ? 'Enviando...' : 'Enviar foto'}
-                          </span>
-                        </div>
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Máximo 4MB. JPG, PNG ou WebP.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+        </div>
 
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    placeholder="Ex: X-Burger"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Input
-                    placeholder="Descrição do produto"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                {/* Size Variation Toggle */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label className="font-medium">Variação de tamanho</Label>
-                    <p className="text-xs text-muted-foreground">
-                      P, M, G com preços diferentes
-                    </p>
-                  </div>
-                  <Switch
-                    checked={hasSizes}
-                    onCheckedChange={setHasSizes}
-                  />
-                </div>
+        {/* Premium Product Dialog */}
+        <PremiumDialog
+          open={showDialog}
+          onOpenChange={(open) => {
+            setShowDialog(open);
+            if (!open) resetForm();
+          }}
+          title={editingProduct ? 'Editar Produto' : 'Novo Produto'}
+          description={editingProduct 
+            ? 'Atualize as informações do produto'
+            : 'Adicione um novo item ao seu cardápio'
+          }
+          icon={<ShoppingBag className="w-6 h-6" />}
+          className="sm:max-w-[560px]"
+        >
+          <div className="space-y-5 pt-4 max-h-[65vh] overflow-y-auto pr-1">
+            {/* Image Upload */}
+            <PremiumFormSection title="Foto do produto">
+              <PremiumImageUpload
+                imageUrl={imageUrl}
+                onImageChange={setImageUrl}
+                uploading={uploadingImage}
+                onUpload={handleImageUpload}
+                onRemove={removeImage}
+              />
+            </PremiumFormSection>
 
-                {/* Price Section */}
-                {hasSizes ? (
-                  <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
-                    <Label className="font-medium">Preços por tamanho</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Pequeno (P)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={priceSmall}
-                          onChange={(e) => setPriceSmall(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Médio (M)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={priceMedium}
-                          onChange={(e) => setPriceMedium(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Grande (G)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={priceLarge}
-                          onChange={(e) => setPriceLarge(e.target.value)}
-                        />
-                      </div>
+            {/* Basic Info */}
+            <PremiumFormSection>
+              <PremiumInputGroup 
+                label="Nome do produto" 
+                required
+                hint="Ex: X-Burger, Coca-Cola 350ml"
+              >
+                <Input
+                  placeholder="Digite o nome..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-11"
+                />
+              </PremiumInputGroup>
+
+              <PremiumInputGroup label="Descrição">
+                <Input
+                  placeholder="Descrição breve do produto..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="h-11"
+                />
+              </PremiumInputGroup>
+            </PremiumFormSection>
+
+            {/* Size Variation Toggle */}
+            <PremiumToggleRow
+              label="Variação de tamanho"
+              description="P, M, G com preços diferentes"
+              icon={<Ruler className="w-5 h-5" />}
+            >
+              <Switch
+                checked={hasSizes}
+                onCheckedChange={setHasSizes}
+              />
+            </PremiumToggleRow>
+
+            {/* Price Section */}
+            {hasSizes ? (
+              <PremiumFormSection 
+                variant="highlighted"
+                title="Preços por tamanho"
+                description="Defina o preço para cada tamanho disponível"
+              >
+                <div className="grid grid-cols-3 gap-3">
+                  <PremiumInputGroup label="Pequeno (P)">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={priceSmall}
+                        onChange={(e) => setPriceSmall(e.target.value)}
+                        className="h-11 pl-9"
+                      />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Deixe em branco os tamanhos que não deseja oferecer
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Preço *</Label>
+                  </PremiumInputGroup>
+                  <PremiumInputGroup label="Médio (M)">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={priceMedium}
+                        onChange={(e) => setPriceMedium(e.target.value)}
+                        className="h-11 pl-9"
+                      />
+                    </div>
+                  </PremiumInputGroup>
+                  <PremiumInputGroup label="Grande (G)">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={priceLarge}
+                        onChange={(e) => setPriceLarge(e.target.value)}
+                        className="h-11 pl-9"
+                      />
+                    </div>
+                  </PremiumInputGroup>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Deixe em branco os tamanhos que não deseja oferecer
+                </p>
+              </PremiumFormSection>
+            ) : (
+              <PremiumFormSection>
+                <PremiumInputGroup label="Preço" required>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
                     <Input
                       type="number"
                       step="0.01"
                       placeholder="0.00"
                       value={price}
                       onChange={(e) => setPrice(e.target.value)}
+                      className="h-12 pl-14 text-lg font-semibold"
                     />
                   </div>
-                )}
+                </PremiumInputGroup>
+              </PremiumFormSection>
+            )}
 
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
+            {/* Category */}
+            <PremiumFormSection>
+              <PremiumInputGroup 
+                label="Categoria" 
+                hint="Organize seus produtos em categorias"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <FolderOpen className="w-5 h-5" />
+                  </div>
                   <Select value={categoryId || "none"} onValueChange={(val) => setCategoryId(val === "none" ? "" : val)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -565,23 +548,32 @@ export default function Products() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label>Disponível para venda</Label>
-                  <Switch
-                    checked={isAvailable}
-                    onCheckedChange={setIsAvailable}
-                  />
-                </div>
+              </PremiumInputGroup>
+            </PremiumFormSection>
 
-                {/* Addon Groups Section */}
-                <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <CirclePlus className="w-4 h-4 text-muted-foreground" />
-                    <Label className="font-medium">Grupos de Adicionais</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Selecione os grupos de adicionais disponíveis para este produto
-                  </p>
+            {/* Availability */}
+            <PremiumToggleRow
+              label="Disponível para venda"
+              description="Mostrar este produto no cardápio"
+              icon={<Package className="w-5 h-5" />}
+            >
+              <Switch
+                checked={isAvailable}
+                onCheckedChange={setIsAvailable}
+              />
+            </PremiumToggleRow>
+
+            {/* Addon Groups */}
+            <PremiumFormSection 
+              variant="highlighted"
+              title="Grupos de Adicionais"
+              description="Selecione os adicionais disponíveis para este produto"
+            >
+              <div className="flex items-start gap-2">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent flex-shrink-0 mt-1">
+                  <CirclePlus className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
                   <ProductAddonLinker
                     productId={editingProduct?.id || null}
                     restaurantId={restaurant?.id || ''}
@@ -589,23 +581,34 @@ export default function Products() {
                     onSelectionChange={setSelectedAddonGroups}
                   />
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : editingProduct ? (
-                    'Salvar Alterações'
-                  ) : (
-                    'Criar Produto'
-                  )}
-                </Button>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+            </PremiumFormSection>
+
+            {/* Save Button */}
+            <Button
+              className="w-full h-12 text-base font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : editingProduct ? (
+                <>
+                  <Pencil className="w-5 h-5 mr-2" />
+                  Salvar Alterações
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Criar Produto
+                </>
+              )}
+            </Button>
+          </div>
+        </PremiumDialog>
 
         {/* Products Display */}
         {loading ? (
@@ -619,8 +622,10 @@ export default function Products() {
           </div>
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-            <Package className="w-16 h-16 mb-4 opacity-50" />
-            <p className="text-lg">Nenhum produto cadastrado</p>
+            <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+              <Package className="w-10 h-10 opacity-50" />
+            </div>
+            <p className="text-lg font-medium">Nenhum produto cadastrado</p>
             <p className="text-sm">Clique em "Novo Produto" para começar</p>
           </div>
         ) : viewMode === 'grid' ? (
@@ -667,8 +672,8 @@ export default function Products() {
                     <div 
                       className={`w-3 h-3 rounded-full shadow-sm ${
                         product.is_available 
-                          ? 'bg-green-500' 
-                          : 'bg-red-500'
+                          ? 'bg-success' 
+                          : 'bg-destructive'
                       }`}
                       title={product.is_available ? 'Disponível' : 'Indisponível'}
                     />
@@ -696,7 +701,7 @@ export default function Products() {
                       {getCategoryName(product.category_id)}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-warning bg-warning/10 px-2 py-0.5 rounded-full">
                       <AlertTriangle className="w-3 h-3" />
                       Sem categoria
                     </span>
@@ -787,8 +792,8 @@ export default function Products() {
                       <div 
                         className={`w-2.5 h-2.5 rounded-full shadow-sm ring-2 ring-background ${
                           product.is_available 
-                            ? 'bg-green-500' 
-                            : 'bg-red-500'
+                            ? 'bg-success' 
+                            : 'bg-destructive'
                         }`}
                       />
                     </div>
@@ -804,7 +809,7 @@ export default function Products() {
                             {getCategoryName(product.category_id)}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-500 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-warning bg-warning/10 px-2 py-0.5 rounded-full">
                             <AlertTriangle className="w-3 h-3" />
                             Sem categoria
                           </span>
@@ -899,7 +904,7 @@ export default function Products() {
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(product)}
-                      className="opacity-60 hover:opacity-100"
+                      className="opacity-60 hover:opacity-100 hover:bg-primary/10 hover:text-primary"
                     >
                       <Pencil className="w-4 h-4" />
                     </Button>
