@@ -6,7 +6,7 @@ import { X, Banknote, CreditCard, QrCode, Check, Loader2, Users, Plus, Trash2 } 
 import { PaymentMethod, formatCurrency } from '../types';
 import { cn } from '@/lib/utils';
 
-interface PaymentEntry {
+export interface PaymentEntry {
   id: string;
   method: PaymentMethod;
   amount: number;

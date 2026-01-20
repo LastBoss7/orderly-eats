@@ -13,6 +13,7 @@ import {
   TableActionModal,
   SizeModal,
   PaymentModal,
+  PaymentEntry,
 } from './waiter/components';
 import { TablesViewRefactored } from './waiter/views/TablesViewRefactored';
 import { OrderViewRefactored } from './waiter/views/OrderViewRefactored';
@@ -638,7 +639,7 @@ export default function WaiterAppRefactored({
     }
   };
 
-  const handleCloseTable = async () => {
+  const handleCloseTable = async (payments?: PaymentEntry[], splitCount?: number) => {
     if (!selectedTable) return;
     
     setClosingTable(true);
@@ -649,6 +650,13 @@ export default function WaiterAppRefactored({
         payment_method: paymentMethod,
         cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
         change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : undefined,
+        split_count: splitCount,
+        payments: payments?.map(p => ({
+          id: p.id,
+          method: p.method,
+          amount: p.amount,
+          cashReceived: p.cashReceived,
+        })),
       });
       
       toast.success(`Mesa ${selectedTable.number} fechada com sucesso!`);
@@ -666,7 +674,7 @@ export default function WaiterAppRefactored({
     }
   };
 
-  const handleCloseTab = async () => {
+  const handleCloseTab = async (payments?: PaymentEntry[], splitCount?: number) => {
     if (!selectedTab) return;
     
     setClosingTable(true);
@@ -677,6 +685,13 @@ export default function WaiterAppRefactored({
         payment_method: paymentMethod,
         cash_received: paymentMethod === 'cash' ? cashReceived : undefined,
         change_given: paymentMethod === 'cash' && cashReceived > tableOrdersTotal ? cashReceived - tableOrdersTotal : undefined,
+        split_count: splitCount,
+        payments: payments?.map(p => ({
+          id: p.id,
+          method: p.method,
+          amount: p.amount,
+          cashReceived: p.cashReceived,
+        })),
       });
       
       toast.success(`Comanda #${selectedTab.number} fechada com sucesso!`);
