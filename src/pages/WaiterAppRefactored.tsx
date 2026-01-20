@@ -265,13 +265,13 @@ export default function WaiterAppRefactored({
         }
         await refreshReadyOrders();
       } catch (error) {
-        console.error('Error polling data:', error);
+        // Silently ignore polling errors to avoid console spam
       }
     };
 
-    const interval = setInterval(pollData, 8000); // Increased to 8 seconds
+    const interval = setInterval(pollData, 15000); // Increased to 15 seconds for better performance
     return () => clearInterval(interval);
-  }, [restaurantId, isPublicAccess, refreshReadyOrders, waiterData]);
+  }, [restaurantId, isPublicAccess]); // Removed refreshReadyOrders and waiterData from deps to avoid recreation
 
   // Realtime subscription for authenticated access
   useEffect(() => {
@@ -720,16 +720,6 @@ export default function WaiterAppRefactored({
   };
 
   // ========== RENDER ==========
-
-  // Debug log
-  console.log('WaiterApp Debug:', { 
-    loading, 
-    view, 
-    restaurantId: restaurant?.id, 
-    tablesCount: tables.length, 
-    tabsCount: tabs.length,
-    selectedWaiter: selectedWaiter?.name 
-  });
 
   if (loading) {
     return (
