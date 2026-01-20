@@ -81,8 +81,8 @@ export default function Addons() {
 
     try {
       const [groupsRes, addonsRes] = await Promise.all([
-        supabase.from('addon_groups').select('*').order('sort_order'),
-        supabase.from('addons').select('*').order('sort_order'),
+        supabase.from('addon_groups').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
+        supabase.from('addons').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
       ]);
 
       setGroups(groupsRes.data || []);

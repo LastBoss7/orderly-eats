@@ -65,9 +65,9 @@ export default function Waiter() {
 
       try {
         const [tablesRes, categoriesRes, productsRes] = await Promise.all([
-          supabase.from('tables').select('*').order('number'),
-          supabase.from('categories').select('*').order('sort_order'),
-          supabase.from('products').select('*').eq('is_available', true),
+          supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number'),
+          supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('sort_order'),
+          supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true),
         ]);
 
         setTables((tablesRes.data || []) as Table[]);
@@ -199,7 +199,7 @@ export default function Waiter() {
       setCart([]);
 
       // Refresh tables
-      const { data } = await supabase.from('tables').select('*').order('number');
+      const { data } = await supabase.from('tables').select('*').eq('restaurant_id', restaurant.id).order('number');
       setTables((data || []) as Table[]);
     } catch (error: any) {
       toast({

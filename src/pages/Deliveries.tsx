@@ -177,12 +177,13 @@ export default function Deliveries() {
         supabase
           .from('orders')
           .select('*, order_items(product_name, quantity, product_price)')
+          .eq('restaurant_id', restaurant.id)
           .eq('order_type', 'delivery')
           .order('created_at', { ascending: false }),
-        supabase.from('customers').select('*').order('name'),
-        supabase.from('products').select('*').eq('is_available', true).order('name'),
-        supabase.from('delivery_fees').select('*').order('neighborhood'),
-        supabase.from('delivery_drivers').select('*').eq('status', 'active').order('name'),
+        supabase.from('customers').select('*').eq('restaurant_id', restaurant.id).order('name'),
+        supabase.from('products').select('*').eq('restaurant_id', restaurant.id).eq('is_available', true).order('name'),
+        supabase.from('delivery_fees').select('*').eq('restaurant_id', restaurant.id).order('neighborhood'),
+        supabase.from('delivery_drivers').select('*').eq('restaurant_id', restaurant.id).eq('status', 'active').order('name'),
       ]);
 
       setOrders(ordersRes.data || []);

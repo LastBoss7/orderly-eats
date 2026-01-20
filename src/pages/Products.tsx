@@ -77,8 +77,8 @@ export default function Products() {
 
     try {
       const [productsRes, categoriesRes, addonLinksRes] = await Promise.all([
-        supabase.from('products').select('*').order('name'),
-        supabase.from('categories').select('*').order('name'),
+        supabase.from('products').select('*').eq('restaurant_id', restaurant.id).order('name'),
+        supabase.from('categories').select('*').eq('restaurant_id', restaurant.id).order('name'),
         supabase.from('product_addon_groups').select('product_id, addon_group_id'),
       ]);
 
