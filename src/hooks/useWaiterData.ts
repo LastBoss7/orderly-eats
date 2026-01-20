@@ -10,7 +10,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<any>>();
-const CACHE_TTL = 10000; // 10 seconds - increased for better performance
+const CACHE_TTL = 15000; // 15 seconds - increased for better performance
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);

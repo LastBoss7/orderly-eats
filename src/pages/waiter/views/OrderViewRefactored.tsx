@@ -1,4 +1,4 @@
-import { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback, useDeferredValue, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,7 +51,7 @@ interface OrderViewRefactoredProps {
   onCategoryChange?: (categoryId: string | null) => void;
 }
 
-// Memoized product button
+// Memoized product button - removed transition-colors for performance
 const ProductButton = memo(function ProductButton({
   product,
   totalQty,
@@ -65,15 +65,17 @@ const ProductButton = memo(function ProductButton({
   viewMode: 'list' | 'grid';
   onClick: () => void;
 }) {
+  const isSelected = totalQty > 0;
+  
   if (viewMode === 'grid') {
     return (
       <button
-        className={`flex flex-col p-2 bg-card rounded-xl border text-left transition-colors relative ${
-          totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
+        className={`flex flex-col p-2 bg-card rounded-xl text-left relative ${
+          isSelected ? 'border-2 border-primary bg-primary/5' : 'border border-transparent shadow-sm'
         }`}
         onClick={onClick}
       >
-        {totalQty > 0 && (
+        {isSelected && (
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10">
             {totalQty}
           </div>
@@ -107,8 +109,8 @@ const ProductButton = memo(function ProductButton({
   
   return (
     <button
-      className={`flex items-center gap-3 p-3 bg-card rounded-xl border text-left transition-colors ${
-        totalQty > 0 ? 'border-primary bg-primary/5' : 'border-transparent shadow-sm'
+      className={`flex items-center gap-3 p-3 bg-card rounded-xl text-left ${
+        isSelected ? 'border-2 border-primary bg-primary/5' : 'border border-transparent shadow-sm'
       }`}
       onClick={onClick}
     >
@@ -140,9 +142,9 @@ const ProductButton = memo(function ProductButton({
       </div>
       
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-        totalQty > 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+        isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
       }`}>
-        {totalQty > 0 ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
+        {isSelected ? <span className="font-bold">{totalQty}</span> : <Plus className="w-4 h-4" />}
       </div>
     </button>
   );
@@ -268,6 +270,9 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
     return (saved === 'grid' || saved === 'list') ? saved : 'list';
   });
   const [editingItemNotes, setEditingItemNotes] = useState<string | null>(null);
+  
+  // Use deferred value for non-blocking search
+  const deferredSearch = useDeferredValue(searchTerm);
 
   // Load first category products on mount
   useEffect(() => {
@@ -289,13 +294,17 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
     localStorage.setItem('waiter_menu_view_mode', mode);
   }, []);
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = !searchTerm || 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  // Memoized filtered products with deferred search
+  const filteredProducts = useMemo(() => {
+    if (!deferredSearch) return products;
+    const search = deferredSearch.toLowerCase();
+    return products.filter(p => p.name.toLowerCase().includes(search));
+  }, [products, deferredSearch]);
 
-  const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+  const cartTotal = useMemo(() => 
+    cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
+    [cart]
+  );
   const deliveryFee = orderMode === 'delivery' ? deliveryForm.deliveryFee : 0;
   const orderTotal = cartTotal + deliveryFee;
 

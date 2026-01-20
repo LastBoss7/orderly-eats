@@ -1,7 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { motion } from 'framer-motion';
 import { Loader2, Delete, ChefHat, KeyRound, LogOut } from 'lucide-react';
 import { Waiter } from '../types';
 import logoGamakoWhite from '@/assets/logo-gamako-white.png';
@@ -13,12 +11,33 @@ export interface WaiterPinLoginProps {
   onBack: () => void;
 }
 
+// Memoized PIN button for better performance
+const PinButton = memo(function PinButton({
+  digit,
+  disabled,
+  onClick,
+}: {
+  digit: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="aspect-square text-2xl font-bold rounded-2xl bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-amber-500 active:text-white active:border-amber-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-95"
+    >
+      {digit}
+    </button>
+  );
+});
+
 export function WaiterPinLogin({ restaurantId, restaurantName, onLogin, onBack }: WaiterPinLoginProps) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinAuthenticating, setPinAuthenticating] = useState(false);
 
-  const handlePinLogin = async (pinValue: string) => {
+  const handlePinLogin = useCallback(async (pinValue: string) => {
     if (!restaurantId || pinValue.length < 4) return;
     if (pinAuthenticating) return;
 
@@ -65,40 +84,39 @@ export function WaiterPinLogin({ restaurantId, restaurantName, onLogin, onBack }
     } finally {
       setPinAuthenticating(false);
     }
-  };
+  }, [restaurantId, pinAuthenticating, onLogin]);
 
-  const handlePinDigit = (digit: string) => {
+  const handlePinDigit = useCallback((digit: string) => {
     if (pinInput.length < 6) {
       const newPin = pinInput + digit;
       setPinInput(newPin);
       setPinError(null);
       
       if (newPin.length >= 4) {
-        setTimeout(() => handlePinLogin(newPin), 200);
+        setTimeout(() => handlePinLogin(newPin), 150);
       }
     }
-  };
+  }, [pinInput, handlePinLogin]);
 
-  const handlePinDelete = () => {
+  const handlePinDelete = useCallback(() => {
     if (pinInput.length > 0) {
-      setPinInput(pinInput.slice(0, -1));
+      setPinInput(prev => prev.slice(0, -1));
       setPinError(null);
     }
-  };
+  }, [pinInput.length]);
 
-  const handlePinClear = () => {
+  const handlePinClear = useCallback(() => {
     setPinInput('');
     setPinError(null);
-  };
+  }, []);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="min-h-screen bg-gradient-to-br from-slate-900 via-primary/20 to-slate-900 flex flex-col relative overflow-hidden"
-    >
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-primary/20 to-slate-900 flex flex-col relative overflow-hidden">
       {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+      
+      {/* Header */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       
@@ -157,42 +175,38 @@ export function WaiterPinLogin({ restaurantId, restaurantName, onLogin, onBack }
               )}
             </div>
 
-            {/* Keypad */}
+            {/* Keypad - using memoized buttons */}
             <div className="grid grid-cols-3 gap-3 mb-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                <PinButton
                   key={num}
-                  onClick={() => handlePinDigit(num.toString())}
+                  digit={num}
                   disabled={pinAuthenticating || pinInput.length >= 6}
-                  className="aspect-square text-2xl font-bold rounded-2xl bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-amber-500 active:text-white active:border-amber-500 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-95"
-                >
-                  {num}
-                </button>
+                  onClick={() => handlePinDigit(num)}
+                />
               ))}
             
               {/* Clear button */}
               <button
                 onClick={handlePinClear}
                 disabled={pinAuthenticating || pinInput.length === 0}
-                className="aspect-square text-xs font-medium rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-rose-500/20 active:text-rose-400 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
+                className="aspect-square text-xs font-medium rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-rose-500/20 active:text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
               >
                 Limpar
               </button>
             
               {/* Zero */}
-              <button
-                onClick={() => handlePinDigit('0')}
+              <PinButton
+                digit="0"
                 disabled={pinAuthenticating || pinInput.length >= 6}
-                className="aspect-square text-2xl font-bold rounded-2xl bg-white/5 text-white border border-white/10 hover:bg-white/10 active:bg-amber-500 active:text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
-              >
-                0
-              </button>
+                onClick={() => handlePinDigit('0')}
+              />
             
               {/* Delete button */}
               <button
                 onClick={handlePinDelete}
                 disabled={pinAuthenticating || pinInput.length === 0}
-                className="aspect-square rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
+                className="aspect-square rounded-2xl bg-white/5 text-white/60 hover:bg-white/10 hover:text-white active:bg-amber-400/20 active:text-amber-400 disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 flex items-center justify-center"
               >
                 <Delete className="w-5 h-5" />
               </button>
@@ -216,6 +230,6 @@ export function WaiterPinLogin({ restaurantId, restaurantName, onLogin, onBack }
           Sair
         </Button>
       </footer>
-    </motion.div>
+    </div>
   );
 }

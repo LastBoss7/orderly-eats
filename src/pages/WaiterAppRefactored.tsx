@@ -347,14 +347,14 @@ export default function WaiterAppRefactored({
         }
       });
 
-    // Fallback polling every 30s for reliability (reduced frequency due to realtime)
+    // Fallback polling every 60s for reliability (reduced frequency due to realtime)
     const pollInterval = setInterval(async () => {
       try {
         await refreshReadyOrders();
       } catch (error) {
         // Silently ignore polling errors
       }
-    }, 30000);
+    }, 60000);
 
     return () => {
       supabase.removeChannel(channel);
