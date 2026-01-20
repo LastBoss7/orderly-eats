@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { motion } from 'framer-motion';
 import { 
   ArrowLeft,
   ClipboardList,
@@ -29,7 +28,125 @@ interface TabOrdersViewProps {
   onReprintOrder: (order: Order) => void;
 }
 
-export function TabOrdersView({
+// Memoized order card
+const OrderCard = memo(function OrderCard({
+  order,
+  isMenuOpen,
+  isDelivered,
+  isReprinting,
+  onToggleMenu,
+  onMarkDelivered,
+  onReprint,
+}: {
+  order: Order;
+  isMenuOpen: boolean;
+  isDelivered: boolean;
+  isReprinting: boolean;
+  onToggleMenu: () => void;
+  onMarkDelivered: () => void;
+  onReprint: () => void;
+}) {
+  return (
+    <div className="bg-card rounded-xl overflow-hidden border shadow-sm">
+      {/* Order Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-lg">#{order.order_number || '---'}</span>
+            {order.status === 'ready' && (
+              <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-xs">
+                ✓ Pronto
+              </Badge>
+            )}
+            {order.status === 'preparing' && (
+              <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-xs">
+                🍳 Preparando
+              </Badge>
+            )}
+            {order.status === 'pending' && (
+              <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-xs">
+                ⏳ Pendente
+              </Badge>
+            )}
+          </div>
+          {order.waiters?.name && (
+            <p className="text-muted-foreground text-xs mt-1.5 flex items-center gap-1">
+              <User className="w-3 h-3" />
+              {order.waiters.name}
+            </p>
+          )}
+        </div>
+        <div className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMenu();
+            }}
+          >
+            {isReprinting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <MoreVertical className="w-5 h-5" />
+            )}
+          </Button>
+          
+          {isMenuOpen && (
+            <div 
+              className="absolute right-0 top-full mt-1 w-48 bg-popover rounded-xl shadow-lg z-50 overflow-hidden border"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={onReprint}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="text-sm font-medium">Reimprimir Pedido</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Order Items */}
+      <div className="p-4 space-y-3">
+        {order.order_items?.map((item) => (
+          <div key={item.id} className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                <span className="text-primary text-xs font-bold">{item.quantity}x</span>
+              </div>
+              <span className="font-medium">{item.product_name}</span>
+            </div>
+            <span className="font-semibold">{formatCurrency(item.product_price * item.quantity)}</span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Order Footer */}
+      <div className="p-4 border-t bg-muted/30">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="font-bold text-lg">{formatCurrency(order.total || 0)}</span>
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-3">
+          <Checkbox 
+            id={`delivered-${order.id}`}
+            checked={isDelivered}
+            onCheckedChange={onMarkDelivered}
+          />
+          <label htmlFor={`delivered-${order.id}`} className="text-muted-foreground text-sm cursor-pointer">
+            Marcar como entregue
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export const TabOrdersView = memo(function TabOrdersView({
   tab,
   orders,
   loading,
@@ -65,12 +182,7 @@ export function TabOrdersView({
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -50 }}
-      className="min-h-screen bg-background flex flex-col"
-    >
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 bg-primary text-primary-foreground p-4 z-10 shadow-lg flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -114,102 +226,16 @@ export function TabOrdersView({
             </div>
           ) : (
             orders.map((order) => (
-              <div key={order.id} className="bg-card rounded-xl overflow-hidden border shadow-sm">
-                {/* Order Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-lg">#{order.order_number || '---'}</span>
-                      {order.status === 'ready' && (
-                        <Badge className="bg-emerald-500/20 text-emerald-600 border-emerald-500/30 text-xs">
-                          ✓ Pronto
-                        </Badge>
-                      )}
-                      {order.status === 'preparing' && (
-                        <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-xs">
-                          🍳 Preparando
-                        </Badge>
-                      )}
-                      {order.status === 'pending' && (
-                        <Badge className="bg-blue-500/20 text-blue-600 border-blue-500/30 text-xs">
-                          ⏳ Pendente
-                        </Badge>
-                      )}
-                    </div>
-                    {order.waiters?.name && (
-                      <p className="text-muted-foreground text-xs mt-1.5 flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {order.waiters.name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenOrderMenu(openOrderMenu === order.id ? null : order.id);
-                      }}
-                    >
-                      {reprintingOrder === order.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <MoreVertical className="w-5 h-5" />
-                      )}
-                    </Button>
-                    
-                    {openOrderMenu === order.id && (
-                      <div 
-                        className="absolute right-0 top-full mt-1 w-48 bg-popover rounded-xl shadow-lg z-50 overflow-hidden border"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          onClick={() => handleReprintOrder(order)}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted transition-colors"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          <span className="text-sm font-medium">Reimprimir Pedido</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Order Items */}
-                <div className="p-4 space-y-3">
-                  {order.order_items?.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <span className="text-primary text-xs font-bold">{item.quantity}x</span>
-                        </div>
-                        <span className="font-medium">{item.product_name}</span>
-                      </div>
-                      <span className="font-semibold">{formatCurrency(item.product_price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Order Footer */}
-                <div className="p-4 border-t bg-muted/30">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <span className="font-bold text-lg">{formatCurrency(order.total || 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 mt-3">
-                    <Checkbox 
-                      id={`delivered-${order.id}`}
-                      checked={deliveredOrders.has(order.id)}
-                      onCheckedChange={() => handleMarkDelivered(order.id)}
-                    />
-                    <label htmlFor={`delivered-${order.id}`} className="text-muted-foreground text-sm cursor-pointer">
-                      Marcar como entregue
-                    </label>
-                  </div>
-                </div>
-              </div>
+              <OrderCard
+                key={order.id}
+                order={order}
+                isMenuOpen={openOrderMenu === order.id}
+                isDelivered={deliveredOrders.has(order.id)}
+                isReprinting={reprintingOrder === order.id}
+                onToggleMenu={() => setOpenOrderMenu(openOrderMenu === order.id ? null : order.id)}
+                onMarkDelivered={() => handleMarkDelivered(order.id)}
+                onReprint={() => handleReprintOrder(order)}
+              />
             ))
           )}
         </div>
@@ -266,6 +292,6 @@ export function TabOrdersView({
           Novo Pedido
         </Button>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});

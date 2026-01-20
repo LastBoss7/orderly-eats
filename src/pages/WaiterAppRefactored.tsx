@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { usePrintSettings } from '@/hooks/usePrintSettings';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
 import { useWaiterData } from '@/hooks/useWaiterData';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 // Modular imports
 import { 
@@ -247,52 +246,110 @@ export default function WaiterAppRefactored({
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // Single polling interval for ready orders - combine with public access polling
+  // Realtime subscription for ALL access modes (authenticated AND public)
+  // Filter by restaurant_id for multi-tenant isolation
   useEffect(() => {
     if (!restaurantId) return;
-    
+
+    // Initial fetch of ready orders
     refreshReadyOrders();
+
+    // Create realtime channel with restaurant_id filter for multi-tenant isolation
+    const channelName = `waiter-realtime-${restaurantId}`;
     
-    // For public access, poll tables/tabs along with ready orders
-    const pollData = async () => {
-      try {
-        if (isPublicAccess) {
-          const [tablesData, tabsData] = await Promise.all([
-            waiterData.fetchTables(),
-            waiterData.fetchTabs(),
-          ]);
-          setTables(tablesData as Table[]);
-          setTabs(tabsData as Tab[]);
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'tables',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
+        async (payload) => {
+          // Update specific table in state for better performance
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setTables(prev => prev.map(t => 
+              t.id === payload.new.id ? { ...t, ...payload.new } as Table : t
+            ));
+          } else {
+            // Full refetch for INSERT/DELETE
+            const data = await waiterData.fetchTables();
+            setTables(data as Table[]);
+          }
         }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'tabs',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
+        async (payload) => {
+          // Update specific tab in state for better performance
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            setTabs(prev => prev.map(t => 
+              t.id === payload.new.id ? { ...t, ...payload.new } as Tab : t
+            ));
+          } else {
+            // Full refetch for INSERT/DELETE
+            const data = await waiterData.fetchTabs();
+            setTabs(data as Tab[]);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
+        async (payload) => {
+          // Refresh ready orders status for table indicators
+          await refreshReadyOrders();
+          
+          // If we're viewing orders for a table/tab, refresh them too
+          if (view === 'table-orders' && selectedTable) {
+            const orderData = payload.new as { table_id?: string };
+            if (orderData?.table_id === selectedTable.id) {
+              const data = await waiterData.fetchTableOrders(selectedTable.id);
+              setTableOrders(data || []);
+            }
+          }
+          if (view === 'tab-orders' && selectedTab) {
+            const orderData = payload.new as { tab_id?: string };
+            if (orderData?.tab_id === selectedTab.id) {
+              const data = await waiterData.fetchTabOrders(selectedTab.id);
+              setTableOrders(data || []);
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Realtime connected for restaurant ${restaurantId}`);
+        }
+      });
+
+    // Fallback polling every 30s for reliability (reduced frequency due to realtime)
+    const pollInterval = setInterval(async () => {
+      try {
         await refreshReadyOrders();
       } catch (error) {
-        // Silently ignore polling errors to avoid console spam
+        // Silently ignore polling errors
       }
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
-
-    const interval = setInterval(pollData, 15000); // Increased to 15 seconds for better performance
-    return () => clearInterval(interval);
-  }, [restaurantId, isPublicAccess]); // Removed refreshReadyOrders and waiterData from deps to avoid recreation
-
-  // Realtime subscription for authenticated access
-  useEffect(() => {
-    if (!restaurantId || isPublicAccess) return;
-
-    const channel = supabase
-      .channel('waiter-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, async () => {
-        const data = await waiterData.fetchTables();
-        setTables(data as Table[]);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tabs' }, async () => {
-        const data = await waiterData.fetchTabs();
-        setTabs(data as Tab[]);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => refreshReadyOrders())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [restaurantId, isPublicAccess, refreshReadyOrders, waiterData]);
+  }, [restaurantId]); // Minimal deps - only restaurantId to prevent recreation
 
   // ========== HANDLERS ==========
 
@@ -738,16 +795,12 @@ export default function WaiterAppRefactored({
 
   if (loading) {
     return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="min-h-screen flex items-center justify-center bg-background"
-      >
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
           <p className="text-muted-foreground">Carregando...</p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -806,26 +859,24 @@ export default function WaiterAppRefactored({
         />
 
         {/* Table Action Modal */}
-        <AnimatePresence>
-          {showTableModal && modalTable && (
-            <TableActionModal
-              table={modalTable}
-              total={tableTotal}
-              onViewOrders={() => handleViewOrders(modalTable)}
-              onPrintReceipt={() => {
-                handleViewOrders(modalTable);
-                setTimeout(handlePrintReceipt, 500);
-              }}
-              onCloseTable={async () => {
-                await handleViewOrders(modalTable);
-                setTableTotal(tableTotal);
-                setShowCloseModal(true);
-              }}
-              onNewOrder={() => handleNewOrder(modalTable)}
-              onClose={() => setShowTableModal(false)}
-            />
-          )}
-        </AnimatePresence>
+        {showTableModal && modalTable && (
+          <TableActionModal
+            table={modalTable}
+            total={tableTotal}
+            onViewOrders={() => handleViewOrders(modalTable)}
+            onPrintReceipt={() => {
+              handleViewOrders(modalTable);
+              setTimeout(handlePrintReceipt, 500);
+            }}
+            onCloseTable={async () => {
+              await handleViewOrders(modalTable);
+              setTableTotal(tableTotal);
+              setShowCloseModal(true);
+            }}
+            onNewOrder={() => handleNewOrder(modalTable)}
+            onClose={() => setShowTableModal(false)}
+          />
+        )}
 
         {/* Size Modal */}
         {sizeModalProduct && (
