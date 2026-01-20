@@ -1,4 +1,4 @@
-import { useState, memo, useCallback } from 'react';
+import { useState, memo, useCallback, useDeferredValue, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,7 +52,7 @@ interface TablesViewRefactoredProps {
   onCloseCreateTabModal: () => void;
 }
 
-// Memoized table button to prevent re-renders
+// Memoized table button to prevent re-renders - removed transition-colors for performance
 const TableButton = memo(function TableButton({
   table,
   hasReadyOrder,
@@ -62,16 +62,16 @@ const TableButton = memo(function TableButton({
   hasReadyOrder: boolean;
   onClick: () => void;
 }) {
+  const bgClass = table.status === 'available' 
+    ? 'bg-emerald-500' 
+    : table.status === 'closing' 
+      ? 'bg-amber-500' 
+      : 'bg-rose-500';
+  
   return (
     <button
       onClick={onClick}
-      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-sm active:scale-95 transition-transform ${
-        table.status === 'available' 
-          ? 'bg-emerald-500 text-white' 
-          : table.status === 'closing' 
-            ? 'bg-amber-500 text-white' 
-            : 'bg-rose-500 text-white'
-      }`}
+      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left text-white shadow-sm active:scale-95 ${bgClass}`}
     >
       <span className="font-bold text-sm">Mesa {table.number}</span>
       {hasReadyOrder && (
@@ -86,7 +86,7 @@ const TableButton = memo(function TableButton({
   );
 });
 
-// Memoized tab button
+// Memoized tab button - removed transition-colors for performance
 const TabButton = memo(function TabButton({
   tab,
   onClick,
@@ -94,16 +94,16 @@ const TabButton = memo(function TabButton({
   tab: Tab;
   onClick: () => void;
 }) {
+  const bgClass = tab.status === 'available' 
+    ? 'bg-emerald-500' 
+    : tab.status === 'closing' 
+      ? 'bg-amber-500' 
+      : 'bg-rose-500';
+
   return (
     <button
       onClick={onClick}
-      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left shadow-sm active:scale-95 transition-transform ${
-        tab.status === 'available' 
-          ? 'bg-emerald-500 text-white' 
-          : tab.status === 'closing' 
-            ? 'bg-amber-500 text-white' 
-            : 'bg-rose-500 text-white'
-      }`}
+      className={`relative rounded-xl p-3 min-h-[80px] flex flex-col justify-between text-left text-white shadow-sm active:scale-95 ${bgClass}`}
     >
       <span className="font-bold text-sm">#{tab.number}</span>
       {tab.customer_name && (
@@ -151,21 +151,38 @@ export const TablesViewRefactored = memo(function TablesViewRefactored({
 }: TablesViewRefactoredProps) {
   const [activeTab, setActiveTab] = useState<'mesas' | 'comandas'>('mesas');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Use deferred value for search to prevent blocking UI
+  const deferredSearch = useDeferredValue(searchTerm);
 
-  const filteredTables = tables.filter(t => {
-    if (!searchTerm) return true;
-    return t.number.toString().includes(searchTerm) ||
-           `Mesa ${t.number}`.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Memoize filtered results
+  const filteredTables = useMemo(() => {
+    if (!deferredSearch) return tables;
+    const search = deferredSearch.toLowerCase();
+    return tables.filter(t => 
+      t.number.toString().includes(deferredSearch) ||
+      `Mesa ${t.number}`.toLowerCase().includes(search)
+    );
+  }, [tables, deferredSearch]);
 
-  const filteredTabs = tabs.filter(t => {
-    if (!searchTerm) return true;
-    return t.number.toString().includes(searchTerm) ||
-           t.customer_name?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredTabs = useMemo(() => {
+    if (!deferredSearch) return tabs;
+    const search = deferredSearch.toLowerCase();
+    return tabs.filter(t => 
+      t.number.toString().includes(deferredSearch) ||
+      t.customer_name?.toLowerCase().includes(search)
+    );
+  }, [tabs, deferredSearch]);
 
-  const occupiedTablesCount = tables.filter(t => t.status !== 'available').length;
-  const occupiedTabsCount = tabs.filter(t => t.status === 'occupied').length;
+  const occupiedTablesCount = useMemo(() => 
+    tables.filter(t => t.status !== 'available').length, 
+    [tables]
+  );
+  
+  const occupiedTabsCount = useMemo(() => 
+    tabs.filter(t => t.status === 'occupied').length, 
+    [tabs]
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
