@@ -15,9 +15,9 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.png", "apple-touch-icon.png"],
+      includeAssets: ["favicon.png", "apple-touch-icon.png", "pwa-garcom-192.png", "pwa-garcom-512.png"],
       manifest: {
-        name: "App do Garçom - Gamako",
+        name: "App do Garçom",
         short_name: "Garçom",
         description: "Aplicativo do garçom para gestão de pedidos",
         theme_color: "#1a1a2e",
@@ -28,26 +28,26 @@ export default defineConfig(({ mode }) => ({
         scope: "/",
         icons: [
           {
-            src: "pwa-192x192.png",
+            src: "pwa-garcom-192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png",
+            src: "pwa-garcom-512.png",
             sizes: "512x512",
             type: "image/png",
           },
           {
-            src: "pwa-512x512.png",
+            src: "pwa-garcom-512.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "maskable",
           },
         ],
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB limit
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ].filter(Boolean),
