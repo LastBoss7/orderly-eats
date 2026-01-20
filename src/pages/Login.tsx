@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban, Mail, RefreshCw } from 'lucide-react';
+import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban, Mail, RefreshCw, Clock, MessageCircle } from 'lucide-react';
 import { PasswordStrength } from '@/components/ui/password-strength';
 import logoGamako from '@/assets/logo-gamako-full.png';
 import gestaoInteligente from '@/assets/gestao-inteligente.png';
@@ -110,12 +110,24 @@ export default function Login() {
   // Suspended account state
   const [showSuspendedDialog, setShowSuspendedDialog] = useState(false);
   const [suspendedReasonMessage, setSuspendedReasonMessage] = useState('');
+  
+  // Pending approval state
+  const [showPendingApprovalDialog, setShowPendingApprovalDialog] = useState(false);
+  const [pendingRestaurantName, setPendingRestaurantName] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     const result = await signIn(loginEmail, loginPassword);
+
+    if (result.pendingApproval) {
+      // Show pending approval dialog
+      setPendingRestaurantName(result.restaurantName || '');
+      setShowPendingApprovalDialog(true);
+      setIsLoading(false);
+      return;
+    }
 
     if (result.suspended) {
       // Show suspended dialog
@@ -637,6 +649,61 @@ export default function Login() {
         />
       </div>
 
+      {/* Pending Approval Dialog */}
+      <AlertDialog open={showPendingApprovalDialog} onOpenChange={setShowPendingApprovalDialog}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center">
+                <Clock className="h-8 w-8 text-warning" />
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center text-xl">
+              Cadastro em Análise
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-center space-y-4">
+                <p>
+                  Seu cadastro foi recebido com sucesso!
+                </p>
+                {pendingRestaurantName && (
+                  <div className="bg-muted/50 border border-border rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">Estabelecimento:</p>
+                    <p className="font-medium text-foreground">{pendingRestaurantName}</p>
+                  </div>
+                )}
+                <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 text-left">
+                  <p className="text-sm font-medium text-warning mb-2">⏳ Aguardando Liberação</p>
+                  <p className="text-sm text-muted-foreground">
+                    Seu acesso será liberado após a confirmação do pagamento. 
+                    Isso geralmente leva até <strong>24 horas úteis</strong>.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Dúvidas? Entre em contato com nossa equipe.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-col gap-2">
+            <Button
+              variant="outline"
+              className="w-full flex items-center gap-2"
+              onClick={() => window.open('https://wa.me/5511999999999?text=Olá! Gostaria de saber sobre a liberação do meu cadastro no Gamako.', '_blank')}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com Suporte
+            </Button>
+            <Button
+              onClick={() => setShowPendingApprovalDialog(false)}
+              className="w-full"
+            >
+              Entendi
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Suspended Account Dialog */}
       <AlertDialog open={showSuspendedDialog} onOpenChange={setShowSuspendedDialog}>
         <AlertDialogContent className="max-w-md">
@@ -649,19 +716,21 @@ export default function Login() {
             <AlertDialogTitle className="text-center text-xl">
               Acesso Revogado
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-center space-y-3">
-              <p>
-                O acesso ao sistema foi revogado para este estabelecimento.
-              </p>
-              {suspendedReasonMessage && (
-                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-3">
-                  <p className="text-sm font-medium text-destructive">Motivo:</p>
-                  <p className="text-sm text-foreground mt-1">{suspendedReasonMessage}</p>
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground mt-4">
-                Entre em contato com o suporte para mais informações.
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="text-center space-y-3">
+                <p>
+                  O acesso ao sistema foi revogado para este estabelecimento.
+                </p>
+                {suspendedReasonMessage && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-3">
+                    <p className="text-sm font-medium text-destructive">Motivo:</p>
+                    <p className="text-sm text-foreground mt-1">{suspendedReasonMessage}</p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground mt-4">
+                  Entre em contato com o suporte para mais informações.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center">
