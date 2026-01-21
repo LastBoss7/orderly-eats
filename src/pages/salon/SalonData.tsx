@@ -224,13 +224,12 @@ export default function SalonData() {
         await syncTables(settings.table_count, defaultCapacity);
       }
 
-      toast({
+      toast.success({
         title: 'Configurações salvas',
         description: `As configurações do salão foram atualizadas. ${settings.table_count} mesas configuradas.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });

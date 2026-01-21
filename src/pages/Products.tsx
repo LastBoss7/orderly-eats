@@ -146,8 +146,7 @@ export default function Products() {
     if (!file) return;
 
     if (file.size > 4 * 1024 * 1024) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Arquivo muito grande',
         description: 'O tamanho máximo é 4MB.',
       });
@@ -155,8 +154,7 @@ export default function Products() {
     }
 
     if (!file.type.startsWith('image/')) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Tipo inválido',
         description: 'Apenas imagens são permitidas.',
       });
@@ -180,10 +178,9 @@ export default function Products() {
         .getPublicUrl(fileName);
 
       setImageUrl(publicUrl);
-      toast({ title: 'Imagem carregada!' });
+      toast.success({ title: 'Imagem carregada!' });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao enviar imagem',
         description: error.message,
       });
@@ -198,8 +195,7 @@ export default function Products() {
 
   const handleSave = async () => {
     if (!name) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Campo obrigatório',
         description: 'Preencha o nome do produto.',
       });
@@ -208,8 +204,7 @@ export default function Products() {
 
     if (hasSizes) {
       if (!priceSmall && !priceMedium && !priceLarge) {
-        toast({
-          variant: 'destructive',
+        toast.error({
           title: 'Preços obrigatórios',
           description: 'Defina pelo menos um preço de tamanho.',
         });
@@ -217,8 +212,7 @@ export default function Products() {
       }
     } else {
       if (!price) {
-        toast({
-          variant: 'destructive',
+        toast.error({
           title: 'Campo obrigatório',
           description: 'Preencha o preço do produto.',
         });
@@ -283,12 +277,11 @@ export default function Products() {
         if (linkError) throw linkError;
       }
 
-      toast({ title: editingProduct ? 'Produto atualizado!' : 'Produto criado!' });
+      toast.success({ title: editingProduct ? 'Produto atualizado!' : 'Produto criado!' });
       
       if (showCategoryWarning) {
         setTimeout(() => {
-          toast({
-            variant: 'destructive',
+          toast.warning({
             title: 'Atenção: Produto sem categoria',
             description: 'A impressão por categoria pode não funcionar corretamente para este produto.',
           });
@@ -299,8 +292,7 @@ export default function Products() {
       resetForm();
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
@@ -319,8 +311,7 @@ export default function Products() {
       if (error) throw error;
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao atualizar',
         description: error.message,
       });

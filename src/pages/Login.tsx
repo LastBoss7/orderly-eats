@@ -150,13 +150,12 @@ export default function Login() {
     }
 
     if (result.error) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao entrar',
         description: result.error.message,
       });
     } else {
-      toast({
+      toast.success({
         title: 'Bem-vindo!',
         description: 'Login realizado com sucesso.',
       });
@@ -298,8 +297,7 @@ export default function Login() {
     }
 
     if (signupPassword.length < 6) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Senha muito curta',
         description: 'A senha deve ter pelo menos 6 caracteres.',
       });
@@ -307,8 +305,7 @@ export default function Login() {
     }
 
     if (signupPassword !== signupConfirmPassword) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Senhas não coincidem',
         description: 'Por favor, verifique se as senhas são iguais.',
       });
@@ -320,14 +317,13 @@ export default function Login() {
     const result = await signUp(signupEmail, signupPassword, restaurantName, fullName, cnpj, phone.replace(/\D/g, ''));
 
     if (result.error) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao criar conta',
         description: result.error.message,
       });
     } else if (result.userId && result.userEmail) {
       // Redirect to verification page with OTP input
-      toast({
+      toast.success({
         title: 'Conta criada!',
         description: 'Digite o código enviado para seu email.',
       });

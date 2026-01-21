@@ -248,7 +248,7 @@ export default function BulkEdit() {
 
       await Promise.all(updates);
 
-      toast({ 
+      toast.success({ 
         title: 'Alterações salvas!',
         description: `${pendingChanges.length} alteração(ões) aplicada(s) com sucesso.`
       });
@@ -257,8 +257,7 @@ export default function BulkEdit() {
       setSelectedProducts([]);
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
@@ -278,7 +277,7 @@ export default function BulkEdit() {
 
       if (error) throw error;
 
-      toast({ 
+      toast.success({ 
         title: 'Produtos excluídos!',
         description: `${selectedProducts.length} produto(s) excluído(s) com sucesso.`
       });
@@ -287,8 +286,7 @@ export default function BulkEdit() {
       setShowDeleteDialog(false);
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao excluir',
         description: error.message,
       });

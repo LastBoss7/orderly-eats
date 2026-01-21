@@ -40,14 +40,13 @@ export function PrintSettingsModal({
     setLoading(false);
 
     if (success) {
-      toast({
+      toast.success({
         title: 'Configurações salvas!',
         description: 'As configurações de impressão foram atualizadas.',
       });
       onOpenChange(false);
     } else {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: 'Não foi possível salvar as configurações.',
       });

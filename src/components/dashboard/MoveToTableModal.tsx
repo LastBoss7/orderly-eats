@@ -102,7 +102,7 @@ export function MoveToTableModal({
       if (tableError) throw tableError;
 
       const selectedTable = tables.find(t => t.id === selectedTableId);
-      toast({
+      toast.success({
         title: 'Pedido movido!',
         description: `Pedido #${order.id.slice(0, 4).toUpperCase()} foi movido para a Mesa ${selectedTable?.number}`,
       });
@@ -111,8 +111,7 @@ export function MoveToTableModal({
       setSelectedTableId('');
       onOrderMoved();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao mover pedido',
         description: error.message,
       });

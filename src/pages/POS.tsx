@@ -216,8 +216,7 @@ export default function POS() {
 
   const handleOpenPaymentModal = () => {
     if (cart.length === 0) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Carrinho vazio',
         description: 'Adicione produtos ao pedido.',
       });
@@ -229,8 +228,7 @@ export default function POS() {
 
   const handleConfirmPayment = async () => {
     if (!selectedPayment) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Selecione a forma de pagamento',
         description: 'Escolha como o cliente vai pagar.',
       });
@@ -287,7 +285,7 @@ export default function POS() {
 
       if (itemsError) throw itemsError;
 
-      toast({
+      toast.success({
         title: 'Pedido finalizado!',
         description: `Pedido #${orderNumber} - ${paymentMethods.find(p => p.id === selectedPayment)?.label}`,
       });
@@ -298,8 +296,7 @@ export default function POS() {
       setShowPaymentModal(false);
       setSelectedPayment(null);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao criar pedido',
         description: error.message,
       });

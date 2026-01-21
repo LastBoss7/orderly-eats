@@ -86,8 +86,7 @@ export default function SalonAreas() {
 
   const handleAddArea = async () => {
     if (!newArea.name.trim()) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: 'Nome da área é obrigatório.',
       });
@@ -119,13 +118,12 @@ export default function SalonAreas() {
       setIsDialogOpen(false);
       fetchAreas();
 
-      toast({
+      toast.success({
         title: 'Área adicionada',
         description: `${newArea.name} foi criada com sucesso.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });
@@ -144,13 +142,12 @@ export default function SalonAreas() {
       if (error) throw error;
       fetchAreas();
 
-      toast({
+      toast.success({
         title: 'Área removida',
         description: 'A área foi removida do salão.',
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });

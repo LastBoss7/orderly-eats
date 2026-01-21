@@ -110,8 +110,7 @@ export default function WaiterManagement() {
 
   const handleAddWaiter = async () => {
     if (!newWaiter.name.trim()) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: 'Nome do garçom é obrigatório.',
       });
@@ -151,8 +150,7 @@ export default function WaiterManagement() {
         if (pinError || data?.error) {
           // Rollback: delete the waiter if PIN setting failed
           await supabase.from('waiters').delete().eq('id', insertedWaiter.id);
-          toast({
-            variant: 'destructive',
+          toast.error({
             title: 'Erro',
             description: data?.error || 'Erro ao definir PIN.',
           });
@@ -165,13 +163,12 @@ export default function WaiterManagement() {
       setIsDialogOpen(false);
       fetchWaiters();
 
-      toast({
+      toast.success({
         title: 'Garçom adicionado',
         description: `${newWaiter.name} foi adicionado à equipe.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });
@@ -192,13 +189,12 @@ export default function WaiterManagement() {
       if (error) throw error;
       fetchWaiters();
 
-      toast({
+      toast.success({
         title: 'Status atualizado',
         description: `Garçom ${newStatus === 'active' ? 'ativado' : 'desativado'}.`,
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });
@@ -220,8 +216,7 @@ export default function WaiterManagement() {
         });
 
         if (pinError || data?.error) {
-          toast({
-            variant: 'destructive',
+          toast.error({
             title: 'Erro',
             description: data?.error || 'Erro ao definir PIN.',
           });
@@ -242,13 +237,12 @@ export default function WaiterManagement() {
       setEditingWaiter(null);
       setEditPin('');
 
-      toast({
+      toast.success({
         title: 'PIN atualizado',
         description: 'O PIN do garçom foi atualizado com sucesso.',
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });
@@ -265,7 +259,7 @@ export default function WaiterManagement() {
     await navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
-    toast({
+    toast.success({
       title: 'Link copiado!',
       description: 'O link de acesso foi copiado para a área de transferência.',
     });
@@ -308,8 +302,7 @@ export default function WaiterManagement() {
       setIsGenericInvite(!waiter);
       setShowInviteModal(true);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro',
         description: error.message,
       });
@@ -322,7 +315,7 @@ export default function WaiterManagement() {
   const copyInviteLink = async () => {
     if (!inviteLink) return;
     await navigator.clipboard.writeText(inviteLink);
-    toast({
+    toast.success({
       title: 'Link copiado!',
       description: 'O link de convite foi copiado para a área de transferência.',
     });

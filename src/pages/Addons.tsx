@@ -132,8 +132,7 @@ export default function Addons() {
 
   const handleSaveGroup = async () => {
     if (!groupName) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Campo obrigatório',
         description: 'Preencha o nome do grupo.',
       });
@@ -159,19 +158,18 @@ export default function Addons() {
           .eq('id', editingGroup.id);
 
         if (error) throw error;
-        toast({ title: 'Grupo atualizado!' });
+        toast.success({ title: 'Grupo atualizado!' });
       } else {
         const { error } = await supabase.from('addon_groups').insert(groupData);
         if (error) throw error;
-        toast({ title: 'Grupo criado!' });
+        toast.success({ title: 'Grupo criado!' });
       }
 
       setShowGroupDialog(false);
       resetGroupForm();
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
@@ -182,8 +180,7 @@ export default function Addons() {
 
   const handleSaveAddon = async () => {
     if (!addonName || !addonGroupId) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Campo obrigatório',
         description: 'Preencha o nome do adicional.',
       });
@@ -207,19 +204,18 @@ export default function Addons() {
           .eq('id', editingAddon.id);
 
         if (error) throw error;
-        toast({ title: 'Adicional atualizado!' });
+        toast.success({ title: 'Adicional atualizado!' });
       } else {
         const { error } = await supabase.from('addons').insert(addonData);
         if (error) throw error;
-        toast({ title: 'Adicional criado!' });
+        toast.success({ title: 'Adicional criado!' });
       }
 
       setShowAddonDialog(false);
       resetAddonForm();
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
@@ -238,8 +234,7 @@ export default function Addons() {
       if (error) throw error;
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao atualizar',
         description: error.message,
       });
@@ -256,8 +251,7 @@ export default function Addons() {
       if (error) throw error;
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao atualizar',
         description: error.message,
       });
@@ -274,11 +268,10 @@ export default function Addons() {
         .eq('id', group.id);
 
       if (error) throw error;
-      toast({ title: 'Grupo excluído!' });
+      toast.success({ title: 'Grupo excluído!' });
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao excluir',
         description: error.message,
       });
@@ -295,11 +288,10 @@ export default function Addons() {
         .eq('id', addon.id);
 
       if (error) throw error;
-      toast({ title: 'Adicional excluído!' });
+      toast.success({ title: 'Adicional excluído!' });
       fetchData();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao excluir',
         description: error.message,
       });

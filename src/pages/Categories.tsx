@@ -71,8 +71,7 @@ export default function Categories() {
 
   const handleSave = async () => {
     if (!name) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Campo obrigatório',
         description: 'Preencha o nome da categoria.',
       });
@@ -95,19 +94,18 @@ export default function Categories() {
           .eq('id', editingCategory.id);
 
         if (error) throw error;
-        toast({ title: 'Categoria atualizada!' });
+        toast.success({ title: 'Categoria atualizada!' });
       } else {
         const { error } = await supabase.from('categories').insert(categoryData);
         if (error) throw error;
-        toast({ title: 'Categoria criada!' });
+        toast.success({ title: 'Categoria criada!' });
       }
 
       setShowDialog(false);
       resetForm();
       fetchCategories();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
@@ -126,11 +124,10 @@ export default function Categories() {
         .eq('id', categoryId);
 
       if (error) throw error;
-      toast({ title: 'Categoria excluída!' });
+      toast.success({ title: 'Categoria excluída!' });
       fetchCategories();
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao excluir',
         description: error.message,
       });
