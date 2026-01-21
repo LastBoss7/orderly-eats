@@ -349,48 +349,134 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
     }
   };
 
-  // Reprint single order via Electron
+  // Reprint single order via Edge Function (bypass RLS)
   const handleReprintOrder = async (order: Order) => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return;
+    }
+    
     setReprintingOrder(order.id);
     setOpenOrderMenu(null);
     
     try {
-      // Send to Electron app for thermal printing
-      await reprintOrder({
-        orderId: order.id,
-        orderNumber: order.id.slice(0, 8).toUpperCase(),
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=reprint-order&restaurant_id=${effectiveRestaurantId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: order.id,
+            order_number: order.id.slice(0, 8).toUpperCase(),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao reimprimir pedido');
+      }
+
+      toast.success('Reimpressão enviada!', {
+        description: `Pedido será reimpresso (${result.print_count}ª via)`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error reprinting order:', error);
-      toast.error('Erro ao reimprimir pedido');
+      toast.error('Erro ao reimprimir pedido', {
+        description: error.message,
+      });
     } finally {
       setReprintingOrder(null);
     }
   };
 
+  // Mark order as served via Edge Function (bypass RLS)
+  const handleMarkAsServed = async (order: Order) => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return;
+    }
+    
+    setOpenOrderMenu(null);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=update-order-status&restaurant_id=${effectiveRestaurantId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_id: order.id,
+            status: 'served',
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao marcar como servido');
+      }
+
+      toast.success('Pedido marcado como servido!');
+      fetchOrders(); // Refresh orders
+    } catch (error: any) {
+      console.error('Error marking as served:', error);
+      toast.error('Erro ao marcar como servido', {
+        description: error.message,
+      });
+    }
+  };
+
   const handleCloseTable = async () => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return;
+    }
+    
     setClosing(true);
     
     try {
-      // Update all orders to delivered
-      for (const order of orders) {
-        await supabase
-          .from('orders')
-          .update({ status: 'delivered' })
-          .eq('id', order.id);
+      // Use edge function to close orders (bypass RLS)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=close-orders&restaurant_id=${effectiveRestaurantId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_ids: orders.map(o => o.id),
+            table_id: table.id,
+            payment_method: paymentMethod,
+            cash_received: paymentMethod === 'cash' ? cashReceived : null,
+            change_given: paymentMethod === 'cash' ? change : null,
+            split_count: splitMode === 'equal' ? numPeople : null,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao fechar mesa');
       }
-      
-      // Set table to available
-      await supabase
-        .from('tables')
-        .update({ status: 'available' })
-        .eq('id', table.id);
       
       toast.success(`Mesa ${table.number} fechada com sucesso!`);
       onTableClosed();
     } catch (error: any) {
       console.error('Error closing table:', error);
-      toast.error('Erro ao fechar mesa');
+      toast.error('Erro ao fechar mesa', {
+        description: error.message,
+      });
     } finally {
       setClosing(false);
     }
@@ -718,6 +804,15 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
                               <RotateCcw className="w-4 h-4" />
                               <span className="text-sm font-medium">Reimprimir Pedido</span>
                             </button>
+                            {order.status === 'ready' && (
+                              <button
+                                onClick={() => handleMarkAsServed(order)}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-green-700 hover:bg-green-50 border-t"
+                              >
+                                <Check className="w-4 h-4" />
+                                <span className="text-sm font-medium">Marcar como Servido</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

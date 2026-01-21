@@ -620,6 +620,139 @@ Deno.serve(async (req) => {
       );
     }
 
+    // POST reprint order
+    if (req.method === "POST" && action === "reprint-order") {
+      const body = await req.json();
+      
+      if (!body.order_id) {
+        return new Response(
+          JSON.stringify({ error: "order_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get current print count
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from("orders")
+        .select("print_count, order_number")
+        .eq("id", body.order_id)
+        .eq("restaurant_id", restaurantId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newPrintCount = (currentOrder?.print_count || 0) + 1;
+
+      // Update order to pending print status
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({
+          print_status: "pending",
+          print_count: newPrintCount,
+          printed_at: null,
+        })
+        .eq("id", body.order_id)
+        .eq("restaurant_id", restaurantId);
+
+      if (updateError) throw updateError;
+
+      // Log the reprint request
+      await supabase.from("print_logs").insert({
+        restaurant_id: restaurantId,
+        order_id: body.order_id,
+        order_number: currentOrder?.order_number?.toString() || body.order_number || null,
+        event_type: "reprint",
+        status: "pending",
+        printer_name: "Electron App",
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, print_count: newPrintCount }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST update order status (mark as served, delivered, etc.)
+    if (req.method === "POST" && action === "update-order-status") {
+      const body = await req.json();
+      
+      if (!body.order_id || !body.status) {
+        return new Response(
+          JSON.stringify({ error: "order_id and status are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Validate status
+      const validStatuses = ["pending", "preparing", "ready", "served", "delivered", "cancelled"];
+      if (!validStatuses.includes(body.status)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid status" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, any> = {
+        status: body.status,
+      };
+
+      // Add closed_at timestamp if marking as delivered
+      if (body.status === "delivered") {
+        updateData.closed_at = new Date().toISOString();
+      }
+
+      // Add ready_at timestamp if marking as ready
+      if (body.status === "ready") {
+        updateData.ready_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from("orders")
+        .update(updateData)
+        .eq("id", body.order_id)
+        .eq("restaurant_id", restaurantId);
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // POST bulk update order status (for closing table/tab)
+    if (req.method === "POST" && action === "bulk-update-order-status") {
+      const body = await req.json();
+      
+      if (!body.order_ids || !Array.isArray(body.order_ids) || !body.status) {
+        return new Response(
+          JSON.stringify({ error: "order_ids array and status are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updateData: Record<string, any> = {
+        status: body.status,
+      };
+
+      if (body.status === "delivered") {
+        updateData.closed_at = new Date().toISOString();
+      }
+
+      for (const orderId of body.order_ids) {
+        await supabase
+          .from("orders")
+          .update(updateData)
+          .eq("id", orderId)
+          .eq("restaurant_id", restaurantId);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: "Invalid action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
