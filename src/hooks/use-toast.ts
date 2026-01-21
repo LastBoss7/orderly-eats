@@ -169,6 +169,19 @@ function toast({ ...props }: Toast) {
   };
 }
 
+// Convenience methods for common toast types
+toast.success = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "success" as const });
+
+toast.error = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "destructive" as const });
+
+toast.warning = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "warning" as const });
+
+toast.info = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "info" as const });
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 
