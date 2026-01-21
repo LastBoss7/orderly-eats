@@ -47,8 +47,7 @@ export function EditPrepTimeModal({
     // Validate values
     if (values.counter_min < 0 || values.counter_max < 0 || 
         values.delivery_min < 0 || values.delivery_max < 0) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Valores inválidos',
         description: 'Os tempos não podem ser negativos.',
       });
@@ -56,8 +55,7 @@ export function EditPrepTimeModal({
     }
 
     if (values.counter_min > values.counter_max) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Valores inválidos',
         description: 'Tempo mínimo do balcão não pode ser maior que o máximo.',
       });
@@ -65,8 +63,7 @@ export function EditPrepTimeModal({
     }
 
     if (values.delivery_min > values.delivery_max) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Valores inválidos',
         description: 'Tempo mínimo do delivery não pode ser maior que o máximo.',
       });
@@ -111,7 +108,7 @@ export function EditPrepTimeModal({
         if (error) throw error;
       }
 
-      toast({
+      toast.success({
         title: 'Tempos salvos!',
         description: 'Os tempos de preparo foram atualizados.',
       });
@@ -119,8 +116,7 @@ export function EditPrepTimeModal({
       onSave(values);
       onOpenChange(false);
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });

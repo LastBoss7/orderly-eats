@@ -131,10 +131,9 @@ export function useOrderNotifications(restaurantId: string | undefined) {
           
           const orderNumber = order.order_number || order.id.slice(0, 4).toUpperCase();
           
-          toast({
+          toast.info({
             title: '🔔 Novo Pedido!',
             description: `Pedido #${orderNumber} recebido`,
-            duration: 5000,
           });
 
           addNotification({
@@ -169,11 +168,9 @@ export function useOrderNotifications(restaurantId: string | undefined) {
         // Play alert sound for delayed orders
         playAlertSound();
         
-        toast({
-          variant: 'destructive',
+        toast.error({
           title: '⚠️ Pedidos Atrasados!',
           description: `${delayedOrders.length} pedido(s) há mais de 30 minutos`,
-          duration: 10000,
         });
       }
     };

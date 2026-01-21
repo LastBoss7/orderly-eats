@@ -51,19 +51,17 @@ export function MenuImportModal({
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({
+      toast.error({
         title: "Arquivo inválido",
         description: "Por favor, selecione uma imagem (JPG, PNG, etc.)",
-        variant: "destructive",
       });
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      toast({
+      toast.error({
         title: "Arquivo muito grande",
         description: "O tamanho máximo é 10MB",
-        variant: "destructive",
       });
       return;
     }
@@ -107,16 +105,15 @@ export function MenuImportModal({
       setStep("review");
 
       const sizesCount = products.filter((p: ExtractedProduct) => p.has_sizes).length;
-      toast({
+      toast.success({
         title: "Cardápio analisado!",
         description: `${products.length} produtos encontrados${sizesCount > 0 ? ` (${sizesCount} com tamanhos P/M/G)` : ""}. Revise antes de importar.`,
       });
     } catch (error) {
       console.error("Error extracting menu:", error);
-      toast({
+      toast.error({
         title: "Erro ao analisar cardápio",
         description: error instanceof Error ? error.message : "Tente novamente",
-        variant: "destructive",
       });
     } finally {
       setIsExtracting(false);

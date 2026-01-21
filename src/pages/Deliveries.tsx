@@ -273,7 +273,7 @@ export default function Deliveries() {
   const fetchAddressByCep = async () => {
     const cep = customerCep.replace(/\D/g, '');
     if (cep.length !== 8) {
-      toast({ variant: 'destructive', title: 'CEP inválido', description: 'O CEP deve ter 8 dígitos.' });
+      toast.error({ title: 'CEP inválido', description: 'O CEP deve ter 8 dígitos.' });
       return;
     }
 
@@ -283,7 +283,7 @@ export default function Deliveries() {
       const data = await response.json();
 
       if (data.erro) {
-        toast({ variant: 'destructive', title: 'CEP não encontrado' });
+        toast.error({ title: 'CEP não encontrado' });
         return;
       }
 
@@ -291,9 +291,9 @@ export default function Deliveries() {
       setCustomerNeighborhood(data.bairro || '');
       setCustomerCity(data.localidade || '');
       setCustomerState(data.uf || '');
-      toast({ title: 'Endereço preenchido!' });
+      toast.success({ title: 'Endereço preenchido!' });
     } catch {
-      toast({ variant: 'destructive', title: 'Erro ao buscar CEP' });
+      toast.error({ title: 'Erro ao buscar CEP' });
     } finally {
       setFetchingCep(false);
     }
@@ -341,7 +341,7 @@ export default function Deliveries() {
 
   const saveCustomer = async (): Promise<Customer | null> => {
     if (!customerName || !customerPhone) {
-      toast({ variant: 'destructive', title: 'Preencha nome e telefone' });
+      toast.error({ title: 'Preencha nome e telefone' });
       return null;
     }
 
@@ -388,26 +388,25 @@ export default function Deliveries() {
         return data;
       }
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar cliente', description: error.message });
+      toast.error({ title: 'Erro ao salvar cliente', description: error.message });
       return null;
     }
   };
 
   const createOrder = async () => {
     if (orderItems.length === 0) {
-      toast({ variant: 'destructive', title: 'Adicione itens ao pedido' });
+      toast.error({ title: 'Adicione itens ao pedido' });
       return;
     }
 
     if (!customerName || !customerPhone || !customerAddress) {
-      toast({ variant: 'destructive', title: 'Preencha os dados do cliente e endereço' });
+      toast.error({ title: 'Preencha os dados do cliente e endereço' });
       return;
     }
 
     // Check minimum order value
     if (selectedDeliveryFee?.min_order_value && calculateSubtotal() < selectedDeliveryFee.min_order_value) {
-      toast({ 
-        variant: 'destructive', 
+      toast.error({ 
         title: 'Pedido mínimo não atingido',
         description: `O pedido mínimo para ${selectedDeliveryFee.neighborhood} é ${formatCurrency(selectedDeliveryFee.min_order_value)}`
       });

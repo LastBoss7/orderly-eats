@@ -86,11 +86,11 @@ export default function SoundSettings() {
 
   const playTestSound = useCallback(() => {
     playDoubleBell(0.6);
-    toast({
+    toast.info({
       title: '🔔 Som de teste',
       description: 'Este é o som que será tocado para novos pedidos.',
     });
-  }, [toast]);
+  }, []);
 
   const handleSave = async () => {
     if (!restaurant?.id) return;
@@ -125,13 +125,12 @@ export default function SoundSettings() {
         setSettings(prev => ({ ...prev, id: data.id }));
       }
 
-      toast({
+      toast.success({
         title: 'Configurações salvas',
         description: 'As configurações de som foram atualizadas.',
       });
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
+      toast.error({
         title: 'Erro ao salvar',
         description: error.message,
       });
