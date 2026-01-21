@@ -471,7 +471,7 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       .select('total')
       .eq('restaurant_id', restaurantId)
       .eq('tab_id', tabId)
-      .in('status', ['pending', 'preparing', 'ready']);
+      .in('status', ['pending', 'preparing', 'ready', 'served']);
     return data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 

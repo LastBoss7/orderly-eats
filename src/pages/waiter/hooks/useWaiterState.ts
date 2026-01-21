@@ -49,7 +49,7 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
       .from('orders')
       .select('total')
       .eq('table_id', tableId)
-      .in('status', ['pending', 'preparing', 'ready']);
+      .in('status', ['pending', 'preparing', 'ready', 'served']);
     
     return (data || []).reduce((sum, o) => sum + (o.total || 0), 0);
   }, [restaurantId]);
@@ -62,7 +62,7 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
         .from('orders')
         .select('*, order_items(*)')
         .eq('table_id', tableId)
-        .in('status', ['pending', 'preparing', 'ready'])
+        .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
       
       setTableOrders(data || []);
@@ -81,7 +81,7 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
         .from('orders')
         .select('*, order_items(*)')
         .eq('tab_id', tabId)
-        .in('status', ['pending', 'preparing', 'ready'])
+        .in('status', ['pending', 'preparing', 'ready', 'served'])
         .order('created_at', { ascending: false });
       
       setTableOrders(data || []);

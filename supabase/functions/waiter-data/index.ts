@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         .select(`*, order_items (*), waiters (id, name)`)
         .eq("restaurant_id", restaurantId)
         .eq("table_id", tableId)
-        .in("status", ["pending", "preparing", "ready"])
+        .in("status", ["pending", "preparing", "ready", "served"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         .select(`*, order_items (*), waiters (id, name)`)
         .eq("restaurant_id", restaurantId)
         .eq("tab_id", tabId)
-        .in("status", ["pending", "preparing", "ready"])
+        .in("status", ["pending", "preparing", "ready", "served"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;
@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         .select("total")
         .eq("restaurant_id", restaurantId)
         .eq("table_id", tableId)
-        .in("status", ["pending", "preparing", "ready"]);
+        .in("status", ["pending", "preparing", "ready", "served"]);
 
       if (error) throw error;
       const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
@@ -488,7 +488,7 @@ Deno.serve(async (req) => {
         .select("total")
         .eq("restaurant_id", restaurantId)
         .eq("tab_id", tabId)
-        .in("status", ["pending", "preparing", "ready"]);
+        .in("status", ["pending", "preparing", "ready", "served"]);
 
       if (error) throw error;
       const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
