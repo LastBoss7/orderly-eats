@@ -333,28 +333,47 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed, restaurantId: propRe
   };
 
   const handleCloseTab = async () => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return;
+    }
+    
     setClosing(true);
     
     try {
-      // Update all orders to delivered
-      for (const order of orders) {
-        await supabase
-          .from('orders')
-          .update({ status: 'delivered' })
-          .eq('id', order.id);
+      // Use edge function to close orders (bypass RLS)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/waiter-data?action=close-orders&restaurant_id=${effectiveRestaurantId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            order_ids: orders.map(o => o.id),
+            tab_id: tab.id,
+            payment_method: paymentMethod,
+            cash_received: paymentMethod === 'cash' ? cashReceived : null,
+            change_given: paymentMethod === 'cash' && cashReceived > grandTotal ? cashReceived - grandTotal : null,
+            split_count: splitMode === 'equal' ? numPeople : null,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao fechar comanda');
       }
-      
-      // Set tab to available
-      await supabase
-        .from('tabs')
-        .update({ status: 'available', customer_name: null })
-        .eq('id', tab.id);
       
       toast.success(`Comanda ${tab.number} fechada com sucesso!`);
       onTabClosed();
     } catch (error: any) {
       console.error('Error closing tab:', error);
-      toast.error('Erro ao fechar comanda');
+      toast.error('Erro ao fechar comanda', {
+        description: error.message,
+      });
     } finally {
       setClosing(false);
     }
