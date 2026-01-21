@@ -16,7 +16,9 @@ import {
   User,
   Clock,
   Wallet,
+  Printer,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 
@@ -35,9 +37,11 @@ interface SplitPaymentPanelProps {
   existingPayments?: IndividualPayment[];
   onPaymentAdded: (payment: Omit<IndividualPayment, 'id' | 'createdAt'>) => Promise<void>;
   onPaymentRemoved?: (paymentId: string) => Promise<void>;
+  onPrintPayment?: (payment: IndividualPayment) => Promise<void>;
   onCloseAccount: () => Promise<void>;
   isClosing?: boolean;
   entityLabel: string;
+  entityNumber?: number;
 }
 
 const paymentMethods = [
@@ -66,9 +70,11 @@ export function SplitPaymentPanel({
   existingPayments = [],
   onPaymentAdded,
   onPaymentRemoved,
+  onPrintPayment,
   onCloseAccount,
   isClosing = false,
   entityLabel,
+  entityNumber,
 }: SplitPaymentPanelProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('pix');
   const [amount, setAmount] = useState('');
@@ -116,6 +122,17 @@ export function SplitPaymentPanel({
   const handleRemovePayment = async (paymentId: string) => {
     if (onPaymentRemoved) {
       await onPaymentRemoved(paymentId);
+    }
+  };
+
+  const handlePrintPayment = async (payment: IndividualPayment) => {
+    if (onPrintPayment) {
+      try {
+        await onPrintPayment(payment);
+        toast.success('Comprovante enviado para impressão!');
+      } catch (error) {
+        toast.error('Erro ao imprimir comprovante');
+      }
     }
   };
 
@@ -226,16 +243,29 @@ export function SplitPaymentPanel({
                         )}
                       </div>
                     </div>
-                    {onPaymentRemoved && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive transition-opacity"
-                        onClick={() => handleRemovePayment(payment.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {onPrintPayment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-opacity"
+                          onClick={() => handlePrintPayment(payment)}
+                          title="Imprimir comprovante"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {onPaymentRemoved && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive transition-opacity"
+                          onClick={() => handleRemovePayment(payment.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
