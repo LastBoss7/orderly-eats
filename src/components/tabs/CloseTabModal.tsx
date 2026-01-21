@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
+import { SplitPaymentPanel, IndividualPayment } from '@/components/payment/SplitPaymentPanel';
 
 interface OrderItem {
   id: string;
@@ -710,10 +711,68 @@ export function CloseTabModal({
                   onClick={() => setSplitMode('partial')}
                 >
                   <Wallet className="w-5 h-5" />
-                  <span className="text-xs font-medium">Parcial</span>
+                  <span className="text-xs font-medium">Individual</span>
                 </button>
               </div>
             </div>
+
+            {/* Individual Split Payments Panel */}
+            {splitMode === 'partial' && (
+              <SplitPaymentPanel
+                total={grandTotal}
+                existingPayments={existingPayments.map(p => ({
+                  id: p.id,
+                  amount: p.amount,
+                  method: p.payment_method as 'cash' | 'credit' | 'debit' | 'pix',
+                  paidBy: p.paid_by || 'Pessoa',
+                  cashReceived: undefined,
+                  changeGiven: undefined,
+                  createdAt: p.created_at,
+                }))}
+                onPaymentAdded={async (payment) => {
+                  if (!tab || !restaurant?.id) return;
+                  
+                  const { error } = await supabase
+                    .from('tab_payments')
+                    .insert({
+                      restaurant_id: restaurant.id,
+                      tab_id: tab.id,
+                      amount: payment.amount,
+                      payment_method: payment.method,
+                      paid_by: payment.paidBy,
+                      cash_received: payment.cashReceived || null,
+                      change_given: payment.changeGiven || null,
+                    });
+
+                  if (error) throw error;
+
+                  // Refresh payments
+                  const { data } = await supabase
+                    .from('tab_payments')
+                    .select('*')
+                    .eq('restaurant_id', restaurant?.id)
+                    .eq('tab_id', tab.id)
+                    .order('created_at', { ascending: true });
+                  
+                  setExistingPayments(data || []);
+                  toast.success(`Pagamento de ${formatCurrency(payment.amount)} registrado!`);
+                }}
+                onPaymentRemoved={async (paymentId) => {
+                  const { error } = await supabase
+                    .from('tab_payments')
+                    .delete()
+                    .eq('id', paymentId);
+
+                  if (error) throw error;
+
+                  setExistingPayments(prev => prev.filter(p => p.id !== paymentId));
+                  toast.success('Pagamento removido');
+                }}
+                onCloseAccount={handleCloseTab}
+                isClosing={loading}
+                entityLabel={`Comanda #${tab?.number}`}
+              />
+            )}
 
             {/* Equal Split Options */}
             {splitMode === 'equal' && (
@@ -821,79 +880,41 @@ export function CloseTabModal({
               </div>
             )}
 
-            {/* Partial Payment Options */}
-            {splitMode === 'partial' && (
-              <div className="bg-purple-50 dark:bg-purple-950/30 rounded-xl p-5 space-y-4 border border-purple-200 dark:border-purple-800">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Valor a Pagar</Label>
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={partialAmount || ''}
-                    onChange={(e) => setPartialAmount(parseFloat(e.target.value) || 0)}
-                    className="text-xl h-14 font-semibold"
-                    max={remainingTotal}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Máximo: {formatCurrency(remainingTotal)}
-                  </p>
+            {/* Payment Method - Only show when NOT in partial mode */}
+            {splitMode !== 'partial' && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Forma de Pagamento
+                </h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {[
+                    { key: 'cash', icon: Banknote, label: 'Dinheiro' },
+                    { key: 'credit', icon: CreditCard, label: 'Crédito' },
+                    { key: 'debit', icon: CreditCard, label: 'Débito' },
+                    { key: 'pix', icon: QrCode, label: 'PIX' },
+                    { key: 'mixed', icon: Calculator, label: 'Múltiplos' },
+                  ].map(({ key, icon: Icon, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                        paymentMethod === key 
+                          ? 'border-primary bg-primary/5 text-primary' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                      }`}
+                      onClick={() => setPaymentMethod(key as PaymentMethod)}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xs font-medium">{label}</span>
+                    </button>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Quem está pagando? (opcional)</Label>
-                  <Input
-                    placeholder="Ex: João"
-                    value={partialPaidBy}
-                    onChange={(e) => setPartialPaidBy(e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-                {partialAmount > 0 && (
-                  <div className="text-center py-3 bg-white dark:bg-gray-800 rounded-xl">
-                    <p className="text-sm text-muted-foreground mb-1">Valor do pagamento</p>
-                    <p className="text-3xl font-bold text-primary">
-                      {formatCurrency(partialAmount)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Restará: {formatCurrency(Math.max(0, remainingTotal - partialAmount))}
-                    </p>
-                  </div>
-                )}
               </div>
             )}
 
-            {/* Payment Method */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Forma de Pagamento
-              </h3>
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  { key: 'cash', icon: Banknote, label: 'Dinheiro' },
-                  { key: 'credit', icon: CreditCard, label: 'Crédito' },
-                  { key: 'debit', icon: CreditCard, label: 'Débito' },
-                  { key: 'pix', icon: QrCode, label: 'PIX' },
-                  { key: 'mixed', icon: Calculator, label: 'Múltiplos' },
-                ].map(({ key, icon: Icon, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
-                      paymentMethod === key 
-                        ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                    }`}
-                    onClick={() => setPaymentMethod(key as PaymentMethod)}
-                  >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Cash Change Calculator */}
-            {paymentMethod === 'cash' && (
-              <div className="bg-green-50 dark:bg-green-950/30 rounded-xl p-5 space-y-4 border border-green-200 dark:border-green-800">
+            {/* Cash Change Calculator - Only show when NOT in partial mode */}
+            {splitMode !== 'partial' && paymentMethod === 'cash' && (
+              <div className="bg-success/10 rounded-xl p-5 space-y-4 border border-success/30">
                 <Label className="text-sm font-medium">Valor Recebido</Label>
                 <Input
                   type="number"
@@ -903,10 +924,10 @@ export function CloseTabModal({
                   className="text-xl h-14 font-semibold"
                 />
                 {cashReceived > 0 && (
-                  <div className="flex justify-between items-center py-3 px-4 bg-white dark:bg-gray-800 rounded-xl">
+                  <div className="flex justify-between items-center py-3 px-4 bg-card rounded-xl">
                     <span className="text-muted-foreground font-medium">Troco:</span>
-                    <span className={`text-2xl font-bold ${(splitMode === 'partial' ? partialChange : change) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                      {formatCurrency(splitMode === 'partial' ? partialChange : change)}
+                    <span className={`text-2xl font-bold ${change >= 0 ? 'text-success' : 'text-destructive'}`}>
+                      {formatCurrency(change)}
                     </span>
                   </div>
                 )}
@@ -915,38 +936,24 @@ export function CloseTabModal({
           </div>
         </ScrollArea>
 
-        {/* Actions */}
-        <div className="flex gap-3 p-6 border-t bg-muted/30">
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2 h-12"
-            onClick={handlePrintReceipt}
-            disabled={printingReceipt}
-          >
-            {printingReceipt ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Printer className="w-4 h-4" />
-            )}
-            Conferência
-          </Button>
-          
-          {splitMode === 'partial' ? (
+        {/* Actions - Only show when NOT in partial mode (partial has its own buttons) */}
+        {splitMode !== 'partial' && (
+          <div className="flex gap-3 p-6 border-t bg-muted/30">
             <Button
               type="button"
-              className="flex-1 gap-2 h-12 text-base font-semibold bg-purple-600 hover:bg-purple-700"
-              onClick={handlePartialPayment}
-              disabled={loading || partialAmount <= 0 || partialAmount > remainingTotal}
+              variant="outline"
+              className="gap-2 h-12"
+              onClick={handlePrintReceipt}
+              disabled={printingReceipt}
             >
-              {loading ? (
+              {printingReceipt ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Wallet className="w-4 h-4" />
+                <Printer className="w-4 h-4" />
               )}
-              Registrar Pagamento
+              Conferência
             </Button>
-          ) : (
+            
             <Button
               type="button"
               className="flex-1 gap-2 h-12 text-base font-semibold"
@@ -960,8 +967,8 @@ export function CloseTabModal({
               )}
               Fechar Comanda
             </Button>
-          )}
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -29,9 +29,11 @@ import {
   Minus,
   Plus,
   Percent,
+  Wallet,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { usePrintToElectron } from '@/hooks/usePrintToElectron';
+import { SplitPaymentPanel, IndividualPayment } from '@/components/payment/SplitPaymentPanel';
 
 interface OrderItem {
   id: string;
@@ -73,7 +75,15 @@ interface SelectedItem {
 }
 
 type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix' | 'mixed';
-type SplitMode = 'none' | 'equal' | 'by-item';
+type SplitMode = 'none' | 'equal' | 'by-item' | 'individual';
+
+interface TablePayment {
+  id: string;
+  amount: number;
+  payment_method: string;
+  paid_by: string | null;
+  created_at: string;
+}
 
 export function CloseTableModal({ 
   open, 
@@ -92,8 +102,9 @@ export function CloseTableModal({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [printingReceipt, setPrintingReceipt] = useState(false);
-  const [step, setStep] = useState<'summary' | 'split' | 'payment'>('summary');
+  const [step, setStep] = useState<'summary' | 'split' | 'payment' | 'individual'>('summary');
   const [includeServiceCharge, setIncludeServiceCharge] = useState(false);
+  const [individualPayments, setIndividualPayments] = useState<TablePayment[]>([]);
   
   // Service charge rate (10%)
   const SERVICE_CHARGE_RATE = 0.10;
@@ -151,6 +162,7 @@ export function CloseTableModal({
       setCashReceived(0);
       setStep('summary');
       setIncludeServiceCharge(false);
+      setIndividualPayments([]);
     }
   }, [open]);
 
@@ -524,7 +536,7 @@ export function CloseTableModal({
                 </h3>
                 
                 {/* Split Mode Options */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
                     className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
@@ -560,6 +572,18 @@ export function CloseTableModal({
                   >
                     <Divide className="w-5 h-5" />
                     <span className="text-xs font-medium">Por Item</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
+                      splitMode === 'individual' 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                    onClick={() => { setSplitMode('individual'); setStep('individual'); }}
+                  >
+                    <Wallet className="w-5 h-5" />
+                    <span className="text-xs font-medium">Individual</span>
                   </button>
                 </div>
 
@@ -743,6 +767,38 @@ export function CloseTableModal({
                 )}
               </div>
             )}
+
+            {/* Step: Individual Payments */}
+            {step === 'individual' && (
+              <SplitPaymentPanel
+                total={grandTotal}
+                existingPayments={individualPayments.map(p => ({
+                  id: p.id,
+                  amount: p.amount,
+                  method: p.payment_method as 'cash' | 'credit' | 'debit' | 'pix',
+                  paidBy: p.paid_by || 'Pessoa',
+                  createdAt: p.created_at,
+                }))}
+                onPaymentAdded={async (payment) => {
+                  const newPayment: TablePayment = {
+                    id: Date.now().toString(),
+                    amount: payment.amount,
+                    payment_method: payment.method,
+                    paid_by: payment.paidBy,
+                    created_at: new Date().toISOString(),
+                  };
+                  setIndividualPayments(prev => [...prev, newPayment]);
+                  toast.success(`Pagamento de ${formatCurrency(payment.amount)} registrado!`);
+                }}
+                onPaymentRemoved={async (paymentId) => {
+                  setIndividualPayments(prev => prev.filter(p => p.id !== paymentId));
+                  toast.success('Pagamento removido');
+                }}
+                onCloseAccount={handleCloseTable}
+                isClosing={loading}
+                entityLabel={`Mesa ${table?.number}`}
+              />
+            )}
           </div>
         </ScrollArea>
 
@@ -780,12 +836,23 @@ export function CloseTableModal({
             </>
           )}
           
-          {step !== 'payment' && step !== 'summary' && (
+          {step !== 'payment' && step !== 'summary' && step !== 'individual' && (
             <Button
               type="button"
               variant="ghost"
               className="w-full"
               onClick={() => setStep(step === 'split' ? 'summary' : 'split')}
+            >
+              Voltar
+            </Button>
+          )}
+
+          {step === 'individual' && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => { setStep('split'); setSplitMode('none'); }}
             >
               Voltar
             </Button>
