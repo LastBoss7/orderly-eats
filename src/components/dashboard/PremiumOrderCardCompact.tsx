@@ -14,7 +14,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Wallet,
+  MessageCircle,
 } from 'lucide-react';
+import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
 
 interface OrderItem {
   id: string;
@@ -36,6 +38,10 @@ interface Order {
   order_number: number | null;
   order_items?: OrderItem[];
   waiter_id?: string | null;
+  delivery_phone?: string | null;
+  delivery_address?: string | null;
+  delivery_fee?: number | null;
+  notes?: string | null;
 }
 
 interface PremiumOrderCardCompactProps {
@@ -57,6 +63,7 @@ interface PremiumOrderCardCompactProps {
   onFinalize?: () => void;
   onClose?: () => void;
   onClick?: () => void;
+  restaurantName?: string;
 }
 
 export function PremiumOrderCardCompact({
@@ -73,6 +80,7 @@ export function PremiumOrderCardCompact({
   onFinalize,
   onClose,
   onClick,
+  restaurantName,
 }: PremiumOrderCardCompactProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
@@ -212,8 +220,33 @@ export function PremiumOrderCardCompact({
         )}
 
         {/* Action Buttons Row */}
-        {(showAdvanceButton || showFinalizeButton || showCloseButton) && (
+        {(showAdvanceButton || showFinalizeButton || showCloseButton || order.delivery_phone) && (
           <div className="mt-2 pt-2 border-t border-border/50 flex gap-1.5">
+            {/* WhatsApp Button */}
+            {order.delivery_phone && (
+              <a
+                href={generateWhatsAppOrderLink(order.delivery_phone, {
+                  orderId: order.id,
+                  orderNumber: order.order_number,
+                  customerName: order.customer_name,
+                  orderType: order.order_type,
+                  items: order.order_items,
+                  total: order.total,
+                  deliveryFee: order.delivery_fee,
+                  deliveryAddress: order.delivery_address,
+                  notes: order.notes,
+                  status: order.status,
+                  restaurantName,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center h-7 w-7 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+                title="Enviar pedido via WhatsApp"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+              </a>
+            )}
             {showAdvanceButton && onAdvance && (
               <Button
                 size="sm"

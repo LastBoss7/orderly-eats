@@ -23,7 +23,10 @@ import {
   ChefHat,
   ArrowRight,
   X,
+  MessageCircle,
+  Send,
 } from 'lucide-react';
+import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
 
 interface OrderItem {
   id: string;
@@ -90,6 +93,7 @@ interface PremiumOrderCardProps {
   isDelayed?: boolean;
   isCompact?: boolean;
   isRecentlyUpdated?: boolean;
+  restaurantName?: string;
 }
 
 export function PremiumOrderCard({
@@ -113,6 +117,7 @@ export function PremiumOrderCard({
   isDelayed = false,
   isCompact = false,
   isRecentlyUpdated = false,
+  restaurantName,
 }: PremiumOrderCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
@@ -495,6 +500,31 @@ export function PremiumOrderCard({
 
       {/* Action buttons */}
       <div className="px-3 pb-3 pt-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        {/* WhatsApp Button - Show when there's a phone number */}
+        {order.delivery_phone && (
+          <a
+            href={generateWhatsAppOrderLink(order.delivery_phone, {
+              orderId: order.id,
+              orderNumber: order.order_number,
+              customerName: order.customer_name,
+              orderType: order.order_type,
+              items: order.order_items,
+              total: order.total,
+              deliveryFee: order.delivery_fee,
+              deliveryAddress: order.delivery_address,
+              notes: order.notes,
+              status: order.status,
+              restaurantName,
+            })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center h-9 w-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors"
+            title="Enviar pedido via WhatsApp"
+          >
+            <MessageCircle className="w-4 h-4" />
+          </a>
+        )}
+
         {/* NF Button placeholder */}
         {order.status !== 'pending' && (
           <Button 
