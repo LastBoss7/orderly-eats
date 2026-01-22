@@ -47,6 +47,8 @@ import Scheduled from "./pages/Scheduled";
 import Inventory from "./pages/Inventory";
 import ProductRecipes from "./pages/ProductRecipes";
 import ConsumptionReport from "./pages/ConsumptionReport";
+import MenuPage from "./pages/menu/MenuPage";
+import Coupons from "./pages/Coupons";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -136,6 +138,10 @@ const AnimatedRoutes = () => {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/product-recipes" element={<ProductRecipes />} />
           <Route path="/consumption-report" element={<ConsumptionReport />} />
+          <Route path="/coupons" element={<Coupons />} />
+          
+          {/* Public Digital Menu */}
+          <Route path="/menu/:slug" element={<MenuPage />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>
