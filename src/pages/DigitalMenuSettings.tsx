@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { OpeningHoursEditor, DaySchedule, defaultOpeningHours, isRestaurantOpen } from '@/components/settings/OpeningHoursEditor';
 import { CouponManager } from '@/components/coupons/CouponManager';
+import { QRCodeGenerator } from '@/components/qrcode/QRCodeGenerator';
 
 interface DigitalMenuSettingsData {
   digital_menu_enabled: boolean;
@@ -357,12 +358,15 @@ export default function DigitalMenuSettings() {
                     <ExternalLink className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <QrCode className="w-4 h-4" />
-                  <span>Dica: Use o link para criar um QR Code e colocar na sua loja</span>
-                </div>
               </CardContent>
             </Card>
+
+            {/* QR Code Generator */}
+            <QRCodeGenerator 
+              url={menuUrl} 
+              restaurantName={restaurantData?.name || 'Restaurante'}
+              logoUrl={restaurantData?.logo_url}
+            />
 
             {/* Opening Hours */}
             <OpeningHoursEditor
