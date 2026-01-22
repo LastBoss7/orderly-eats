@@ -29,6 +29,7 @@ import { PremiumDashboardSkeleton } from '@/components/dashboard/PremiumDashboar
 import { ColumnSettingsPanel } from '@/components/dashboard/ColumnSettingsPanel';
 import { StatsBar } from '@/components/dashboard/StatsBar';
 import { ScheduledOrdersPanel } from '@/components/dashboard/ScheduledOrdersPanel';
+import { QuickActionsBar } from '@/components/dashboard/QuickActionsBar';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Dialog,
@@ -1492,6 +1493,16 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onPrintSettings={() => setShowPrintSettingsModal(true)}
           onStoreControl={() => setShowStoreControlModal(true)}
         />
+
+        {/* Quick Actions Bar - Visible shortcuts for fast order creation */}
+        <div className="px-4 pt-2">
+          <QuickActionsBar
+            onNewOrder={(type) => {
+              setNewOrderInitialType(type);
+              setShowNewOrderModal(true);
+            }}
+          />
+        </div>
 
         {/* Stats Bar - Quick Overview */}
         <StatsBar
