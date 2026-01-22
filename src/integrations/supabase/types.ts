@@ -1484,6 +1484,7 @@ export type Database = {
           id: string
           is_open: boolean | null
           last_opened_at: string | null
+          opening_hours: Json | null
           operation_type: string | null
           order_tab_count: number | null
           print_layout: Json | null
@@ -1504,6 +1505,7 @@ export type Database = {
           sound_takeaway: boolean | null
           table_count: number | null
           updated_at: string
+          use_opening_hours: boolean | null
         }
         Insert: {
           auto_print_counter?: boolean | null
@@ -1528,6 +1530,7 @@ export type Database = {
           id?: string
           is_open?: boolean | null
           last_opened_at?: string | null
+          opening_hours?: Json | null
           operation_type?: string | null
           order_tab_count?: number | null
           print_layout?: Json | null
@@ -1548,6 +1551,7 @@ export type Database = {
           sound_takeaway?: boolean | null
           table_count?: number | null
           updated_at?: string
+          use_opening_hours?: boolean | null
         }
         Update: {
           auto_print_counter?: boolean | null
@@ -1572,6 +1576,7 @@ export type Database = {
           id?: string
           is_open?: boolean | null
           last_opened_at?: string | null
+          opening_hours?: Json | null
           operation_type?: string | null
           order_tab_count?: number | null
           print_layout?: Json | null
@@ -1592,6 +1597,7 @@ export type Database = {
           sound_takeaway?: boolean | null
           table_count?: number | null
           updated_at?: string
+          use_opening_hours?: boolean | null
         }
         Relationships: [
           {

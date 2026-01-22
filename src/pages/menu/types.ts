@@ -9,6 +9,14 @@ export interface Restaurant {
   address: string | null;
 }
 
+export interface DaySchedule {
+  day: number;
+  name: string;
+  enabled: boolean;
+  open: string;
+  close: string;
+}
+
 export interface MenuSettings {
   digital_menu_enabled: boolean;
   digital_menu_banner_url: string | null;
@@ -16,7 +24,69 @@ export interface MenuSettings {
   digital_menu_delivery_enabled: boolean;
   digital_menu_pickup_enabled: boolean;
   digital_menu_min_order_value: number;
+  opening_hours: DaySchedule[];
+  use_opening_hours: boolean;
 }
+
+// Helper to check if restaurant is currently open
+export function isRestaurantOpen(hours: DaySchedule[], useOpeningHours: boolean): { isOpen: boolean; message: string } {
+  if (!useOpeningHours) {
+    return { isOpen: true, message: 'Aberto' };
+  }
+
+  const now = new Date();
+  const currentDay = now.getDay();
+  const currentTime = now.toTimeString().slice(0, 5);
+
+  const todaySchedule = hours.find((h) => h.day === currentDay);
+
+  if (!todaySchedule || !todaySchedule.enabled) {
+    const nextOpenDay = findNextOpenDay(hours, currentDay);
+    if (nextOpenDay) {
+      return { isOpen: false, message: `Fechado • Abre ${nextOpenDay.name} às ${nextOpenDay.open}` };
+    }
+    return { isOpen: false, message: 'Fechado' };
+  }
+
+  if (currentTime >= todaySchedule.open && currentTime <= todaySchedule.close) {
+    return { isOpen: true, message: `Aberto • Fecha às ${todaySchedule.close}` };
+  }
+
+  if (currentTime < todaySchedule.open) {
+    return { isOpen: false, message: `Fechado • Abre hoje às ${todaySchedule.open}` };
+  }
+
+  const nextOpenDay = findNextOpenDay(hours, currentDay);
+  if (nextOpenDay) {
+    if (nextOpenDay.day === (currentDay + 1) % 7) {
+      return { isOpen: false, message: `Fechado • Abre amanhã às ${nextOpenDay.open}` };
+    }
+    return { isOpen: false, message: `Fechado • Abre ${nextOpenDay.name} às ${nextOpenDay.open}` };
+  }
+
+  return { isOpen: false, message: 'Fechado' };
+}
+
+function findNextOpenDay(hours: DaySchedule[], currentDay: number): DaySchedule | null {
+  for (let i = 1; i <= 7; i++) {
+    const nextDay = (currentDay + i) % 7;
+    const schedule = hours.find((h) => h.day === nextDay);
+    if (schedule && schedule.enabled) {
+      return schedule;
+    }
+  }
+  return null;
+}
+
+export const defaultOpeningHours: DaySchedule[] = [
+  { day: 0, name: 'Domingo', enabled: false, open: '09:00', close: '22:00' },
+  { day: 1, name: 'Segunda', enabled: true, open: '09:00', close: '22:00' },
+  { day: 2, name: 'Terça', enabled: true, open: '09:00', close: '22:00' },
+  { day: 3, name: 'Quarta', enabled: true, open: '09:00', close: '22:00' },
+  { day: 4, name: 'Quinta', enabled: true, open: '09:00', close: '22:00' },
+  { day: 5, name: 'Sexta', enabled: true, open: '09:00', close: '22:00' },
+  { day: 6, name: 'Sábado', enabled: true, open: '09:00', close: '22:00' },
+];
 
 export interface Category {
   id: string;
