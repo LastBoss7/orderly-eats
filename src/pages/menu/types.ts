@@ -9,6 +9,15 @@ export interface Restaurant {
   address: string | null;
 }
 
+export interface MenuSettings {
+  digital_menu_enabled: boolean;
+  digital_menu_banner_url: string | null;
+  digital_menu_description: string | null;
+  digital_menu_delivery_enabled: boolean;
+  digital_menu_pickup_enabled: boolean;
+  digital_menu_min_order_value: number;
+}
+
 export interface Category {
   id: string;
   name: string;

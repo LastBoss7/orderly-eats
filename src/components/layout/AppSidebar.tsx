@@ -51,6 +51,7 @@ import {
   ChevronLeft,
   Image,
   Edit3,
+  ExternalLink,
   Printer,
   Clock,
   History,
@@ -80,6 +81,7 @@ const cardapioSubmenu = [
   { title: 'Categorias', url: '/categories', icon: FolderOpen },
   { title: 'Imagens do cardápio', url: '/menu-images', icon: Image },
   { title: 'Edição em massa', url: '/bulk-edit', icon: Edit3 },
+  { title: 'Cardápio Digital', url: '/digital-menu-settings', icon: ExternalLink },
 ];
 
 const bottomMenuItems = [
