@@ -44,6 +44,9 @@ import Addons from "./pages/Addons";
 import NFCeSettings from "./pages/NFCeSettings";
 import SoundSettings from "./pages/SoundSettings";
 import Scheduled from "./pages/Scheduled";
+import Inventory from "./pages/Inventory";
+import ProductRecipes from "./pages/ProductRecipes";
+import ConsumptionReport from "./pages/ConsumptionReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -123,6 +126,9 @@ const AnimatedRoutes = () => {
           <Route path="/restaurant-settings" element={<RestaurantSettings />} />
           <Route path="/nfce-settings" element={<NFCeSettings />} />
           <Route path="/sound-settings" element={<SoundSettings />} />
+          <Route path="/inventory" element={<Inventory />} />
+          <Route path="/product-recipes" element={<ProductRecipes />} />
+          <Route path="/consumption-report" element={<ConsumptionReport />} />
           
           <Route path="*" element={<NotFound />} />
         </Routes>
