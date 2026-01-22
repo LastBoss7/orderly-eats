@@ -22,9 +22,12 @@ import { PrintReceipt } from '@/components/PrintReceipt';
 import { DashboardSkeleton, DashboardContent } from '@/components/dashboard/OrderCardSkeleton';
 import { VirtualizedColumn } from '@/components/dashboard/VirtualizedColumn';
 import { DroppableColumn } from '@/components/dashboard/DroppableColumn';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { PremiumOrderCard } from '@/components/dashboard/PremiumOrderCard';
-import { KanbanColumn } from '@/components/dashboard/KanbanColumn';
+import { PremiumDashboardHeader } from '@/components/dashboard/PremiumDashboardHeader';
+import { PremiumOrderCardCompact } from '@/components/dashboard/PremiumOrderCardCompact';
+import { PremiumKanbanColumn } from '@/components/dashboard/PremiumKanbanColumn';
+import { PremiumDashboardSkeleton } from '@/components/dashboard/PremiumDashboardSkeleton';
+import { ColumnSettingsPanel } from '@/components/dashboard/ColumnSettingsPanel';
+import { StatsBar } from '@/components/dashboard/StatsBar';
 import { ScheduledOrdersPanel } from '@/components/dashboard/ScheduledOrdersPanel';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -1470,9 +1473,8 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
         ) : (
           <DashboardContent key="content">
         {/* Premium Header */}
-        <DashboardHeader
+        <PremiumDashboardHeader
           isStoreOpen={isStoreOpen}
-          restaurantName={restaurant?.name || ''}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           filter={filter}
@@ -1491,6 +1493,14 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           onStoreControl={() => setShowStoreControlModal(true)}
         />
 
+        {/* Stats Bar - Quick Overview */}
+        <StatsBar
+          totalRevenue={0}
+          totalOrders={orders.length}
+          avgPrepTime={prepTimes.counter_max}
+          orderCounts={orderCounts}
+        />
+
         {/* Kanban Board with DnD */}
         <DndContext 
           sensors={sensors}
@@ -1502,82 +1512,75 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
             {/* Premium Kanban Columns */}
             <div className="h-full flex gap-4 overflow-x-auto overflow-y-hidden pb-2">
               {/* Column: Em análise */}
-              <KanbanColumn
+              <PremiumKanbanColumn
                 id="column-pending"
-                title="Em análise"
+                title="Em Análise"
                 count={pendingOrders.length}
-                variant="analysis"
-                emptyIcon={<span className="text-4xl">↩️</span>}
+                variant="pending"
                 emptyMessage={autoAccept ? 'Pedidos aceitos automaticamente' : 'Sem pedidos pendentes'}
                 headerContent={
-                  <div className="p-3 bg-orange-50/80 dark:bg-orange-950/20">
-                    <div className="text-xs space-y-1 text-muted-foreground">
-                      <p className="flex items-center justify-between">
-                        <span><span className="font-semibold text-foreground">Balcão:</span> {prepTimes.counter_min}-{prepTimes.counter_max}min</span>
-                        <button 
-                          className="text-primary hover:underline font-medium"
-                          onClick={() => setShowPrepTimeModal(true)}
-                        >
-                          Editar
-                        </button>
-                      </p>
-                      <p><span className="font-semibold text-foreground">Delivery:</span> {prepTimes.delivery_min}-{prepTimes.delivery_max}min</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-orange-200/50 dark:border-orange-800/50">
-                      <Switch checked={autoAccept} onCheckedChange={setAutoAccept} />
-                      <span className="text-xs font-medium">Auto-aceitar</span>
-                    </div>
-                  </div>
+                  <ColumnSettingsPanel
+                    prepTimes={prepTimes}
+                    autoAccept={autoAccept}
+                    onAutoAcceptChange={setAutoAccept}
+                    onEditPrepTimes={() => setShowPrepTimeModal(true)}
+                  />
                 }
               >
-                {pendingOrders.length > 0 && (
-                  <VirtualizedColumn
-                    items={pendingOrders}
-                    renderItem={(order) => (
-                      <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
-                    )}
-                    getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 80 : 180}
+                {pendingOrders.map((order) => (
+                  <PremiumOrderCardCompact
+                    key={order.id}
+                    order={order}
+                    locationLabel={getOrderLocationInfo(order)?.label}
+                    locationType={getOrderLocationInfo(order)?.type}
+                    timer={getOrderTimer(order)}
+                    waiterName={getWaiterName(order.waiter_id)}
+                    isRecentlyUpdated={recentlyUpdatedOrders.has(order.id)}
+                    showAdvanceButton
+                    onAdvance={() => updateOrderStatus(order.id, 'preparing')}
+                    onClick={() => handleOpenOrderDetail(order)}
                   />
-                )}
-              </KanbanColumn>
+                ))}
+              </PremiumKanbanColumn>
 
               {/* Column: Em produção */}
-              <KanbanColumn
+              <PremiumKanbanColumn
                 id="column-preparing"
-                title="Em produção"
+                title="Em Produção"
                 count={preparingOrders.length}
-                variant="production"
+                variant="preparing"
                 hasDelayed={preparingOrders.some(o => isDelayed(o))}
-                emptyIcon={<ChefHat className="w-10 h-10" />}
                 emptyMessage="Nenhum pedido em produção"
               >
-                {preparingOrders.length > 0 && (
-                  <VirtualizedColumn
-                    items={preparingOrders}
-                    renderItem={(order) => (
-                      <DraggableOrderCard key={order.id} order={order} showAdvanceButton />
-                    )}
-                    getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 80 : 180}
+                {preparingOrders.map((order) => (
+                  <PremiumOrderCardCompact
+                    key={order.id}
+                    order={order}
+                    locationLabel={getOrderLocationInfo(order)?.label}
+                    locationType={getOrderLocationInfo(order)?.type}
+                    timer={getOrderTimer(order)}
+                    waiterName={getWaiterName(order.waiter_id)}
+                    isRecentlyUpdated={recentlyUpdatedOrders.has(order.id)}
+                    showAdvanceButton
+                    onAdvance={() => updateOrderStatus(order.id, 'ready')}
+                    onClick={() => handleOpenOrderDetail(order)}
                   />
-                )}
-              </KanbanColumn>
+                ))}
+              </PremiumKanbanColumn>
 
               {/* Column: Prontos */}
-              <KanbanColumn
+              <PremiumKanbanColumn
                 id="column-ready"
                 title="Prontos"
                 count={readyOrders.length}
                 variant="ready"
-                emptyIcon={<UtensilsCrossed className="w-10 h-10" />}
                 emptyMessage="Nenhum pedido pronto"
                 headerAction={
                   readyOrders.length > 0 ? (
                     <Button 
                       size="sm" 
-                      variant="outline" 
-                      className="h-6 text-xs px-2 bg-white/90 text-emerald-700 border-white/40 hover:bg-white font-semibold"
+                      variant="ghost" 
+                      className="h-6 text-xs px-2 bg-white/20 text-white hover:bg-white/30 font-semibold"
                       onClick={handleFinalizeAllReady}
                     >
                       Finalizar todos
@@ -1585,35 +1588,50 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
                   ) : undefined
                 }
               >
-                {readyOrders.length > 0 && (
-                  <VirtualizedColumn
-                    items={readyOrders}
-                    renderItem={(order) => (
-                      <DraggableOrderCard key={order.id} order={order} showFinalizeButton />
-                    )}
-                    getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 80 : 180}
-                  />
-                )}
-              </KanbanColumn>
+                {readyOrders.map((order) => {
+                  const showCloseButton = order.table_id || order.tab_id;
+                  return (
+                    <PremiumOrderCardCompact
+                      key={order.id}
+                      order={order}
+                      locationLabel={getOrderLocationInfo(order)?.label}
+                      locationType={getOrderLocationInfo(order)?.type}
+                      timer={getOrderTimer(order)}
+                      waiterName={getWaiterName(order.waiter_id)}
+                      isRecentlyUpdated={recentlyUpdatedOrders.has(order.id)}
+                      showFinalizeButton={!showCloseButton}
+                      showCloseButton={!!showCloseButton}
+                      onFinalize={() => updateOrderStatus(order.id, 'delivered')}
+                      onClose={() => handleCloseTableFromOrder(order)}
+                      onClick={() => handleOpenOrderDetail(order)}
+                    />
+                  );
+                })}
+              </PremiumKanbanColumn>
 
-              {/* Column: Servidos */}
+              {/* Column: Servidos (only show if has orders) */}
               {servedOrders.length > 0 && (
-                <KanbanColumn
+                <PremiumKanbanColumn
                   id="served"
                   title="Servidos"
                   count={servedOrders.length}
                   variant="served"
                 >
-                  <VirtualizedColumn
-                    items={servedOrders}
-                    renderItem={(order) => (
-                      <DraggableOrderCard key={order.id} order={order} />
-                    )}
-                    getItemKey={(order) => order.id}
-                    estimateSize={isCompactMode ? 80 : 180}
-                  />
-                </KanbanColumn>
+                  {servedOrders.map((order) => (
+                    <PremiumOrderCardCompact
+                      key={order.id}
+                      order={order}
+                      locationLabel={getOrderLocationInfo(order)?.label}
+                      locationType={getOrderLocationInfo(order)?.type}
+                      timer={getOrderTimer(order)}
+                      waiterName={getWaiterName(order.waiter_id)}
+                      isRecentlyUpdated={recentlyUpdatedOrders.has(order.id)}
+                      showCloseButton={!!(order.table_id || order.tab_id)}
+                      onClose={() => handleCloseTableFromOrder(order)}
+                      onClick={() => handleOpenOrderDetail(order)}
+                    />
+                  ))}
+                </PremiumKanbanColumn>
               )}
             </div>
           </div>
