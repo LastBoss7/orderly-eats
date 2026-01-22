@@ -222,6 +222,62 @@ export type Database = {
           },
         ]
       }
+      coupons: {
+        Row: {
+          code: string
+          created_at: string
+          current_uses: number | null
+          discount_type: string
+          discount_value: number
+          id: string
+          is_active: boolean | null
+          max_uses: number | null
+          min_order_value: number | null
+          restaurant_id: string
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_uses?: number | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_value?: number | null
+          restaurant_id: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_uses?: number | null
+          discount_type?: string
+          discount_value?: number
+          id?: string
+          is_active?: boolean | null
+          max_uses?: number | null
+          min_order_value?: number | null
+          restaurant_id?: string
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupons_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -814,6 +870,8 @@ export type Database = {
           cash_received: number | null
           change_given: number | null
           closed_at: string | null
+          coupon_discount: number | null
+          coupon_id: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
@@ -847,6 +905,8 @@ export type Database = {
           cash_received?: number | null
           change_given?: number | null
           closed_at?: string | null
+          coupon_discount?: number | null
+          coupon_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -880,6 +940,8 @@ export type Database = {
           cash_received?: number | null
           change_given?: number | null
           closed_at?: string | null
+          coupon_discount?: number | null
+          coupon_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -910,6 +972,13 @@ export type Database = {
           waiter_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_coupon_id_fkey"
+            columns: ["coupon_id"]
+            isOneToOne: false
+            referencedRelation: "coupons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_customer_id_fkey"
             columns: ["customer_id"]
@@ -1209,6 +1278,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_available: boolean | null
+          is_featured: boolean | null
           name: string
           price: number
           price_large: number | null
@@ -1225,6 +1295,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_featured?: boolean | null
           name: string
           price?: number
           price_large?: number | null
@@ -1241,6 +1312,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_featured?: boolean | null
           name?: string
           price?: number
           price_large?: number | null
@@ -2189,6 +2261,11 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      use_coupon: { Args: { p_coupon_id: string }; Returns: boolean }
+      validate_coupon: {
+        Args: { p_code: string; p_order_total: number; p_restaurant_id: string }
+        Returns: Json
+      }
       validate_waiter_invite: {
         Args: { invite_token: string }
         Returns: {
