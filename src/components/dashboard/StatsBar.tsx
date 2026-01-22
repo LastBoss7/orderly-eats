@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
 import { 
-  TrendingUp, 
   ShoppingBag, 
   Clock, 
   Bike,
   UtensilsCrossed,
   Package,
   User,
+  CheckCircle,
 } from 'lucide-react';
 
 interface StatsBarProps {
@@ -23,26 +23,11 @@ interface StatsBarProps {
 }
 
 export function StatsBar({
-  totalRevenue,
   totalOrders,
   avgPrepTime,
   orderCounts,
 }: StatsBarProps) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
   const stats = [
-    {
-      label: 'Faturamento Hoje',
-      value: formatCurrency(totalRevenue),
-      icon: TrendingUp,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    },
     {
       label: 'Pedidos Ativos',
       value: orderCounts.all.toString(),
@@ -56,6 +41,13 @@ export function StatsBar({
       icon: Clock,
       color: 'text-amber-600 dark:text-amber-400',
       bg: 'bg-amber-100 dark:bg-amber-900/40',
+    },
+    {
+      label: 'Total do Dia',
+      value: totalOrders.toString(),
+      icon: CheckCircle,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bg: 'bg-emerald-100 dark:bg-emerald-900/40',
     },
   ];
 
