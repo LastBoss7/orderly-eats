@@ -83,6 +83,9 @@ const cardapioSubmenu = [
 ];
 
 const bottomMenuItems = [
+  { title: 'Estoque', url: '/inventory', icon: Package },
+  { title: 'Ficha Técnica', url: '/product-recipes', icon: ChefHat },
+  { title: 'Consumo', url: '/consumption-report', icon: BarChart3 },
   { title: 'Entregas', url: '/deliveries', icon: Truck },
   { title: 'Config. Entregas', url: '/delivery-settings', icon: Settings2 },
   { title: 'Clientes', url: '/customers', icon: UserCircle },
