@@ -61,7 +61,6 @@ import {
   Settings2,
   PanelLeftClose,
   PanelLeft,
-  
   Receipt,
   Volume2,
 } from 'lucide-react';
@@ -99,6 +98,7 @@ const bottomMenuItems = [
   { title: 'Cozinha (KDS)', url: '/kitchen', icon: ChefHat },
   { title: 'Impressora', url: '/printers', icon: Printer },
   { title: 'Sons', url: '/sound-settings', icon: Volume2 },
+  { title: 'Horário de Funcionamento', url: '/opening-hours', icon: Clock },
   { title: 'Meu Estabelecimento', url: '/restaurant-settings', icon: Settings2 },
   { title: 'NFC-e', url: '/nfce-settings', icon: Receipt },
 ];

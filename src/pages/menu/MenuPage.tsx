@@ -12,6 +12,8 @@ import {
   OrderType,
   CouponValidation,
   MenuSettings,
+  DaySchedule,
+  defaultOpeningHours,
   formatCurrency,
   getProductPrice,
   getSizeLabel,
@@ -39,6 +41,8 @@ export default function MenuPage() {
     digital_menu_delivery_enabled: true,
     digital_menu_pickup_enabled: true,
     digital_menu_min_order_value: 0,
+    opening_hours: defaultOpeningHours,
+    use_opening_hours: false,
   });
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -98,7 +102,7 @@ export default function MenuPage() {
         // Fetch menu settings
         const { data: settingsData } = await supabase
           .from('salon_settings')
-          .select('digital_menu_enabled, digital_menu_banner_url, digital_menu_description, digital_menu_delivery_enabled, digital_menu_pickup_enabled, digital_menu_min_order_value')
+          .select('digital_menu_enabled, digital_menu_banner_url, digital_menu_description, digital_menu_delivery_enabled, digital_menu_pickup_enabled, digital_menu_min_order_value, opening_hours, use_opening_hours')
           .eq('restaurant_id', restaurantData.id)
           .maybeSingle();
 
@@ -110,6 +114,8 @@ export default function MenuPage() {
             digital_menu_delivery_enabled: settingsData.digital_menu_delivery_enabled ?? true,
             digital_menu_pickup_enabled: settingsData.digital_menu_pickup_enabled ?? true,
             digital_menu_min_order_value: settingsData.digital_menu_min_order_value ?? 0,
+            opening_hours: (settingsData.opening_hours as unknown as DaySchedule[]) ?? defaultOpeningHours,
+            use_opening_hours: settingsData.use_opening_hours ?? false,
           });
         }
 

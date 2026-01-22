@@ -1,4 +1,4 @@
-import { CustomerInfo, OrderType, MenuSettings, formatCurrency } from '../types';
+import { CustomerInfo, OrderType, MenuSettings, formatCurrency, isRestaurantOpen } from '../types';
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useState, useEffect } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useState, useEffect } from 'react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock } from 'lucide-react';
 
 interface MenuCheckoutProps {
   open: boolean;
@@ -35,8 +35,8 @@ export function MenuCheckout({
   const deliveryEnabled = menuSettings.digital_menu_delivery_enabled;
   const pickupEnabled = menuSettings.digital_menu_pickup_enabled;
   const minOrderValue = menuSettings.digital_menu_min_order_value || 0;
+  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours);
 
-  // Determine default order type based on what's enabled
   const getDefaultOrderType = (): OrderType => {
     if (deliveryEnabled) return 'delivery';
     if (pickupEnabled) return 'takeaway';
@@ -56,7 +56,6 @@ export function MenuCheckout({
   });
   const [cepLoading, setCepLoading] = useState(false);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (open) {
       setOrderType(getDefaultOrderType());
@@ -110,7 +109,8 @@ export function MenuCheckout({
     (orderType === 'takeaway' || (orderType === 'delivery' && customerInfo.address));
 
   const isBelowMinOrder = total < minOrderValue;
-  const canSubmit = isValid && !isBelowMinOrder;
+  const isClosed = menuSettings.use_opening_hours && !openStatus.isOpen;
+  const canSubmit = isValid && !isBelowMinOrder && !isClosed;
 
   const finalTotal = orderType === 'delivery' ? total + deliveryFee : total;
 
@@ -122,8 +122,18 @@ export function MenuCheckout({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Closed Warning */}
+          {isClosed && (
+            <Alert variant="destructive">
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                Estamos fechados no momento. {openStatus.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Minimum Order Warning */}
-          {isBelowMinOrder && (
+          {isBelowMinOrder && !isClosed && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -328,6 +338,11 @@ export function MenuCheckout({
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isClosed ? (
+              <>
+                <Clock className="w-5 h-5" />
+                Estamos Fechados
+              </>
             ) : (
               <>
                 <MessageCircle className="w-5 h-5" />
@@ -335,9 +350,11 @@ export function MenuCheckout({
               </>
             )}
           </Button>
-          <p className="text-xs text-center text-muted-foreground">
-            O pedido será enviado para o WhatsApp do restaurante
-          </p>
+          {!isClosed && (
+            <p className="text-xs text-center text-muted-foreground">
+              O pedido será enviado para o WhatsApp do restaurante
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

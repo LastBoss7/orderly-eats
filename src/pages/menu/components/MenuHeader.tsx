@@ -1,5 +1,5 @@
-import { Restaurant, MenuSettings } from '../types';
-import { ShoppingCart, Search, X, Phone, MapPin, Truck, ShoppingBag } from 'lucide-react';
+import { Restaurant, MenuSettings, isRestaurantOpen } from '../types';
+import { ShoppingCart, Search, X, Phone, MapPin, Truck, ShoppingBag, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ export function MenuHeader({
   onSearchChange,
 }: MenuHeaderProps) {
   const [showSearch, setShowSearch] = useState(false);
+  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours);
 
   return (
     <>
@@ -58,7 +59,19 @@ export function MenuHeader({
               )}
               <div>
                 <h1 className="font-bold text-lg leading-tight">{restaurant.name}</h1>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Open/Closed Status */}
+                  <Badge 
+                    variant="outline" 
+                    className={`text-[10px] px-1.5 py-0 gap-1 ${
+                      openStatus.isOpen 
+                        ? 'border-success text-success bg-success/10' 
+                        : 'border-destructive text-destructive bg-destructive/10'
+                    }`}
+                  >
+                    <Clock className="w-3 h-3" />
+                    {openStatus.isOpen ? 'Aberto' : 'Fechado'}
+                  </Badge>
                   {menuSettings.digital_menu_delivery_enabled && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
                       <Truck className="w-3 h-3" />
@@ -129,24 +142,29 @@ export function MenuHeader({
         </div>
 
         {/* Restaurant Info Bar */}
-        {(restaurant.phone || restaurant.address) && (
-          <div className="bg-muted/50 border-t">
-            <div className="container mx-auto px-4 py-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-              {restaurant.phone && (
-                <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                  <Phone className="w-3 h-3" />
-                  {restaurant.phone}
-                </a>
-              )}
-              {restaurant.address && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {restaurant.address}
-                </span>
-              )}
-            </div>
+        <div className="bg-muted/50 border-t">
+          <div className="container mx-auto px-4 py-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            {/* Opening Hours Message */}
+            {menuSettings.use_opening_hours && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {openStatus.message}
+              </span>
+            )}
+            {restaurant.phone && (
+              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                <Phone className="w-3 h-3" />
+                {restaurant.phone}
+              </a>
+            )}
+            {restaurant.address && (
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {restaurant.address}
+              </span>
+            )}
           </div>
-        )}
+        </div>
       </header>
     </>
   );

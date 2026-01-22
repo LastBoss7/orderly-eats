@@ -50,6 +50,7 @@ import ConsumptionReport from "./pages/ConsumptionReport";
 import MenuPage from "./pages/menu/MenuPage";
 import Coupons from "./pages/Coupons";
 import DigitalMenuSettings from "./pages/DigitalMenuSettings";
+import OpeningHoursSettings from "./pages/OpeningHoursSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -141,6 +142,7 @@ const AnimatedRoutes = () => {
           <Route path="/consumption-report" element={<ConsumptionReport />} />
           <Route path="/coupons" element={<Coupons />} />
           <Route path="/digital-menu-settings" element={<DigitalMenuSettings />} />
+          <Route path="/opening-hours" element={<OpeningHoursSettings />} />
           
           {/* Public Digital Menu */}
           <Route path="/menu/:slug" element={<MenuPage />} />

@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
   ChevronRight,
@@ -30,14 +29,17 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { OpeningHoursEditor, DaySchedule, defaultOpeningHours, isRestaurantOpen } from '@/components/settings/OpeningHoursEditor';
 
-interface DigitalMenuSettings {
+interface DigitalMenuSettingsData {
   digital_menu_enabled: boolean;
   digital_menu_banner_url: string | null;
   digital_menu_description: string | null;
   digital_menu_delivery_enabled: boolean;
   digital_menu_pickup_enabled: boolean;
   digital_menu_min_order_value: number;
+  opening_hours: DaySchedule[];
+  use_opening_hours: boolean;
 }
 
 interface RestaurantData {
@@ -60,18 +62,22 @@ export default function DigitalMenuSettings() {
   const [copied, setCopied] = useState(false);
   
   const [restaurantData, setRestaurantData] = useState<RestaurantData | null>(null);
-  const [settings, setSettings] = useState<DigitalMenuSettings>({
+  const [settings, setSettings] = useState<DigitalMenuSettingsData>({
     digital_menu_enabled: false,
     digital_menu_banner_url: null,
     digital_menu_description: null,
     digital_menu_delivery_enabled: true,
     digital_menu_pickup_enabled: true,
     digital_menu_min_order_value: 0,
+    opening_hours: defaultOpeningHours,
+    use_opening_hours: false,
   });
 
   const menuUrl = restaurantData?.slug 
     ? `${window.location.origin}/menu/${restaurantData.slug}` 
     : '';
+
+  const openStatus = isRestaurantOpen(settings.opening_hours, settings.use_opening_hours);
 
   useEffect(() => {
     if (restaurant?.id) {
@@ -83,7 +89,6 @@ export default function DigitalMenuSettings() {
     if (!restaurant?.id) return;
 
     try {
-      // Fetch restaurant data
       const { data: restData, error: restError } = await supabase
         .from('restaurants')
         .select('id, name, slug, phone, address, logo_url')
@@ -93,10 +98,9 @@ export default function DigitalMenuSettings() {
       if (restError) throw restError;
       setRestaurantData(restData);
 
-      // Fetch salon settings
       const { data: salonData } = await supabase
         .from('salon_settings')
-        .select('digital_menu_enabled, digital_menu_banner_url, digital_menu_description, digital_menu_delivery_enabled, digital_menu_pickup_enabled, digital_menu_min_order_value')
+        .select('digital_menu_enabled, digital_menu_banner_url, digital_menu_description, digital_menu_delivery_enabled, digital_menu_pickup_enabled, digital_menu_min_order_value, opening_hours, use_opening_hours')
         .eq('restaurant_id', restaurant.id)
         .maybeSingle();
 
@@ -108,6 +112,8 @@ export default function DigitalMenuSettings() {
           digital_menu_delivery_enabled: salonData.digital_menu_delivery_enabled ?? true,
           digital_menu_pickup_enabled: salonData.digital_menu_pickup_enabled ?? true,
           digital_menu_min_order_value: salonData.digital_menu_min_order_value ?? 0,
+          opening_hours: (salonData.opening_hours as unknown as DaySchedule[]) ?? defaultOpeningHours,
+          use_opening_hours: salonData.use_opening_hours ?? false,
         });
       }
     } catch (error) {
@@ -181,24 +187,27 @@ export default function DigitalMenuSettings() {
     setSaving(true);
 
     try {
-      // Check if salon_settings exists
       const { data: existingSettings } = await supabase
         .from('salon_settings')
         .select('id')
         .eq('restaurant_id', restaurant.id)
         .maybeSingle();
 
+      const updateData = {
+        digital_menu_enabled: settings.digital_menu_enabled,
+        digital_menu_banner_url: settings.digital_menu_banner_url,
+        digital_menu_description: settings.digital_menu_description,
+        digital_menu_delivery_enabled: settings.digital_menu_delivery_enabled,
+        digital_menu_pickup_enabled: settings.digital_menu_pickup_enabled,
+        digital_menu_min_order_value: settings.digital_menu_min_order_value,
+        opening_hours: settings.opening_hours as unknown as Record<string, unknown>[],
+        use_opening_hours: settings.use_opening_hours,
+      };
+
       if (existingSettings) {
         const { error } = await supabase
           .from('salon_settings')
-          .update({
-            digital_menu_enabled: settings.digital_menu_enabled,
-            digital_menu_banner_url: settings.digital_menu_banner_url,
-            digital_menu_description: settings.digital_menu_description,
-            digital_menu_delivery_enabled: settings.digital_menu_delivery_enabled,
-            digital_menu_pickup_enabled: settings.digital_menu_pickup_enabled,
-            digital_menu_min_order_value: settings.digital_menu_min_order_value,
-          })
+          .update(updateData as any)
           .eq('restaurant_id', restaurant.id);
 
         if (error) throw error;
@@ -207,13 +216,8 @@ export default function DigitalMenuSettings() {
           .from('salon_settings')
           .insert({
             restaurant_id: restaurant.id,
-            digital_menu_enabled: settings.digital_menu_enabled,
-            digital_menu_banner_url: settings.digital_menu_banner_url,
-            digital_menu_description: settings.digital_menu_description,
-            digital_menu_delivery_enabled: settings.digital_menu_delivery_enabled,
-            digital_menu_pickup_enabled: settings.digital_menu_pickup_enabled,
-            digital_menu_min_order_value: settings.digital_menu_min_order_value,
-          });
+            ...updateData,
+          } as any);
 
         if (error) throw error;
       }
@@ -236,13 +240,6 @@ export default function DigitalMenuSettings() {
     } catch (error) {
       toast.error('Erro ao copiar link');
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
   };
 
   if (loading) {
@@ -309,11 +306,11 @@ export default function DigitalMenuSettings() {
               {settings.digital_menu_enabled && (
                 <CardContent className="border-t pt-4">
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-success/10 text-success border-success">
-                      Ativo
+                    <Badge variant="outline" className={`${openStatus.isOpen ? 'bg-success/10 text-success border-success' : 'bg-destructive/10 text-destructive border-destructive'}`}>
+                      {openStatus.isOpen ? 'Aberto' : 'Fechado'}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      Seu cardápio está disponível para clientes
+                      {openStatus.message}
                     </span>
                   </div>
                 </CardContent>
@@ -365,6 +362,14 @@ export default function DigitalMenuSettings() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Opening Hours */}
+            <OpeningHoursEditor
+              hours={settings.opening_hours}
+              onChange={(hours) => setSettings(prev => ({ ...prev, opening_hours: hours }))}
+              useOpeningHours={settings.use_opening_hours}
+              onToggleUse={(use) => setSettings(prev => ({ ...prev, use_opening_hours: use }))}
+            />
 
             {/* Banner Upload */}
             <Card>
@@ -590,21 +595,17 @@ export default function DigitalMenuSettings() {
                             <Store className="w-4 h-4 text-primary" />
                           </div>
                         )}
-                        <div>
-                          <p className="text-xs font-medium truncate max-w-[120px]">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">
                             {restaurantData?.name || 'Seu Restaurante'}
                           </p>
-                          <div className="flex gap-1">
-                            {settings.digital_menu_delivery_enabled && (
-                              <Badge variant="outline" className="text-[8px] px-1 py-0">
-                                Delivery
-                              </Badge>
-                            )}
-                            {settings.digital_menu_pickup_enabled && (
-                              <Badge variant="outline" className="text-[8px] px-1 py-0">
-                                Retirada
-                              </Badge>
-                            )}
+                          <div className="flex items-center gap-1">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[8px] px-1 py-0 ${openStatus.isOpen ? 'border-success text-success' : 'border-destructive text-destructive'}`}
+                            >
+                              {openStatus.isOpen ? 'Aberto' : 'Fechado'}
+                            </Badge>
                           </div>
                         </div>
                       </div>
