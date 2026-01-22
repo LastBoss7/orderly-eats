@@ -728,166 +728,128 @@ export default function Products() {
                 open={!collapsedCategories.has(group.id)}
                 onOpenChange={() => toggleCategoryCollapse(group.id)}
               >
-                {/* Category Header */}
+                {/* Category Header - Compact */}
                 <CollapsibleTrigger className="w-full">
-                  <div className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer hover:border-primary/30 ${
+                  <div className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer hover:border-primary/30 ${
                     group.id === 'uncategorized' 
                       ? 'bg-warning/5 border-warning/20' 
                       : 'bg-card border-border hover:bg-muted/50'
                   }`}>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {collapsedCategories.has(group.id) ? (
-                        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-primary" />
+                        <ChevronDown className="w-4 h-4 text-primary" />
                       )}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                         group.id === 'uncategorized' 
                           ? 'bg-warning/10' 
                           : 'bg-primary/10'
                       }`}>
                         {group.id === 'uncategorized' ? (
-                          <AlertTriangle className="w-5 h-5 text-warning" />
+                          <AlertTriangle className="w-3.5 h-3.5 text-warning" />
                         ) : (
-                          <FolderOpen className="w-5 h-5 text-primary" />
+                          <FolderOpen className="w-3.5 h-3.5 text-primary" />
                         )}
                       </div>
                       <div className="text-left">
-                        <h3 className="font-semibold text-lg">
+                        <h3 className="font-medium text-sm">
                           {group.category?.name || 'Sem Categoria'}
                         </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {group.products.length} {group.products.length === 1 ? 'produto' : 'produtos'}
-                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={group.id === 'uncategorized' ? 'outline' : 'secondary'}>
-                        {group.products.filter(p => p.is_available).length} disponíveis
+                      <span className="text-xs text-muted-foreground">
+                        {group.products.length} itens
+                      </span>
+                      <Badge variant={group.id === 'uncategorized' ? 'outline' : 'secondary'} className="text-[10px] h-5">
+                        {group.products.filter(p => p.is_available).length} disp.
                       </Badge>
                     </div>
                   </div>
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                  <div className="mt-3 ml-4 pl-4 border-l-2 border-primary/20">
+                  <div className="mt-2 ml-3 pl-3 border-l border-primary/20">
                     {viewMode === 'grid' ? (
-                      /* Grid View */
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 py-2">
+                      /* Grid View - Compact */
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 py-2">
                         {group.products.map((product) => (
                           <div 
                             key={product.id} 
-                            className={`group relative bg-card rounded-xl border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 ${
-                              !product.is_available ? 'opacity-60' : ''
+                            className={`group relative bg-card rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 ${
+                              !product.is_available ? 'opacity-50' : ''
                             }`}
                           >
-                            {/* Product Image */}
-                            <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+                            {/* Product Image - Compact */}
+                            <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-muted to-muted/50">
                               {product.image_url ? (
                                 <img 
                                   src={product.image_url} 
                                   alt={product.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <Package className="w-12 h-12 text-muted-foreground/30" />
+                                  <Package className="w-6 h-6 text-muted-foreground/30" />
                                 </div>
                               )}
                               
-                              {/* Overlay badges */}
-                              <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
+                              {/* Compact badges */}
+                              <div className="absolute top-1 left-1 flex flex-wrap gap-0.5">
                                 {product.has_sizes && (
-                                  <span className="text-xs font-medium bg-primary text-primary-foreground px-2 py-1 rounded-full shadow-sm">
+                                  <span className="text-[10px] font-medium bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
                                     P/M/G
                                   </span>
                                 )}
                                 {productAddonCounts[product.id] > 0 && (
-                                  <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded-full shadow-sm flex items-center gap-1">
-                                    <CirclePlus className="w-3 h-3" />
+                                  <span className="text-[10px] font-medium bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <CirclePlus className="w-2.5 h-2.5" />
                                     {productAddonCounts[product.id]}
                                   </span>
                                 )}
                               </div>
 
                               {/* Availability indicator */}
-                              <div className="absolute top-2 right-2">
+                              <div className="absolute top-1 right-1">
                                 <div 
-                                  className={`w-3 h-3 rounded-full shadow-sm ${
+                                  className={`w-2 h-2 rounded-full shadow-sm ${
                                     product.is_available 
                                       ? 'bg-success' 
                                       : 'bg-destructive'
                                   }`}
-                                  title={product.is_available ? 'Disponível' : 'Indisponível'}
                                 />
                               </div>
 
                               {/* Edit button overlay */}
-                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
-                                <Button
-                                  variant="secondary"
-                                  size="sm"
-                                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg"
-                                  onClick={() => openEditDialog(product)}
-                                >
-                                  <Pencil className="w-4 h-4 mr-2" />
-                                  Editar
-                                </Button>
-                              </div>
+                              <button
+                                onClick={() => openEditDialog(product)}
+                                className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100"
+                              >
+                                <Pencil className="w-4 h-4 text-white" />
+                              </button>
                             </div>
 
-                            {/* Product Info */}
-                            <div className="p-4 space-y-2">
-                              {/* Name */}
-                              <h3 className="font-semibold text-foreground line-clamp-2 leading-tight">
+                            {/* Product Info - Compact */}
+                            <div className="p-2 space-y-1">
+                              <h3 className="text-xs font-medium text-foreground line-clamp-1">
                                 {product.name}
                               </h3>
 
-                              {/* Description */}
-                              {product.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">
-                                  {product.description}
-                                </p>
-                              )}
-
-                              {/* Price */}
-                              <div className="pt-2 border-t border-border/50">
+                              <div className="flex items-center justify-between gap-1">
                                 {product.has_sizes ? (
-                                  <div className="flex flex-wrap gap-2 text-sm">
-                                    {product.price_small != null && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground">P:</span>
-                                        <span className="font-semibold text-foreground">{formatCurrency(product.price_small)}</span>
-                                      </div>
-                                    )}
-                                    {product.price_medium != null && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground">M:</span>
-                                        <span className="font-semibold text-foreground">{formatCurrency(product.price_medium)}</span>
-                                      </div>
-                                    )}
-                                    {product.price_large != null && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-muted-foreground">G:</span>
-                                        <span className="font-semibold text-foreground">{formatCurrency(product.price_large)}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <span className="text-xs font-semibold text-primary">
+                                    {formatCurrency(product.price_small || product.price_medium || product.price_large || 0)}+
+                                  </span>
                                 ) : (
-                                  <span className="text-lg font-bold text-primary">
+                                  <span className="text-xs font-semibold text-primary">
                                     {formatCurrency(product.price)}
                                   </span>
                                 )}
-                              </div>
-
-                              {/* Availability toggle */}
-                              <div className="flex items-center justify-between pt-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {product.is_available ? 'Disponível' : 'Indisponível'}
-                                </span>
                                 <Switch
                                   checked={product.is_available}
                                   onCheckedChange={() => toggleAvailability(product)}
+                                  className="scale-75"
                                 />
                               </div>
                             </div>
@@ -895,18 +857,18 @@ export default function Products() {
                         ))}
                       </div>
                     ) : (
-                      /* List View */
-                      <div className="bg-card rounded-xl border overflow-hidden my-2">
+                      /* List View - Compact */
+                      <div className="bg-card rounded-lg border overflow-hidden my-2">
                         <div className="divide-y divide-border">
                           {group.products.map((product) => (
                             <div 
                               key={product.id} 
-                              className={`group flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors ${
-                                !product.is_available ? 'opacity-60' : ''
+                              className={`group flex items-center gap-2 p-2 hover:bg-muted/50 transition-colors ${
+                                !product.is_available ? 'opacity-50' : ''
                               }`}
                             >
                               {/* Product Image */}
-                              <div className="relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+                              <div className="relative flex-shrink-0 w-10 h-10 rounded-md overflow-hidden bg-gradient-to-br from-muted to-muted/50">
                                 {product.image_url ? (
                                   <img 
                                     src={product.image_url} 
@@ -915,13 +877,12 @@ export default function Products() {
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-muted-foreground/30" />
+                                    <Package className="w-4 h-4 text-muted-foreground/30" />
                                   </div>
                                 )}
-                                {/* Availability dot */}
-                                <div className="absolute top-0.5 right-0.5">
+                                <div className="absolute top-0 right-0">
                                   <div 
-                                    className={`w-2 h-2 rounded-full shadow-sm ring-1 ring-background ${
+                                    className={`w-1.5 h-1.5 rounded-full ${
                                       product.is_available 
                                         ? 'bg-success' 
                                         : 'bg-destructive'
@@ -931,29 +892,20 @@ export default function Products() {
                               </div>
 
                               {/* Product Info */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <h3 className="font-semibold text-foreground truncate">
+                              <div className="flex-1 min-w-0 flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <h3 className="text-sm font-medium text-foreground truncate">
                                       {product.name}
                                     </h3>
-                                    {product.description && (
-                                      <p className="text-sm text-muted-foreground truncate hidden sm:block">
-                                        {product.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Badges */}
-                                  <div className="flex flex-shrink-0 items-center gap-1.5">
                                     {product.has_sizes && (
-                                      <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                      <span className="text-[10px] font-medium bg-primary/10 text-primary px-1 py-0.5 rounded">
                                         P/M/G
                                       </span>
                                     )}
                                     {productAddonCounts[product.id] > 0 && (
-                                      <span className="text-xs font-medium bg-secondary/50 text-secondary-foreground px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        <CirclePlus className="w-3 h-3" />
+                                      <span className="text-[10px] font-medium bg-secondary/50 text-secondary-foreground px-1 py-0.5 rounded flex items-center gap-0.5">
+                                        <CirclePlus className="w-2.5 h-2.5" />
                                         {productAddonCounts[product.id]}
                                       </span>
                                     )}
@@ -962,48 +914,32 @@ export default function Products() {
                               </div>
 
                               {/* Price */}
-                              <div className="hidden sm:block flex-shrink-0 text-right min-w-[100px]">
+                              <div className="flex-shrink-0 text-right">
                                 {product.has_sizes ? (
-                                  <div className="space-y-0.5 text-xs">
-                                    {product.price_small != null && (
-                                      <div className="flex items-center justify-end gap-1">
-                                        <span className="text-muted-foreground">P:</span>
-                                        <span className="font-semibold">{formatCurrency(product.price_small)}</span>
-                                      </div>
-                                    )}
-                                    {product.price_medium != null && (
-                                      <div className="flex items-center justify-end gap-1">
-                                        <span className="text-muted-foreground">M:</span>
-                                        <span className="font-semibold">{formatCurrency(product.price_medium)}</span>
-                                      </div>
-                                    )}
-                                    {product.price_large != null && (
-                                      <div className="flex items-center justify-end gap-1">
-                                        <span className="text-muted-foreground">G:</span>
-                                        <span className="font-semibold">{formatCurrency(product.price_large)}</span>
-                                      </div>
-                                    )}
-                                  </div>
+                                  <span className="text-sm font-semibold text-primary">
+                                    {formatCurrency(product.price_small || product.price_medium || product.price_large || 0)}+
+                                  </span>
                                 ) : (
-                                  <span className="text-base font-bold text-primary">
+                                  <span className="text-sm font-semibold text-primary">
                                     {formatCurrency(product.price)}
                                   </span>
                                 )}
                               </div>
 
                               {/* Actions */}
-                              <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex items-center gap-1 flex-shrink-0">
                                 <Switch
                                   checked={product.is_available}
                                   onCheckedChange={() => toggleAvailability(product)}
+                                  className="scale-75"
                                 />
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => openEditDialog(product)}
-                                  className="opacity-60 hover:opacity-100 hover:bg-primary/10 hover:text-primary h-8 w-8"
+                                  className="opacity-50 hover:opacity-100 hover:bg-primary/10 hover:text-primary h-7 w-7"
                                 >
-                                  <Pencil className="w-4 h-4" />
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
                             </div>
