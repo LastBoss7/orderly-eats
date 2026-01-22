@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowRight,
   Pencil,
   Trash2,
   History,
@@ -140,6 +141,11 @@ export default function Inventory() {
     notes: '',
     cost_price: 0,
   });
+  
+  // Custom category state
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   // Fetch data
   useEffect(() => {
@@ -431,8 +437,8 @@ export default function Inventory() {
     return matchesSearch && matchesCategory;
   });
 
-  // Get unique categories
-  const categories = [...new Set(items.map(i => i.category).filter(Boolean))];
+  // Get unique categories (including custom ones)
+  const categories = [...new Set([...items.map(i => i.category).filter(Boolean), ...customCategories])];
 
   // Stats
   const lowStockItems = items.filter(i => i.minimum_stock && i.current_stock <= i.minimum_stock);
@@ -842,9 +848,73 @@ export default function Inventory() {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Categoria</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsAddingCategory(true)}
+                        className="h-6 text-xs text-primary hover:text-primary"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Nova categoria
+                      </Button>
+                    </div>
+                    
+                    {isAddingCategory ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={newCategoryName}
+                          onChange={(e) => setNewCategoryName(e.target.value)}
+                          placeholder="Nome da categoria..."
+                          className="h-11 flex-1"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newCategoryName.trim()) {
+                              setCustomCategories([...customCategories, newCategoryName.trim()]);
+                              setFormData({ ...formData, category: newCategoryName.trim() });
+                              setNewCategoryName('');
+                              setIsAddingCategory(false);
+                              toast.success('Categoria criada!');
+                            }
+                            if (e.key === 'Escape') {
+                              setNewCategoryName('');
+                              setIsAddingCategory(false);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="h-11 w-11"
+                          onClick={() => {
+                            if (newCategoryName.trim()) {
+                              setCustomCategories([...customCategories, newCategoryName.trim()]);
+                              setFormData({ ...formData, category: newCategoryName.trim() });
+                              setNewCategoryName('');
+                              setIsAddingCategory(false);
+                              toast.success('Categoria criada!');
+                            }
+                          }}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-11 w-11"
+                          onClick={() => {
+                            setNewCategoryName('');
+                            setIsAddingCategory(false);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
                       <Select
                         value={formData.category || 'none'}
                         onValueChange={(value) => setFormData({ ...formData, category: value === 'none' ? '' : value })}
@@ -863,9 +933,22 @@ export default function Inventory() {
                           <SelectItem value="Embalagens">📦 Embalagens</SelectItem>
                           <SelectItem value="Limpeza">🧹 Limpeza</SelectItem>
                           <SelectItem value="Outros">📋 Outros</SelectItem>
+                          {/* Custom categories */}
+                          {customCategories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>🏷️ {cat}</SelectItem>
+                          ))}
+                          {/* Categories from existing items */}
+                          {categories.filter(c => 
+                            c && !['Carnes', 'Laticínios', 'Bebidas', 'Vegetais', 'Grãos', 'Temperos', 'Embalagens', 'Limpeza', 'Outros'].includes(c) && !customCategories.includes(c)
+                          ).map((cat) => (
+                            <SelectItem key={cat} value={cat!}>🏷️ {cat}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                    </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">SKU / Código</Label>
                       <Input
@@ -1057,82 +1140,129 @@ export default function Inventory() {
           </DialogContent>
         </Dialog>
 
-        {/* Movement Modal */}
+        {/* Movement Modal - Enhanced */}
         <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg">
             <DialogHeader className="pb-4 border-b">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  movementType === 'in' ? 'bg-success/10' : 
-                  movementType === 'out' ? 'bg-destructive/10' : 'bg-warning/10'
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${
+                  movementType === 'in' ? 'bg-gradient-to-br from-success/20 to-success/5 border border-success/20' : 
+                  movementType === 'out' ? 'bg-gradient-to-br from-destructive/20 to-destructive/5 border border-destructive/20' : 
+                  'bg-gradient-to-br from-warning/20 to-warning/5 border border-warning/20'
                 }`}>
                   {movementType === 'in' ? (
-                    <ArrowDownCircle className="w-6 h-6 text-success" />
+                    <ArrowDownCircle className="w-7 h-7 text-success" />
                   ) : movementType === 'out' ? (
-                    <ArrowUpCircle className="w-6 h-6 text-destructive" />
+                    <ArrowUpCircle className="w-7 h-7 text-destructive" />
                   ) : (
-                    <RefreshCw className="w-6 h-6 text-warning" />
+                    <RefreshCw className="w-7 h-7 text-warning" />
                   )}
                 </div>
-                <div>
+                <div className="flex-1">
                   <DialogTitle className="text-xl">
-                    {movementType === 'in' && 'Entrada de Estoque'}
-                    {movementType === 'out' && 'Saída de Estoque'}
-                    {movementType === 'adjustment' && 'Ajuste de Estoque'}
+                    {movementType === 'in' && '📥 Entrada de Estoque'}
+                    {movementType === 'out' && '📤 Saída de Estoque'}
+                    {movementType === 'adjustment' && '🔧 Ajuste de Estoque'}
                   </DialogTitle>
-                  <DialogDescription>
+                  <DialogDescription className="text-base font-medium">
                     {selectedItem?.name}
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              {/* Current stock info */}
-              <Card className="bg-muted/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Estoque atual:</span>
-                    <span className="text-2xl font-bold">
-                      {selectedItem?.current_stock} <span className="text-sm font-normal text-muted-foreground">{selectedItem?.unit_name}</span>
+            <div className="space-y-5 py-4">
+              {/* Current stock info - Enhanced */}
+              <div className={`rounded-xl p-4 border-2 ${
+                movementType === 'in' ? 'bg-success/5 border-success/20' : 
+                movementType === 'out' ? 'bg-destructive/5 border-destructive/20' : 
+                'bg-warning/5 border-warning/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Estoque atual</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-3xl font-bold">
+                      {selectedItem?.current_stock}
+                    </span>
+                    <span className="text-lg font-normal text-muted-foreground ml-1">
+                      {selectedItem?.unit_name}
                     </span>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
+              {/* Quantity Input - Enhanced */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  {movementType === 'in' && <ArrowDownCircle className="w-4 h-4 text-success" />}
+                  {movementType === 'out' && <ArrowUpCircle className="w-4 h-4 text-destructive" />}
+                  {movementType === 'adjustment' && <RefreshCw className="w-4 h-4 text-warning" />}
                   {movementType === 'adjustment' ? 'Novo Estoque' : 'Quantidade'} *
                 </Label>
-                <Input
-                  type="number"
-                  value={movementData.quantity || ''}
-                  onChange={(e) => setMovementData({ ...movementData, quantity: parseFloat(e.target.value) || 0 })}
-                  min="0"
-                  step="0.01"
-                  placeholder="0"
-                  className="h-14 text-center text-2xl font-bold"
-                  autoFocus
-                />
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={movementData.quantity || ''}
+                    onChange={(e) => setMovementData({ ...movementData, quantity: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    step="0.01"
+                    placeholder="0"
+                    className={`h-16 text-center text-3xl font-bold border-2 ${
+                      movementType === 'in' ? 'focus:border-success focus:ring-success' : 
+                      movementType === 'out' ? 'focus:border-destructive focus:ring-destructive' : 
+                      'focus:border-warning focus:ring-warning'
+                    }`}
+                    autoFocus
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-lg">
+                    {selectedItem?.unit_name}
+                  </span>
+                </div>
+                
+                {/* Preview New Stock - Enhanced */}
                 {movementType !== 'adjustment' && selectedItem && movementData.quantity > 0 && (
-                  <div className={`text-center p-2 rounded-lg ${
-                    movementType === 'in' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+                  <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${
+                    movementType === 'in' ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'
                   }`}>
-                    <span className="text-sm font-medium">
-                      Novo estoque: {movementType === 'in'
-                        ? selectedItem.current_stock + movementData.quantity
-                        : selectedItem.current_stock - movementData.quantity
-                      } {selectedItem.unit_name}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <ArrowRight className={`w-5 h-5 ${movementType === 'in' ? 'text-success' : 'text-destructive'}`} />
+                      <span className="text-sm font-medium">Novo estoque:</span>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-2xl font-bold ${movementType === 'in' ? 'text-success' : 'text-destructive'}`}>
+                        {movementType === 'in'
+                          ? selectedItem.current_stock + movementData.quantity
+                          : selectedItem.current_stock - movementData.quantity
+                        }
+                      </span>
+                      <span className="text-sm font-normal text-muted-foreground ml-1">
+                        {selectedItem.unit_name}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Warning for negative stock */}
+                {movementType === 'out' && selectedItem && movementData.quantity > selectedItem.current_stock && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm font-medium">Quantidade maior que o estoque disponível!</span>
                   </div>
                 )}
               </div>
 
+              {/* Cost Price for entries */}
               {movementType === 'in' && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Custo Unitário</Label>
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    💰 Custo Unitário
+                    <Badge variant="secondary" className="text-xs">por {selectedItem?.unit_name}</Badge>
+                  </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">R$</span>
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-lg">R$</span>
                     <Input
                       type="number"
                       value={movementData.cost_price || ''}
@@ -1140,58 +1270,101 @@ export default function Inventory() {
                       min="0"
                       step="0.01"
                       placeholder="0,00"
-                      className="h-11 pl-10"
+                      className="h-12 pl-12 text-lg font-semibold"
                     />
                   </div>
+                  {movementData.cost_price > 0 && movementData.quantity > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Total da compra: <span className="font-semibold text-foreground">{formatCurrency(movementData.cost_price * movementData.quantity)}</span>
+                    </p>
+                  )}
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Motivo</Label>
-                <Select
-                  value={movementData.reason}
-                  onValueChange={(value) => setMovementData({ ...movementData, reason: value })}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Selecione um motivo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {movementType === 'in' && (
-                      <>
-                        <SelectItem value="purchase">🛒 Compra</SelectItem>
-                        <SelectItem value="return">↩️ Devolução</SelectItem>
-                        <SelectItem value="transfer">🔄 Transferência</SelectItem>
-                        <SelectItem value="production">🏭 Produção</SelectItem>
-                        <SelectItem value="other">📝 Outro</SelectItem>
-                      </>
-                    )}
-                    {movementType === 'out' && (
-                      <>
-                        <SelectItem value="sale">💰 Venda</SelectItem>
-                        <SelectItem value="waste">🗑️ Desperdício</SelectItem>
-                        <SelectItem value="expired">⏰ Vencido</SelectItem>
-                        <SelectItem value="transfer">🔄 Transferência</SelectItem>
-                        <SelectItem value="other">📝 Outro</SelectItem>
-                      </>
-                    )}
-                    {movementType === 'adjustment' && (
-                      <>
-                        <SelectItem value="inventory_count">📋 Contagem de Inventário</SelectItem>
-                        <SelectItem value="correction">✏️ Correção</SelectItem>
-                        <SelectItem value="system_error">⚠️ Erro de Sistema</SelectItem>
-                        <SelectItem value="other">📝 Outro</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+              {/* Quick Reason Selection */}
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold">📋 Motivo</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {movementType === 'in' && (
+                    <>
+                      {[
+                        { value: 'purchase', label: '🛒 Compra', desc: 'Aquisição de fornecedor' },
+                        { value: 'return', label: '↩️ Devolução', desc: 'Retorno ao estoque' },
+                        { value: 'transfer', label: '🔄 Transferência', desc: 'Entre unidades' },
+                        { value: 'production', label: '🏭 Produção', desc: 'Produção interna' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setMovementData({ ...movementData, reason: option.value })}
+                          className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                            movementData.reason === option.value
+                              ? 'border-success bg-success/10'
+                              : 'border-border hover:border-success/50 hover:bg-muted'
+                          }`}
+                        >
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.desc}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {movementType === 'out' && (
+                    <>
+                      {[
+                        { value: 'sale', label: '💰 Venda', desc: 'Consumo em pedidos' },
+                        { value: 'waste', label: '🗑️ Desperdício', desc: 'Perda/descarte' },
+                        { value: 'expired', label: '⏰ Vencido', desc: 'Produto vencido' },
+                        { value: 'transfer', label: '🔄 Transferência', desc: 'Entre unidades' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setMovementData({ ...movementData, reason: option.value })}
+                          className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                            movementData.reason === option.value
+                              ? 'border-destructive bg-destructive/10'
+                              : 'border-border hover:border-destructive/50 hover:bg-muted'
+                          }`}
+                        >
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.desc}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {movementType === 'adjustment' && (
+                    <>
+                      {[
+                        { value: 'inventory_count', label: '📋 Contagem', desc: 'Inventário físico' },
+                        { value: 'correction', label: '✏️ Correção', desc: 'Ajuste manual' },
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setMovementData({ ...movementData, reason: option.value })}
+                          className={`flex flex-col items-start p-3 rounded-xl border-2 transition-all text-left ${
+                            movementData.reason === option.value
+                              ? 'border-warning bg-warning/10'
+                              : 'border-border hover:border-warning/50 hover:bg-muted'
+                          }`}
+                        >
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">{option.desc}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
 
+              {/* Notes */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Observações</Label>
+                <Label className="text-sm font-semibold">📝 Observações</Label>
                 <Textarea
                   value={movementData.notes}
                   onChange={(e) => setMovementData({ ...movementData, notes: e.target.value })}
-                  placeholder="Detalhes adicionais..."
+                  placeholder="Detalhes adicionais, número da nota fiscal, etc..."
                   rows={2}
                   className="resize-none"
                 />
@@ -1199,18 +1372,36 @@ export default function Inventory() {
             </div>
 
             <DialogFooter className="pt-4 border-t gap-2">
-              <Button variant="outline" onClick={() => setIsMovementModalOpen(false)} className="flex-1">
+              <Button variant="outline" onClick={() => setIsMovementModalOpen(false)} className="flex-1 h-12">
                 Cancelar
               </Button>
               <Button 
                 onClick={handleSaveMovement} 
-                className={`flex-1 ${
+                className={`flex-1 h-12 text-base font-semibold ${
                   movementType === 'in' ? 'bg-success hover:bg-success/90' : 
-                  movementType === 'out' ? 'bg-destructive hover:bg-destructive/90' : ''
+                  movementType === 'out' ? 'bg-destructive hover:bg-destructive/90' : 
+                  'bg-warning hover:bg-warning/90'
                 }`}
-                disabled={movementData.quantity <= 0}
+                disabled={movementData.quantity <= 0 || (movementType === 'out' && selectedItem && movementData.quantity > selectedItem.current_stock)}
               >
-                Confirmar
+                {movementType === 'in' && (
+                  <>
+                    <ArrowDownCircle className="w-5 h-5 mr-2" />
+                    Confirmar Entrada
+                  </>
+                )}
+                {movementType === 'out' && (
+                  <>
+                    <ArrowUpCircle className="w-5 h-5 mr-2" />
+                    Confirmar Saída
+                  </>
+                )}
+                {movementType === 'adjustment' && (
+                  <>
+                    <RefreshCw className="w-5 h-5 mr-2" />
+                    Confirmar Ajuste
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
