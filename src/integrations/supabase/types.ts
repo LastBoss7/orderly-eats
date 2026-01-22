@@ -1473,6 +1473,12 @@ export type Database = {
           daily_order_counter: number | null
           delivery_prep_max: number | null
           delivery_prep_min: number | null
+          digital_menu_banner_url: string | null
+          digital_menu_delivery_enabled: boolean | null
+          digital_menu_description: string | null
+          digital_menu_enabled: boolean | null
+          digital_menu_min_order_value: number | null
+          digital_menu_pickup_enabled: boolean | null
           has_dining_room: boolean | null
           has_waiters: boolean | null
           id: string
@@ -1511,6 +1517,12 @@ export type Database = {
           daily_order_counter?: number | null
           delivery_prep_max?: number | null
           delivery_prep_min?: number | null
+          digital_menu_banner_url?: string | null
+          digital_menu_delivery_enabled?: boolean | null
+          digital_menu_description?: string | null
+          digital_menu_enabled?: boolean | null
+          digital_menu_min_order_value?: number | null
+          digital_menu_pickup_enabled?: boolean | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string
@@ -1549,6 +1561,12 @@ export type Database = {
           daily_order_counter?: number | null
           delivery_prep_max?: number | null
           delivery_prep_min?: number | null
+          digital_menu_banner_url?: string | null
+          digital_menu_delivery_enabled?: boolean | null
+          digital_menu_description?: string | null
+          digital_menu_enabled?: boolean | null
+          digital_menu_min_order_value?: number | null
+          digital_menu_pickup_enabled?: boolean | null
           has_dining_room?: boolean | null
           has_waiters?: boolean | null
           id?: string

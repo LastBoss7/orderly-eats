@@ -1,4 +1,4 @@
-import { CustomerInfo, OrderType, formatCurrency } from '../types';
+import { CustomerInfo, OrderType, MenuSettings, formatCurrency } from '../types';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState, useEffect } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle } from 'lucide-react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface MenuCheckoutProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface MenuCheckoutProps {
   deliveryFee: number;
   onSubmit: (orderType: OrderType, customerInfo: CustomerInfo) => void;
   loading: boolean;
+  menuSettings: MenuSettings;
 }
 
 export function MenuCheckout({
@@ -28,8 +30,20 @@ export function MenuCheckout({
   deliveryFee,
   onSubmit,
   loading,
+  menuSettings,
 }: MenuCheckoutProps) {
-  const [orderType, setOrderType] = useState<OrderType>('delivery');
+  const deliveryEnabled = menuSettings.digital_menu_delivery_enabled;
+  const pickupEnabled = menuSettings.digital_menu_pickup_enabled;
+  const minOrderValue = menuSettings.digital_menu_min_order_value || 0;
+
+  // Determine default order type based on what's enabled
+  const getDefaultOrderType = (): OrderType => {
+    if (deliveryEnabled) return 'delivery';
+    if (pickupEnabled) return 'takeaway';
+    return 'delivery';
+  };
+
+  const [orderType, setOrderType] = useState<OrderType>(getDefaultOrderType());
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '',
     phone: '',
@@ -45,7 +59,7 @@ export function MenuCheckout({
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
-      setOrderType('delivery');
+      setOrderType(getDefaultOrderType());
       setCustomerInfo({
         name: '',
         phone: '',
@@ -95,6 +109,9 @@ export function MenuCheckout({
     customerInfo.phone &&
     (orderType === 'takeaway' || (orderType === 'delivery' && customerInfo.address));
 
+  const isBelowMinOrder = total < minOrderValue;
+  const canSubmit = isValid && !isBelowMinOrder;
+
   const finalTotal = orderType === 'delivery' ? total + deliveryFee : total;
 
   return (
@@ -105,6 +122,17 @@ export function MenuCheckout({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Minimum Order Warning */}
+          {isBelowMinOrder && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Pedido mínimo: {formatCurrency(minOrderValue)}. 
+                Adicione mais {formatCurrency(minOrderValue - total)} ao seu pedido.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Order Type */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Tipo de pedido</Label>
@@ -113,37 +141,41 @@ export function MenuCheckout({
               onValueChange={(v) => setOrderType(v as OrderType)}
               className="grid grid-cols-2 gap-3"
             >
-              <Label
-                htmlFor="delivery"
-                className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${
-                  orderType === 'delivery'
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
-                <Bike className="w-8 h-8 mb-2 text-primary" />
-                <span className="font-medium">Delivery</span>
-                {deliveryFee > 0 && (
-                  <span className="text-xs text-muted-foreground mt-1">
-                    +{formatCurrency(deliveryFee)}
-                  </span>
-                )}
-              </Label>
+              {deliveryEnabled && (
+                <Label
+                  htmlFor="delivery"
+                  className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${
+                    orderType === 'delivery'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
+                  <Bike className="w-8 h-8 mb-2 text-primary" />
+                  <span className="font-medium">Delivery</span>
+                  {deliveryFee > 0 && (
+                    <span className="text-xs text-muted-foreground mt-1">
+                      +{formatCurrency(deliveryFee)}
+                    </span>
+                  )}
+                </Label>
+              )}
 
-              <Label
-                htmlFor="takeaway"
-                className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${
-                  orderType === 'takeaway'
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                    : 'border-border hover:border-primary/50'
-                }`}
-              >
-                <RadioGroupItem value="takeaway" id="takeaway" className="sr-only" />
-                <Package className="w-8 h-8 mb-2 text-amber-500" />
-                <span className="font-medium">Retirar</span>
-                <span className="text-xs text-muted-foreground mt-1">no local</span>
-              </Label>
+              {pickupEnabled && (
+                <Label
+                  htmlFor="takeaway"
+                  className={`flex flex-col items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${
+                    orderType === 'takeaway'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <RadioGroupItem value="takeaway" id="takeaway" className="sr-only" />
+                  <Package className="w-8 h-8 mb-2 text-amber-500" />
+                  <span className="font-medium">Retirar</span>
+                  <span className="text-xs text-muted-foreground mt-1">no local</span>
+                </Label>
+              )}
             </RadioGroup>
           </div>
 
@@ -292,7 +324,7 @@ export function MenuCheckout({
             size="lg"
             className="w-full gap-2"
             onClick={handleSubmit}
-            disabled={!isValid || loading}
+            disabled={!canSubmit || loading}
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

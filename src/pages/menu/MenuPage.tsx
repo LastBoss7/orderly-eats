@@ -11,6 +11,7 @@ import {
   CustomerInfo,
   OrderType,
   CouponValidation,
+  MenuSettings,
   formatCurrency,
   getProductPrice,
   getSizeLabel,
@@ -31,6 +32,14 @@ export default function MenuPage() {
 
   // Data states
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [menuSettings, setMenuSettings] = useState<MenuSettings>({
+    digital_menu_enabled: true,
+    digital_menu_banner_url: null,
+    digital_menu_description: null,
+    digital_menu_delivery_enabled: true,
+    digital_menu_pickup_enabled: true,
+    digital_menu_min_order_value: 0,
+  });
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +94,24 @@ export default function MenuPage() {
         }
 
         setRestaurant(restaurantData);
+
+        // Fetch menu settings
+        const { data: settingsData } = await supabase
+          .from('salon_settings')
+          .select('digital_menu_enabled, digital_menu_banner_url, digital_menu_description, digital_menu_delivery_enabled, digital_menu_pickup_enabled, digital_menu_min_order_value')
+          .eq('restaurant_id', restaurantData.id)
+          .maybeSingle();
+
+        if (settingsData) {
+          setMenuSettings({
+            digital_menu_enabled: settingsData.digital_menu_enabled ?? true,
+            digital_menu_banner_url: settingsData.digital_menu_banner_url,
+            digital_menu_description: settingsData.digital_menu_description,
+            digital_menu_delivery_enabled: settingsData.digital_menu_delivery_enabled ?? true,
+            digital_menu_pickup_enabled: settingsData.digital_menu_pickup_enabled ?? true,
+            digital_menu_min_order_value: settingsData.digital_menu_min_order_value ?? 0,
+          });
+        }
 
         // Fetch categories
         const { data: categoriesData } = await supabase
@@ -419,6 +446,7 @@ export default function MenuPage() {
       {/* Header */}
       <MenuHeader
         restaurant={restaurant}
+        menuSettings={menuSettings}
         cartCount={cartCount}
         onCartClick={() => setCartOpen(true)}
         searchQuery={searchQuery}
@@ -495,6 +523,7 @@ export default function MenuPage() {
         deliveryFee={0}
         onSubmit={handleSubmitOrder}
         loading={submitting}
+        menuSettings={menuSettings}
       />
 
       {/* Floating Cart Button (mobile) */}
