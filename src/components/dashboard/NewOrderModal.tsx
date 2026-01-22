@@ -843,65 +843,65 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-4 pb-3 border-b bg-gradient-to-r from-primary/5 to-transparent">
-          <div className="flex flex-col gap-3">
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5 text-primary" />
+        <DialogHeader className="px-4 py-2 border-b">
+          <div className="flex items-center justify-between gap-4">
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-primary" />
               Novo Pedido
             </DialogTitle>
             
-            {/* Order Type Pills - Enhanced with shortcuts */}
-            <div className="grid grid-cols-4 gap-2">
+            {/* Order Type Pills - Compact inline version */}
+            <div className="flex gap-1 bg-muted p-1 rounded-lg">
               <button
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   orderType === 'counter'
-                    ? 'border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                    : 'border-muted hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'hover:bg-background text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setOrderType('counter')}
               >
-                <Store className={`w-6 h-6 ${orderType === 'counter' ? 'text-blue-500' : ''}`} />
-                <span className="text-sm font-medium">Balcão</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">Alt+B</Badge>
+                <Store className="w-3.5 h-3.5" />
+                Balcão
+                <kbd className="hidden sm:inline text-[9px] opacity-70 ml-0.5">B</kbd>
               </button>
               
               <button
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   orderType === 'takeaway'
-                    ? 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                    : 'border-muted hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'hover:bg-background text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setOrderType('takeaway')}
               >
-                <PackageCheck className={`w-6 h-6 ${orderType === 'takeaway' ? 'text-amber-500' : ''}`} />
-                <span className="text-sm font-medium">Retirada</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">Alt+R</Badge>
+                <PackageCheck className="w-3.5 h-3.5" />
+                Retirada
+                <kbd className="hidden sm:inline text-[9px] opacity-70 ml-0.5">R</kbd>
               </button>
               
               <button
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   orderType === 'table'
-                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                    : 'border-muted hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                    ? 'bg-emerald-500 text-white shadow-sm'
+                    : 'hover:bg-background text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setOrderType('table')}
               >
-                <UtensilsCrossed className={`w-6 h-6 ${orderType === 'table' ? 'text-emerald-500' : ''}`} />
-                <span className="text-sm font-medium">Mesa</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">Alt+M</Badge>
+                <UtensilsCrossed className="w-3.5 h-3.5" />
+                Mesa
+                <kbd className="hidden sm:inline text-[9px] opacity-70 ml-0.5">M</kbd>
               </button>
               
               <button
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   orderType === 'delivery'
-                    ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-400'
-                    : 'border-muted hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30'
+                    ? 'bg-purple-500 text-white shadow-sm'
+                    : 'hover:bg-background text-muted-foreground hover:text-foreground'
                 }`}
                 onClick={() => setOrderType('delivery')}
               >
-                <Bike className={`w-6 h-6 ${orderType === 'delivery' ? 'text-purple-500' : ''}`} />
-                <span className="text-sm font-medium">Entrega</span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 h-4">Alt+D</Badge>
+                <Bike className="w-3.5 h-3.5" />
+                Entrega
+                <kbd className="hidden sm:inline text-[9px] opacity-70 ml-0.5">D</kbd>
               </button>
             </div>
           </div>
