@@ -804,143 +804,254 @@ export default function Inventory() {
           </TabsContent>
         </Tabs>
 
-        {/* Item Modal */}
+        {/* Item Modal - Enhanced */}
         <Dialog open={isItemModalOpen} onOpenChange={setIsItemModalOpen}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>
-                {editingItem ? 'Editar Item' : 'Novo Item de Estoque'}
-              </DialogTitle>
-              <DialogDescription>
-                Preencha as informações do item
-              </DialogDescription>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="pb-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${editingItem ? 'bg-primary/10' : 'bg-success/10'}`}>
+                  <Package className={`w-6 h-6 ${editingItem ? 'text-primary' : 'text-success'}`} />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl">
+                    {editingItem ? 'Editar Item' : 'Novo Item de Estoque'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {editingItem ? 'Atualize as informações do item' : 'Cadastre um novo insumo no seu estoque'}
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ex: Carne moída"
-                  />
+            <div className="space-y-6 py-4">
+              {/* Seção: Informações Básicas */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">1</span>
+                  Informações Básicas
                 </div>
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Input
-                    value={formData.sku}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                    placeholder="Ex: CM001"
-                  />
+                
+                <div className="grid gap-4 pl-8">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Nome do Item *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex: Carne moída, Queijo mussarela, Coca-Cola..."
+                      className="h-11"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Categoria</Label>
+                      <Select
+                        value={formData.category || 'none'}
+                        onValueChange={(value) => setFormData({ ...formData, category: value === 'none' ? '' : value })}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Selecione uma categoria" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem categoria</SelectItem>
+                          <SelectItem value="Carnes">🥩 Carnes</SelectItem>
+                          <SelectItem value="Laticínios">🧀 Laticínios</SelectItem>
+                          <SelectItem value="Bebidas">🥤 Bebidas</SelectItem>
+                          <SelectItem value="Vegetais">🥬 Vegetais</SelectItem>
+                          <SelectItem value="Grãos">🌾 Grãos</SelectItem>
+                          <SelectItem value="Temperos">🌶️ Temperos</SelectItem>
+                          <SelectItem value="Embalagens">📦 Embalagens</SelectItem>
+                          <SelectItem value="Limpeza">🧹 Limpeza</SelectItem>
+                          <SelectItem value="Outros">📋 Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">SKU / Código</Label>
+                      <Input
+                        value={formData.sku}
+                        onChange={(e) => setFormData({ ...formData, sku: e.target.value.toUpperCase() })}
+                        placeholder="Ex: CM001"
+                        className="h-11 uppercase"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Input
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Ex: Carnes"
-                  />
+              {/* Seção: Unidade e Quantidades */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">2</span>
+                  Unidade e Quantidades
                 </div>
-                <div className="space-y-2">
-                  <Label>Unidade *</Label>
-                  <Select
-                    value={formData.unit_name}
-                    onValueChange={(value) => setFormData({ ...formData, unit_name: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {units.map(unit => (
-                        <SelectItem key={unit.id} value={unit.abbreviation}>
-                          {unit.name} ({unit.abbreviation})
-                        </SelectItem>
+                
+                <div className="grid gap-4 pl-8">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Unidade de Medida *</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { value: 'un', label: 'Unidade', icon: '📦' },
+                        { value: 'kg', label: 'Quilo', icon: '⚖️' },
+                        { value: 'g', label: 'Grama', icon: '🔬' },
+                        { value: 'L', label: 'Litro', icon: '🧴' },
+                        { value: 'ml', label: 'Mililitro', icon: '💧' },
+                      ].map((unit) => (
+                        <button
+                          key={unit.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, unit_name: unit.value })}
+                          className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                            formData.unit_name === unit.value
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border hover:border-primary/50 hover:bg-muted'
+                          }`}
+                        >
+                          <span className="text-lg mb-1">{unit.icon}</span>
+                          <span className="text-xs font-medium">{unit.label}</span>
+                          <span className="text-[10px] text-muted-foreground">({unit.value})</span>
+                        </button>
                       ))}
-                      {units.length === 0 && defaultUnits.map(unit => (
-                        <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
-                          {unit.name} ({unit.abbreviation})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        Estoque Atual
+                        <Badge variant="secondary" className="text-[10px]">
+                          {formData.unit_name}
+                        </Badge>
+                      </Label>
+                      <Input
+                        type="number"
+                        value={formData.current_stock || ''}
+                        onChange={(e) => setFormData({ ...formData, current_stock: parseFloat(e.target.value) || 0 })}
+                        min="0"
+                        step="0.01"
+                        placeholder="0"
+                        className="h-11 text-center text-lg font-semibold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <AlertTriangle className="w-3 h-3 text-warning" />
+                        Mínimo
+                      </Label>
+                      <Input
+                        type="number"
+                        value={formData.minimum_stock || ''}
+                        onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) || 0 })}
+                        min="0"
+                        step="0.01"
+                        placeholder="0"
+                        className="h-11 text-center"
+                      />
+                      <p className="text-[10px] text-muted-foreground text-center">Alerta quando atingir</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <TrendingUp className="w-3 h-3 text-success" />
+                        Máximo
+                      </Label>
+                      <Input
+                        type="number"
+                        value={formData.maximum_stock || ''}
+                        onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) || 0 })}
+                        min="0"
+                        step="0.01"
+                        placeholder="0"
+                        className="h-11 text-center"
+                      />
+                      <p className="text-[10px] text-muted-foreground text-center">Capacidade máxima</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Estoque Atual</Label>
-                  <Input
-                    type="number"
-                    value={formData.current_stock}
-                    onChange={(e) => setFormData({ ...formData, current_stock: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    step="0.01"
-                  />
+              {/* Seção: Custos e Fornecedor */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">3</span>
+                  Custos e Fornecedor
                 </div>
-                <div className="space-y-2">
-                  <Label>Estoque Mínimo</Label>
-                  <Input
-                    type="number"
-                    value={formData.minimum_stock}
-                    onChange={(e) => setFormData({ ...formData, minimum_stock: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estoque Máximo</Label>
-                  <Input
-                    type="number"
-                    value={formData.maximum_stock}
-                    onChange={(e) => setFormData({ ...formData, maximum_stock: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
+                
+                <div className="grid gap-4 pl-8">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Custo Unitário</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">R$</span>
+                        <Input
+                          type="number"
+                          value={formData.cost_price || ''}
+                          onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || 0 })}
+                          min="0"
+                          step="0.01"
+                          placeholder="0,00"
+                          className="h-11 pl-10"
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Preço por {formData.unit_name}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Fornecedor</Label>
+                      <Input
+                        value={formData.supplier}
+                        onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                        placeholder="Ex: Distribuidora XYZ"
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Custo Unitário (R$)</Label>
-                  <Input
-                    type="number"
-                    value={formData.cost_price}
-                    onChange={(e) => setFormData({ ...formData, cost_price: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Fornecedor</Label>
-                  <Input
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                    placeholder="Ex: Frigorífico XYZ"
-                  />
-                </div>
-              </div>
+                  {formData.current_stock > 0 && formData.cost_price > 0 && (
+                    <Card className="bg-muted/50 border-dashed">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">Valor total em estoque:</span>
+                          <span className="text-lg font-bold text-primary">
+                            {formatCurrency(formData.current_stock * formData.cost_price)}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Observações sobre o item..."
-                  rows={2}
-                />
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Observações</Label>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Informações adicionais sobre o item..."
+                      rows={2}
+                      className="resize-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsItemModalOpen(false)}>
+            <DialogFooter className="pt-4 border-t gap-2">
+              <Button variant="outline" onClick={() => setIsItemModalOpen(false)} className="flex-1 sm:flex-none">
                 Cancelar
               </Button>
-              <Button onClick={handleSaveItem}>
-                {editingItem ? 'Salvar' : 'Adicionar'}
+              <Button 
+                onClick={handleSaveItem} 
+                className="flex-1 sm:flex-none min-w-[140px]"
+                disabled={!formData.name.trim()}
+              >
+                {editingItem ? (
+                  <>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Salvar Alterações
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Item
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -948,87 +1059,127 @@ export default function Inventory() {
 
         {/* Movement Modal */}
         <Dialog open={isMovementModalOpen} onOpenChange={setIsMovementModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {movementType === 'in' && 'Entrada de Estoque'}
-                {movementType === 'out' && 'Saída de Estoque'}
-                {movementType === 'adjustment' && 'Ajuste de Estoque'}
-              </DialogTitle>
-              <DialogDescription>
-                {selectedItem?.name} - Estoque atual: {selectedItem?.current_stock} {selectedItem?.unit_name}
-              </DialogDescription>
+          <DialogContent className="max-w-md">
+            <DialogHeader className="pb-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  movementType === 'in' ? 'bg-success/10' : 
+                  movementType === 'out' ? 'bg-destructive/10' : 'bg-warning/10'
+                }`}>
+                  {movementType === 'in' ? (
+                    <ArrowDownCircle className="w-6 h-6 text-success" />
+                  ) : movementType === 'out' ? (
+                    <ArrowUpCircle className="w-6 h-6 text-destructive" />
+                  ) : (
+                    <RefreshCw className="w-6 h-6 text-warning" />
+                  )}
+                </div>
+                <div>
+                  <DialogTitle className="text-xl">
+                    {movementType === 'in' && 'Entrada de Estoque'}
+                    {movementType === 'out' && 'Saída de Estoque'}
+                    {movementType === 'adjustment' && 'Ajuste de Estoque'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {selectedItem?.name}
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
 
-            <div className="grid gap-4 py-4">
+            <div className="space-y-4 py-4">
+              {/* Current stock info */}
+              <Card className="bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Estoque atual:</span>
+                    <span className="text-2xl font-bold">
+                      {selectedItem?.current_stock} <span className="text-sm font-normal text-muted-foreground">{selectedItem?.unit_name}</span>
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="space-y-2">
-                <Label>
+                <Label className="text-sm font-medium">
                   {movementType === 'adjustment' ? 'Novo Estoque' : 'Quantidade'} *
                 </Label>
                 <Input
                   type="number"
-                  value={movementData.quantity}
+                  value={movementData.quantity || ''}
                   onChange={(e) => setMovementData({ ...movementData, quantity: parseFloat(e.target.value) || 0 })}
                   min="0"
                   step="0.01"
+                  placeholder="0"
+                  className="h-14 text-center text-2xl font-bold"
+                  autoFocus
                 />
-                {movementType !== 'adjustment' && selectedItem && (
-                  <p className="text-sm text-muted-foreground">
-                    Novo estoque: {movementType === 'in'
-                      ? selectedItem.current_stock + movementData.quantity
-                      : selectedItem.current_stock - movementData.quantity
-                    } {selectedItem.unit_name}
-                  </p>
+                {movementType !== 'adjustment' && selectedItem && movementData.quantity > 0 && (
+                  <div className={`text-center p-2 rounded-lg ${
+                    movementType === 'in' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+                  }`}>
+                    <span className="text-sm font-medium">
+                      Novo estoque: {movementType === 'in'
+                        ? selectedItem.current_stock + movementData.quantity
+                        : selectedItem.current_stock - movementData.quantity
+                      } {selectedItem.unit_name}
+                    </span>
+                  </div>
                 )}
               </div>
 
               {movementType === 'in' && (
                 <div className="space-y-2">
-                  <Label>Custo Unitário (R$)</Label>
-                  <Input
-                    type="number"
-                    value={movementData.cost_price}
-                    onChange={(e) => setMovementData({ ...movementData, cost_price: parseFloat(e.target.value) || 0 })}
-                    min="0"
-                    step="0.01"
-                  />
+                  <Label className="text-sm font-medium">Custo Unitário</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">R$</span>
+                    <Input
+                      type="number"
+                      value={movementData.cost_price || ''}
+                      onChange={(e) => setMovementData({ ...movementData, cost_price: parseFloat(e.target.value) || 0 })}
+                      min="0"
+                      step="0.01"
+                      placeholder="0,00"
+                      className="h-11 pl-10"
+                    />
+                  </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label>Motivo</Label>
+                <Label className="text-sm font-medium">Motivo</Label>
                 <Select
                   value={movementData.reason}
                   onValueChange={(value) => setMovementData({ ...movementData, reason: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="Selecione um motivo" />
                   </SelectTrigger>
                   <SelectContent>
                     {movementType === 'in' && (
                       <>
-                        <SelectItem value="purchase">Compra</SelectItem>
-                        <SelectItem value="return">Devolução</SelectItem>
-                        <SelectItem value="transfer">Transferência</SelectItem>
-                        <SelectItem value="production">Produção</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
+                        <SelectItem value="purchase">🛒 Compra</SelectItem>
+                        <SelectItem value="return">↩️ Devolução</SelectItem>
+                        <SelectItem value="transfer">🔄 Transferência</SelectItem>
+                        <SelectItem value="production">🏭 Produção</SelectItem>
+                        <SelectItem value="other">📝 Outro</SelectItem>
                       </>
                     )}
                     {movementType === 'out' && (
                       <>
-                        <SelectItem value="sale">Venda</SelectItem>
-                        <SelectItem value="waste">Desperdício</SelectItem>
-                        <SelectItem value="expired">Vencido</SelectItem>
-                        <SelectItem value="transfer">Transferência</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
+                        <SelectItem value="sale">💰 Venda</SelectItem>
+                        <SelectItem value="waste">🗑️ Desperdício</SelectItem>
+                        <SelectItem value="expired">⏰ Vencido</SelectItem>
+                        <SelectItem value="transfer">🔄 Transferência</SelectItem>
+                        <SelectItem value="other">📝 Outro</SelectItem>
                       </>
                     )}
                     {movementType === 'adjustment' && (
                       <>
-                        <SelectItem value="inventory_count">Contagem de Inventário</SelectItem>
-                        <SelectItem value="correction">Correção</SelectItem>
-                        <SelectItem value="system_error">Erro de Sistema</SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
+                        <SelectItem value="inventory_count">📋 Contagem de Inventário</SelectItem>
+                        <SelectItem value="correction">✏️ Correção</SelectItem>
+                        <SelectItem value="system_error">⚠️ Erro de Sistema</SelectItem>
+                        <SelectItem value="other">📝 Outro</SelectItem>
                       </>
                     )}
                   </SelectContent>
@@ -1036,21 +1187,29 @@ export default function Inventory() {
               </div>
 
               <div className="space-y-2">
-                <Label>Observações</Label>
+                <Label className="text-sm font-medium">Observações</Label>
                 <Textarea
                   value={movementData.notes}
                   onChange={(e) => setMovementData({ ...movementData, notes: e.target.value })}
                   placeholder="Detalhes adicionais..."
                   rows={2}
+                  className="resize-none"
                 />
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsMovementModalOpen(false)}>
+            <DialogFooter className="pt-4 border-t gap-2">
+              <Button variant="outline" onClick={() => setIsMovementModalOpen(false)} className="flex-1">
                 Cancelar
               </Button>
-              <Button onClick={handleSaveMovement}>
+              <Button 
+                onClick={handleSaveMovement} 
+                className={`flex-1 ${
+                  movementType === 'in' ? 'bg-success hover:bg-success/90' : 
+                  movementType === 'out' ? 'bg-destructive hover:bg-destructive/90' : ''
+                }`}
+                disabled={movementData.quantity <= 0}
+              >
                 Confirmar
               </Button>
             </DialogFooter>
