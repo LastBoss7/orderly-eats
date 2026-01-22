@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { OpeningHoursEditor, DaySchedule, defaultOpeningHours, isRestaurantOpen } from '@/components/settings/OpeningHoursEditor';
+import { CouponManager } from '@/components/coupons/CouponManager';
 
 interface DigitalMenuSettingsData {
   digital_menu_enabled: boolean;
@@ -496,6 +497,11 @@ export default function DigitalMenuSettings() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Coupons Manager */}
+            {restaurant?.id && (
+              <CouponManager restaurantId={restaurant.id} />
+            )}
 
             {/* Restaurant Info */}
             <Card>
