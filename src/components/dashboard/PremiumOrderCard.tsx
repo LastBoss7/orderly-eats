@@ -255,138 +255,196 @@ export function PremiumOrderCard({
     );
   }
 
-  // Full mode card
+  // Calculate remaining time for countdown display
+  const formatCountdown = (timer: Timer | null, limitMinutes: number) => {
+    if (!timer) return null;
+    const remainingSeconds = Math.max(0, (limitMinutes * 60) - timer.elapsedSeconds);
+    const hours = Math.floor(remainingSeconds / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
+    const seconds = remainingSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const getPaymentMethodLabel = (method: string | null) => {
+    switch (method) {
+      case 'credit': return 'Cartão';
+      case 'debit': return 'Débito';
+      case 'pix': return 'PIX';
+      case 'cash': return 'Dinheiro';
+      case 'mixed': return 'Misto';
+      default: return null;
+    }
+  };
+
+  // Full mode card - Clean design like reference
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative bg-card rounded-xl border overflow-hidden transition-all hover:shadow-lg ${
-        isDelayed ? 'border-destructive/50 shadow-destructive/10' : 'hover:border-primary/20'
-      } ${isDragging ? 'opacity-50 shadow-xl' : ''} ${isRecentlyUpdated ? 'ring-2 ring-emerald-500/40' : ''}`}
+      className={`group relative bg-white dark:bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden transition-all hover:shadow-md ${
+        isDragging ? 'opacity-50 shadow-xl' : ''
+      } ${isRecentlyUpdated ? 'ring-2 ring-emerald-500/40' : ''}`}
     >
       {/* Drag Handle */}
       <div
         {...listeners}
         {...attributes}
-        className="absolute right-3 top-3 p-1 opacity-0 group-hover:opacity-100 cursor-grab text-muted-foreground/40 hover:text-muted-foreground transition-opacity z-10"
+        className="absolute right-2 top-2 p-1 opacity-0 group-hover:opacity-100 cursor-grab text-muted-foreground/40 hover:text-muted-foreground transition-opacity z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-4 h-4" />
       </div>
 
-      {/* Delayed indicator */}
+      {/* Header - Order number and time */}
+      <div 
+        className="p-3 pb-2 cursor-pointer"
+        onClick={() => onOpenDetail(order)}
+      >
+        <div className="flex items-center justify-between pr-6">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-muted/60 flex items-center justify-center">
+              {getOrderTypeIcon(order.order_type)}
+            </div>
+            <span className="font-bold text-base text-foreground">
+              Pedido {getOrderDisplayNumber()}
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-1.5 bg-muted/60 text-muted-foreground px-2 py-1 rounded-full text-xs font-medium">
+            <Clock className="w-3 h-3" />
+            {formatTime(order.created_at)}
+          </div>
+        </div>
+      </div>
+
+      {/* Countdown timer bar */}
+      {timer && order.status === 'preparing' && (
+        <div 
+          className={`mx-3 mb-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-center ${
+            timer.isOverdue || isDelayed
+              ? 'bg-destructive/10 text-destructive'
+              : timer.percentage > 75
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                : 'bg-primary/10 text-primary'
+          }`}
+        >
+          Prepare em até {formatCountdown(timer, timer.limit)}
+        </div>
+      )}
+
+      {/* Delayed warning */}
       {isDelayed && order.status === 'preparing' && (
-        <div className="bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground text-xs font-bold text-center py-1.5 px-3">
+        <div className="mx-3 mb-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-center bg-destructive text-destructive-foreground">
           ⚠️ Pedido atrasado
         </div>
       )}
 
-      {/* Main content */}
+      {/* Customer info */}
       <div 
-        className="p-4 cursor-pointer"
+        className="px-3 pb-2 cursor-pointer"
         onClick={() => onOpenDetail(order)}
       >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-3 pr-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center shadow-sm">
-              {getOrderTypeIcon(order.order_type)}
-            </div>
-            <div>
-              <span className="font-bold text-base block">{getOrderDisplayNumber()}</span>
-              {waiterName && (
-                <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                  <ChefHat className="w-3 h-3" />
-                  {waiterName}
-                </span>
-              )}
-            </div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              {order.customer_name || 'Não identificado'}
+            </p>
+            {order.delivery_phone && (
+              <p className="text-xs text-muted-foreground">
+                {order.delivery_phone}
+              </p>
+            )}
+            {waiterName && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-0.5">
+                <ChefHat className="w-3 h-3" />
+                {waiterName}
+              </p>
+            )}
           </div>
-          
-          {/* Timer */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium ${
-            timer?.isStopped
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-              : timer?.isOverdue
-                ? 'bg-destructive/10 text-destructive'
-                : timer && timer.percentage > 75
-                  ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  : 'bg-muted text-muted-foreground'
-          }`}>
-            <Clock className="w-3.5 h-3.5" />
-            <span className="font-mono font-semibold">
-              {timer ? formatElapsedTimeWithSeconds(timer.elapsedSeconds) : formatTime(order.created_at)}
+          {order.order_items && order.order_items.length > 0 && (
+            <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+              {order.order_items.reduce((acc, item) => acc + item.quantity, 0)}
             </span>
+          )}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-border/50 mx-3" />
+
+      {/* Total and payment */}
+      <div 
+        className="px-3 py-2 cursor-pointer"
+        onClick={() => onOpenDetail(order)}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Total:</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-base text-foreground">{formatCurrency(order.total)}</span>
+            {getPaymentMethodLabel(order.payment_method) && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                💳 {getPaymentMethodLabel(order.payment_method)}
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Customer & Total */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <User className="w-3.5 h-3.5" />
-            <span className="truncate max-w-[140px]">{order.customer_name || 'Não identificado'}</span>
-          </div>
-          <div className="text-right">
-            <span className="font-bold text-lg">{formatCurrency(order.total)}</span>
-          </div>
-        </div>
-
-        {/* Location Badge */}
-        {locationInfo && (
-          <div className={`inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg mb-3 ${
-            locationInfo.type === 'table' 
-              ? 'text-emerald-700 bg-emerald-100/80 dark:text-emerald-300 dark:bg-emerald-900/30' 
-              : 'text-violet-700 bg-violet-100/80 dark:text-violet-300 dark:bg-violet-900/30'
-          }`}>
-            <UtensilsCrossed className="w-4 h-4" />
-            {locationInfo.label}
-          </div>
-        )}
-
-        {/* Order type for non-table */}
-        {order.order_type && !locationInfo && order.order_type !== 'table' && (
-          <Badge variant="secondary" className="text-xs mb-3">
-            {getOrderTypeIcon(order.order_type)}
-            <span className="ml-1.5">
-              {order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'counter' ? 'Balcão' : 'Para Levar'}
-            </span>
-          </Badge>
+        
+        {!order.payment_method && order.status !== 'pending' && (
+          <button 
+            className="text-xs text-primary hover:underline mt-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetail(order);
+            }}
+          >
+            Registrar pagamento
+          </button>
         )}
       </div>
 
-      {/* Progress bar for preparing */}
-      {timer && order.status === 'preparing' && !isDelayed && (
-        <div className="px-4 pb-3">
-          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-            <div 
-              className={`h-full transition-all duration-500 rounded-full ${
-                timer.percentage > 75 ? 'bg-amber-500' : 'bg-emerald-500'
-              }`}
-              style={{ width: `${Math.min(timer.percentage, 100)}%` }}
-            />
+      {/* Location (table/tab) */}
+      {locationInfo && (
+        <div className="px-3 pb-2">
+          <div className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ${
+            locationInfo.type === 'table' 
+              ? 'text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/30' 
+              : 'text-violet-700 bg-violet-50 dark:text-violet-300 dark:bg-violet-900/30'
+          }`}>
+            <UtensilsCrossed className="w-3 h-3" />
+            {locationInfo.label}
+          </div>
+        </div>
+      )}
+
+      {/* Delivery address */}
+      {order.order_type === 'delivery' && order.delivery_address && (
+        <div className="px-3 pb-2">
+          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2">
+            <Bike className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+            <span className="line-clamp-2">{order.delivery_address}</span>
           </div>
         </div>
       )}
 
       {/* Driver selector for delivery */}
-      {order.order_type === 'delivery' && (
-        <div className="px-4 pb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+      {order.order_type === 'delivery' && order.status !== 'pending' && (
+        <div className="px-3 pb-2 space-y-2" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="outline" 
                 size="sm"
-                className={`w-full justify-between text-sm ${
+                className={`w-full justify-between text-xs h-8 ${
                   order.driver_id 
                     ? 'border-blue-500/50 text-blue-600 bg-blue-50/50 dark:bg-blue-900/20' 
                     : 'border-dashed'
                 }`}
               >
                 <span className="flex items-center gap-2">
-                  <Bike className="w-4 h-4" />
+                  <Truck className="w-3.5 h-3.5" />
                   {order.driver_id ? getDriverName(order.driver_id) : 'Selecionar motoboy'}
                 </span>
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="w-3.5 h-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[180px]">
@@ -426,139 +484,108 @@ export function PremiumOrderCard({
               href={formatWhatsAppLink(getDriverPhone(order.driver_id)!)}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-xs text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 px-3 py-2 rounded-lg transition-colors font-medium"
+              className="flex items-center gap-2 text-xs text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/30 px-2 py-1.5 rounded-lg transition-colors font-medium"
             >
-              <Phone className="w-3.5 h-3.5" />
+              <Phone className="w-3 h-3" />
               <span>{getDriverPhone(order.driver_id)}</span>
             </a>
           )}
         </div>
       )}
 
-      {/* Items preview */}
-      {order.order_items && order.order_items.length > 0 && (
-        <div 
-          className="px-4 py-2.5 border-t bg-muted/30 text-xs text-muted-foreground cursor-pointer"
-          onClick={() => onOpenDetail(order)}
-        >
-          {order.order_items.slice(0, 2).map((item) => (
-            <div key={item.id} className="truncate">
-              {item.quantity}x {item.product_name}
-            </div>
-          ))}
-          {order.order_items.length > 2 && (
-            <div className="text-primary font-medium mt-0.5">+{order.order_items.length - 2} itens</div>
-          )}
-        </div>
-      )}
-
-      {/* Delivery status dropdown */}
-      {order.order_type === 'delivery' && order.status !== 'pending' && (
-        <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className={`w-full justify-between ${
-                  order.status === 'out_for_delivery' ? 'border-blue-500/50 text-blue-600 bg-blue-50/50' : ''
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  {order.status === 'preparing' && '🔥 Preparando'}
-                  {order.status === 'ready' && '✅ Pronto'}
-                  {order.status === 'served' && '🍽️ Servido'}
-                  {order.status === 'out_for_delivery' && (
-                    <>
-                      <Truck className="w-4 h-4" />
-                      Em entrega
-                    </>
-                  )}
-                </span>
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[180px]">
-              <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'preparing')}>
-                🔥 Preparando
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')}>
-                ✅ Pronto
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}>
-                <Truck className="w-4 h-4 mr-2" />
-                Em entrega
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => updateOrderStatus(order.id, 'delivered')}
-                className="text-emerald-600"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Finalizado
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
-
       {/* Action buttons */}
-      <div className="px-4 pb-4" onClick={(e) => e.stopPropagation()}>
-        {showCloseButton && locationInfo && (
+      <div className="px-3 pb-3 pt-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        {/* NF Button placeholder */}
+        {order.status !== 'pending' && (
           <Button 
-            className="w-full bg-sky-500 hover:bg-sky-600 text-white font-semibold"
-            onClick={onCloseTableOrTab}
+            variant="outline" 
+            size="sm"
+            className="h-9 px-3 text-xs font-bold border-amber-500 text-amber-600 hover:bg-amber-50"
+            onClick={() => onOpenDetail(order)}
           >
-            Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'}
-            <ArrowRight className="w-4 h-4 ml-2" />
+            NF
           </Button>
         )}
 
-        {showAdvanceButton && order.order_type !== 'delivery' && !showCloseButton && (
+        {/* Main action button */}
+        {showCloseButton && locationInfo ? (
           <Button 
-            variant="outline" 
-            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
+            className="flex-1 h-9 bg-sky-500 hover:bg-sky-600 text-white font-semibold text-sm"
+            onClick={onCloseTableOrTab}
+          >
+            Fechar {locationInfo.type === 'table' ? 'mesa' : 'comanda'}
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        ) : showAdvanceButton && order.order_type !== 'delivery' ? (
+          <Button 
+            className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm"
             onClick={() => {
               const nextStatus = order.status === 'pending' ? 'preparing' : order.status === 'preparing' ? 'ready' : 'served';
               updateOrderStatus(order.id, nextStatus);
             }}
           >
-            {order.status === 'ready' ? 'Marcar servido' : 'Avançar pedido'}
-            <ArrowRight className="w-4 h-4 ml-2" />
+            {order.status === 'ready' ? 'Servido' : 'Avançar'}
+            <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
-        )}
-
-        {order.order_type === 'delivery' && order.status === 'pending' && (
+        ) : order.order_type === 'delivery' && order.status === 'pending' ? (
           <Button 
-            variant="outline" 
-            className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground font-semibold"
+            className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm"
             onClick={() => updateOrderStatus(order.id, 'preparing')}
           >
             Aceitar pedido
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
-        )}
-
-        {showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id && (
+        ) : order.order_type === 'delivery' && order.status !== 'pending' ? (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm"
+              >
+                {order.status === 'preparing' && 'Avançar'}
+                {order.status === 'ready' && 'Em entrega'}
+                {order.status === 'out_for_delivery' && 'Finalizar'}
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[160px]">
+              {order.status === 'preparing' && (
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'ready')}>
+                  ✅ Pronto para entrega
+                </DropdownMenuItem>
+              )}
+              {order.status === 'ready' && (
+                <DropdownMenuItem onClick={() => updateOrderStatus(order.id, 'out_for_delivery')}>
+                  <Truck className="w-4 h-4 mr-2" />
+                  Saiu para entrega
+                </DropdownMenuItem>
+              )}
+              {order.status === 'out_for_delivery' && (
+                <DropdownMenuItem 
+                  onClick={() => updateOrderStatus(order.id, 'delivered')}
+                  className="text-emerald-600"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Entrega concluída
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : showFinalizeButton && (order.order_type === 'counter' || order.order_type === 'takeaway') && !order.table_id && !order.tab_id ? (
           <Button 
-            variant="outline" 
-            className="w-full border-emerald-500 text-emerald-600 hover:bg-emerald-500 hover:text-white font-semibold"
+            className="flex-1 h-9 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm"
             onClick={() => updateOrderStatus(order.id, 'delivered')}
           >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Produto Entregue
+            <CheckCircle className="w-4 h-4 mr-1" />
+            Entregue
           </Button>
-        )}
-
-        {showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && !showCloseButton && (
+        ) : showFinalizeButton && (order.table_id || order.tab_id) && order.status === 'ready' && !showCloseButton ? (
           <Button 
-            variant="outline" 
-            className="w-full border-violet-500 text-violet-600 hover:bg-violet-500 hover:text-white font-semibold"
+            className="flex-1 h-9 bg-violet-500 hover:bg-violet-600 text-white font-semibold text-sm"
             onClick={() => updateOrderStatus(order.id, 'served')}
           >
-            Marcar como servido
+            Marcar servido
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
