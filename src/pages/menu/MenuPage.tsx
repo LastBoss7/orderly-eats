@@ -470,16 +470,16 @@ export default function MenuPage() {
       />
 
       {/* Products Grid */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 sm:pb-6">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-5xl mb-4">🍽️</div>
-            <p className="text-lg font-medium text-muted-foreground">
+            <p className="text-base sm:text-lg font-medium text-muted-foreground">
               {searchQuery ? 'Nenhum produto encontrado' : 'Nenhum produto nesta categoria'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3">
             {filteredProducts.map((product) => (
               <MenuProductCard
                 key={product.id}
@@ -538,10 +538,15 @@ export default function MenuPage() {
       {cartCount > 0 && !cartOpen && !checkoutOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 right-4 z-50 flex items-center gap-3 bg-primary text-primary-foreground px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all sm:hidden"
+          className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-between bg-primary text-primary-foreground px-5 py-3.5 rounded-xl shadow-xl hover:shadow-2xl transition-all sm:hidden active:scale-[0.98]"
         >
-          <span className="font-bold">{cartCount} {cartCount === 1 ? 'item' : 'itens'}</span>
-          <span className="font-bold">{formatCurrency(cartTotal - couponDiscount)}</span>
+          <div className="flex items-center gap-2">
+            <div className="bg-primary-foreground/20 rounded-full w-7 h-7 flex items-center justify-center">
+              <span className="font-bold text-sm">{cartCount}</span>
+            </div>
+            <span className="font-medium text-sm">Ver carrinho</span>
+          </div>
+          <span className="font-bold text-base">{formatCurrency(cartTotal - couponDiscount)}</span>
         </button>
       )}
     </div>
