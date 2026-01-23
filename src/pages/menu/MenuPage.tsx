@@ -27,8 +27,9 @@ import {
   MenuCheckout,
   FeedbackDrawer,
   ExperienceSurveyDrawer,
+  CustomerProfile,
 } from './components';
-import { Loader2, ShoppingCart, MessageSquare, Star } from 'lucide-react';
+import { Loader2, ShoppingCart, MessageSquare, Star, User } from 'lucide-react';
 import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
 
@@ -59,6 +60,7 @@ export default function MenuPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Cart states
@@ -614,8 +616,17 @@ export default function MenuPage() {
       )}
 
       {/* Feedback Floating Buttons */}
-      {cartCount === 0 && !cartOpen && !checkoutOpen && !feedbackOpen && !surveyOpen && (
+      {cartCount === 0 && !cartOpen && !checkoutOpen && !feedbackOpen && !surveyOpen && !profileOpen && (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-12 w-12 rounded-full shadow-lg"
+            onClick={() => setProfileOpen(true)}
+            title="Meu Perfil"
+          >
+            <User className="w-5 h-5" />
+          </Button>
           <Button
             size="icon"
             variant="secondary"
@@ -632,6 +643,18 @@ export default function MenuPage() {
           >
             <MessageSquare className="w-5 h-5" />
           </Button>
+        </div>
+      )}
+
+      {/* Customer Profile */}
+      {profileOpen && (
+        <div className="fixed inset-0 z-[100] bg-background">
+          <CustomerProfile
+            restaurantId={restaurant.id}
+            restaurantName={restaurant.name}
+            restaurantLogo={restaurant.logo_url}
+            onBack={() => setProfileOpen(false)}
+          />
         </div>
       )}
     </div>
