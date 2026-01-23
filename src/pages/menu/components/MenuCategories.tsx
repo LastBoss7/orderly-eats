@@ -17,19 +17,19 @@ export function MenuCategories({
   hasFeatured,
 }: MenuCategoriesProps) {
   return (
-    <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b py-3">
-      <div className="container mx-auto px-4">
+    <div className="sticky top-[56px] sm:top-16 z-40 bg-background/95 backdrop-blur-md border-b py-2 sm:py-3">
+      <div className="container mx-auto px-3 sm:px-4">
         <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             {/* Featured Button */}
             {hasFeatured && (
               <Button
                 variant={selectedCategory === 'featured' ? 'default' : 'outline'}
                 size="sm"
-                className="flex-shrink-0 gap-1.5"
+                className="flex-shrink-0 gap-1 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
                 onClick={() => onSelectCategory(selectedCategory === 'featured' ? null : 'featured')}
               >
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Destaques
               </Button>
             )}
@@ -38,7 +38,7 @@ export function MenuCategories({
             <Button
               variant={selectedCategory === null ? 'default' : 'outline'}
               size="sm"
-              className="flex-shrink-0"
+              className="flex-shrink-0 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
               onClick={() => onSelectCategory(null)}
             >
               Todos
@@ -50,7 +50,7 @@ export function MenuCategories({
                 key={category.id}
                 variant={selectedCategory === category.id ? 'default' : 'outline'}
                 size="sm"
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
                 onClick={() => onSelectCategory(category.id)}
               >
                 {category.icon && <span className="mr-1">{category.icon}</span>}
