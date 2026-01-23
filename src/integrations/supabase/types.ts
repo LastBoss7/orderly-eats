@@ -287,6 +287,72 @@ export type Database = {
           },
         ]
       }
+      customer_addresses: {
+        Row: {
+          address: string
+          cep: string | null
+          city: string
+          complement: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          is_default: boolean
+          label: string
+          neighborhood: string
+          number: string | null
+          restaurant_id: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          cep?: string | null
+          city: string
+          complement?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          neighborhood: string
+          number?: string | null
+          restaurant_id: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          cep?: string | null
+          city?: string
+          complement?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          neighborhood?: string
+          number?: string | null
+          restaurant_id?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_addresses_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null

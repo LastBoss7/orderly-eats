@@ -11,15 +11,28 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState, useEffect, useCallback } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft, MessageSquare } from 'lucide-react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft, MessageSquare, Home, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { SavedAddressesList } from './SavedAddressesList';
 
 interface DeliveryFeeData {
   fee: number;
   neighborhood: string;
   estimated_time: string | null;
   min_order_value: number | null;
+}
+
+interface SavedAddress {
+  id: string;
+  label: string;
+  address: string;
+  number: string | null;
+  complement: string | null;
+  neighborhood: string;
+  city: string;
+  cep: string | null;
+  is_default: boolean;
 }
 
 interface MenuCheckoutProps {
@@ -33,6 +46,7 @@ interface MenuCheckoutProps {
 }
 
 type CheckoutStep = 'phone' | 'details';
+type AddressMode = 'list' | 'form';
 
 export function MenuCheckout({
   open,
@@ -81,6 +95,13 @@ export function MenuCheckout({
   // Order notes state
   const [orderNotes, setOrderNotes] = useState('');
 
+  // Saved addresses state
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [addressMode, setAddressMode] = useState<AddressMode>('list');
+  const [addressLabel, setAddressLabel] = useState('Casa');
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+
   // Calculate delivery fee
   const calculatedDeliveryFee = orderType === 'delivery' && deliveryFeeData ? deliveryFeeData.fee : 0;
 
@@ -105,8 +126,94 @@ export function MenuCheckout({
       setDeliveryFeeData(null);
       setDeliveryFeeNotFound(false);
       setOrderNotes('');
+      setSavedAddresses([]);
+      setSelectedAddressId(null);
+      setAddressMode('list');
+      setAddressLabel('Casa');
     }
   }, [open]);
+
+  // Fetch saved addresses when customer is found
+  const fetchSavedAddresses = useCallback(async (custId: string) => {
+    setLoadingAddresses(true);
+    try {
+      const { data, error } = await supabase
+        .from('customer_addresses')
+        .select('*')
+        .eq('customer_id', custId)
+        .eq('restaurant_id', restaurantId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSavedAddresses(data || []);
+
+      // Auto-select default address
+      const defaultAddr = data?.find((a) => a.is_default);
+      if (defaultAddr) {
+        setSelectedAddressId(defaultAddr.id);
+        applyAddressToForm(defaultAddr);
+      }
+    } catch (error) {
+      console.error('Error fetching saved addresses:', error);
+    } finally {
+      setLoadingAddresses(false);
+    }
+  }, [restaurantId]);
+
+  // Apply saved address to form
+  const applyAddressToForm = useCallback((addr: SavedAddress) => {
+    setCustomerInfo((prev) => ({
+      ...prev,
+      address: addr.address,
+      number: addr.number || '',
+      complement: addr.complement || '',
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      cep: addr.cep || '',
+    }));
+    // Trigger delivery fee lookup
+    if (addr.neighborhood) {
+      handleNeighborhoodChangeDirect(addr.neighborhood);
+    }
+  }, []);
+
+  // Direct neighborhood change for saved addresses (no state update loop)
+  const handleNeighborhoodChangeDirect = useCallback(async (neighborhood: string) => {
+    if (!neighborhood.trim() || orderType !== 'delivery') {
+      setDeliveryFeeData(null);
+      setDeliveryFeeNotFound(false);
+      return;
+    }
+
+    setDeliveryFeeLoading(true);
+    try {
+      const normalizedNeighborhood = neighborhood.toLowerCase().trim();
+
+      const { data, error } = await supabase
+        .from('delivery_fees')
+        .select('fee, neighborhood, estimated_time, min_order_value')
+        .eq('restaurant_id', restaurantId)
+        .eq('is_active', true)
+        .ilike('neighborhood', `%${normalizedNeighborhood}%`)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setDeliveryFeeData(data);
+        setDeliveryFeeNotFound(false);
+      } else {
+        setDeliveryFeeData(null);
+        setDeliveryFeeNotFound(true);
+      }
+    } catch (error) {
+      console.error('Error fetching delivery fee:', error);
+      setDeliveryFeeNotFound(true);
+    } finally {
+      setDeliveryFeeLoading(false);
+    }
+  }, [restaurantId, orderType]);
 
   // Trigger delivery fee lookup when step changes to details with existing neighborhood
   useEffect(() => {
@@ -190,6 +297,9 @@ export function MenuCheckout({
           cep: existingCustomer.cep || '',
         });
         toast.success(`Bem-vindo de volta, ${existingCustomer.name}!`);
+        
+        // Fetch saved addresses for existing customer
+        await fetchSavedAddresses(existingCustomer.id);
       } else {
         const { data: newCustomer, error: createError } = await supabase
           .from('customers')
@@ -215,6 +325,7 @@ export function MenuCheckout({
           city: '',
           cep: '',
         });
+        setAddressMode('form'); // New customer goes straight to form
         toast.info('Complete seus dados para finalizar');
       }
 
@@ -225,7 +336,7 @@ export function MenuCheckout({
     } finally {
       setSearchingCustomer(false);
     }
-  }, [phoneInput, restaurantId]);
+  }, [phoneInput, restaurantId, fetchSavedAddresses]);
 
   // Update customer data before submitting
   const updateCustomerData = useCallback(async () => {
@@ -282,9 +393,119 @@ export function MenuCheckout({
     if (!customerInfo.name || !customerInfo.phone) return;
     if (orderType === 'delivery' && !customerInfo.address) return;
     
+    // Save new address if in form mode and has address data
+    if (addressMode === 'form' && orderType === 'delivery' && customerId && customerInfo.address && customerInfo.neighborhood) {
+      await saveNewAddress();
+    }
+    
     await updateCustomerData();
     onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee, orderNotes);
   };
+
+  // Save new address
+  const saveNewAddress = useCallback(async () => {
+    if (!customerId || !customerInfo.address || !customerInfo.neighborhood) return;
+
+    try {
+      const { error } = await supabase.from('customer_addresses').insert({
+        customer_id: customerId,
+        restaurant_id: restaurantId,
+        label: addressLabel || 'Casa',
+        address: customerInfo.address,
+        number: customerInfo.number || null,
+        complement: customerInfo.complement || null,
+        neighborhood: customerInfo.neighborhood,
+        city: customerInfo.city,
+        cep: customerInfo.cep || null,
+        is_default: savedAddresses.length === 0, // First address is default
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving address:', error);
+    }
+  }, [customerId, restaurantId, customerInfo, addressLabel, savedAddresses.length]);
+
+  // Handle select saved address
+  const handleSelectAddress = useCallback((addr: SavedAddress) => {
+    setSelectedAddressId(addr.id);
+    applyAddressToForm(addr);
+  }, [applyAddressToForm]);
+
+  // Handle delete address
+  const handleDeleteAddress = useCallback(async (addressId: string) => {
+    try {
+      const { error } = await supabase
+        .from('customer_addresses')
+        .delete()
+        .eq('id', addressId);
+
+      if (error) throw error;
+
+      setSavedAddresses((prev) => prev.filter((a) => a.id !== addressId));
+      
+      if (selectedAddressId === addressId) {
+        setSelectedAddressId(null);
+        setCustomerInfo((prev) => ({
+          ...prev,
+          address: '',
+          number: '',
+          complement: '',
+          neighborhood: '',
+          city: '',
+          cep: '',
+        }));
+        setDeliveryFeeData(null);
+      }
+
+      toast.success('Endereço excluído');
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      toast.error('Erro ao excluir endereço');
+    }
+  }, [selectedAddressId]);
+
+  // Handle set default address
+  const handleSetDefaultAddress = useCallback(async (addressId: string) => {
+    try {
+      const { error } = await supabase
+        .from('customer_addresses')
+        .update({ is_default: true })
+        .eq('id', addressId);
+
+      if (error) throw error;
+
+      setSavedAddresses((prev) =>
+        prev.map((a) => ({
+          ...a,
+          is_default: a.id === addressId,
+        }))
+      );
+
+      toast.success('Endereço padrão definido');
+    } catch (error) {
+      console.error('Error setting default address:', error);
+      toast.error('Erro ao definir endereço padrão');
+    }
+  }, []);
+
+  // Handle add new address mode
+  const handleAddNewAddress = useCallback(() => {
+    setAddressMode('form');
+    setSelectedAddressId(null);
+    setAddressLabel('Casa');
+    setCustomerInfo((prev) => ({
+      ...prev,
+      address: '',
+      number: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      cep: '',
+    }));
+    setDeliveryFeeData(null);
+    setDeliveryFeeNotFound(false);
+  }, []);
 
   // Search for delivery fee when neighborhood changes
   const handleNeighborhoodChange = useCallback(async (neighborhood: string) => {
@@ -534,104 +755,155 @@ export function MenuCheckout({
                 {/* Delivery Address */}
                 {orderType === 'delivery' && (
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4" />
-                      Endereço de entrega
-                    </Label>
-
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="cep" className="text-xs text-muted-foreground">CEP</Label>
-                          <div className="relative mt-1">
-                            <Input
-                              id="cep"
-                              placeholder="00000-000"
-                              value={customerInfo.cep}
-                              onChange={(e) => handleCepChange(e.target.value)}
-                              maxLength={9}
-                              className="h-10"
-                            />
-                            {cepLoading && (
-                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="neighborhood" className="text-xs text-muted-foreground">Bairro</Label>
-                          <div className="relative mt-1">
-                            <Input
-                              id="neighborhood"
-                              placeholder="Bairro"
-                              value={customerInfo.neighborhood}
-                              onChange={(e) => handleNeighborhoodChange(e.target.value)}
-                              className="h-10"
-                            />
-                            {deliveryFeeLoading && (
-                              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="address" className="text-xs text-muted-foreground">Rua/Avenida *</Label>
-                        <Input
-                          id="address"
-                          placeholder="Nome da rua"
-                          value={customerInfo.address}
-                          onChange={(e) =>
-                            setCustomerInfo((prev) => ({ ...prev, address: e.target.value }))
-                          }
-                          className="h-10 mt-1"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="number" className="text-xs text-muted-foreground">Número</Label>
-                          <Input
-                            id="number"
-                            placeholder="123"
-                            value={customerInfo.number}
-                            onChange={(e) =>
-                              setCustomerInfo((prev) => ({ ...prev, number: e.target.value }))
-                            }
-                            className="h-10 mt-1"
-                            inputMode="numeric"
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor="complement" className="text-xs text-muted-foreground">Complemento</Label>
-                          <Input
-                            id="complement"
-                            placeholder="Apt, Bloco..."
-                            value={customerInfo.complement}
-                            onChange={(e) =>
-                              setCustomerInfo((prev) => ({ ...prev, complement: e.target.value }))
-                            }
-                            className="h-10 mt-1"
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="city" className="text-xs text-muted-foreground">Cidade</Label>
-                        <Input
-                          id="city"
-                          placeholder="Cidade"
-                          value={customerInfo.city}
-                          onChange={(e) =>
-                            setCustomerInfo((prev) => ({ ...prev, city: e.target.value }))
-                          }
-                          className="h-10 mt-1"
-                        />
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium flex items-center gap-1.5">
+                        <MapPin className="w-4 h-4" />
+                        Endereço de entrega
+                      </Label>
+                      {savedAddresses.length > 0 && addressMode === 'form' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => setAddressMode('list')}
+                        >
+                          <Home className="w-3 h-3 mr-1" />
+                          Endereços salvos
+                        </Button>
+                      )}
                     </div>
+
+                    {/* Saved addresses list */}
+                    {addressMode === 'list' && savedAddresses.length > 0 && (
+                      <SavedAddressesList
+                        addresses={savedAddresses}
+                        selectedAddressId={selectedAddressId}
+                        onSelect={handleSelectAddress}
+                        onAddNew={handleAddNewAddress}
+                        onDelete={handleDeleteAddress}
+                        onSetDefault={handleSetDefaultAddress}
+                        loading={loadingAddresses}
+                      />
+                    )}
+
+                    {/* Address form */}
+                    {(addressMode === 'form' || savedAddresses.length === 0) && (
+                      <div className="space-y-3">
+                        {/* Label for new address */}
+                        {savedAddresses.length > 0 && (
+                          <div>
+                            <Label htmlFor="addressLabel" className="text-xs text-muted-foreground">
+                              Nome do endereço
+                            </Label>
+                            <Input
+                              id="addressLabel"
+                              placeholder="Ex: Casa, Trabalho..."
+                              value={addressLabel}
+                              onChange={(e) => setAddressLabel(e.target.value)}
+                              className="h-10 mt-1"
+                            />
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="cep" className="text-xs text-muted-foreground">CEP</Label>
+                            <div className="relative mt-1">
+                              <Input
+                                id="cep"
+                                placeholder="00000-000"
+                                value={customerInfo.cep}
+                                onChange={(e) => handleCepChange(e.target.value)}
+                                maxLength={9}
+                                className="h-10"
+                              />
+                              {cepLoading && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="neighborhood" className="text-xs text-muted-foreground">Bairro</Label>
+                            <div className="relative mt-1">
+                              <Input
+                                id="neighborhood"
+                                placeholder="Bairro"
+                                value={customerInfo.neighborhood}
+                                onChange={(e) => handleNeighborhoodChange(e.target.value)}
+                                className="h-10"
+                              />
+                              {deliveryFeeLoading && (
+                                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="address" className="text-xs text-muted-foreground">Rua/Avenida *</Label>
+                          <Input
+                            id="address"
+                            placeholder="Nome da rua"
+                            value={customerInfo.address}
+                            onChange={(e) =>
+                              setCustomerInfo((prev) => ({ ...prev, address: e.target.value }))
+                            }
+                            className="h-10 mt-1"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="number" className="text-xs text-muted-foreground">Número</Label>
+                            <Input
+                              id="number"
+                              placeholder="123"
+                              value={customerInfo.number}
+                              onChange={(e) =>
+                                setCustomerInfo((prev) => ({ ...prev, number: e.target.value }))
+                              }
+                              className="h-10 mt-1"
+                              inputMode="numeric"
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor="complement" className="text-xs text-muted-foreground">Complemento</Label>
+                            <Input
+                              id="complement"
+                              placeholder="Apt, Bloco..."
+                              value={customerInfo.complement}
+                              onChange={(e) =>
+                                setCustomerInfo((prev) => ({ ...prev, complement: e.target.value }))
+                              }
+                              className="h-10 mt-1"
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="city" className="text-xs text-muted-foreground">Cidade</Label>
+                          <Input
+                            id="city"
+                            placeholder="Cidade"
+                            value={customerInfo.city}
+                            onChange={(e) =>
+                              setCustomerInfo((prev) => ({ ...prev, city: e.target.value }))
+                            }
+                            className="h-10 mt-1"
+                          />
+                        </div>
+
+                        {savedAddresses.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground text-center">
+                            Este endereço será salvo automaticamente
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
