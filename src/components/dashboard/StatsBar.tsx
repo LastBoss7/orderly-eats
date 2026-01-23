@@ -32,37 +32,31 @@ export function StatsBar({
       label: 'Pedidos Ativos',
       value: orderCounts.all.toString(),
       icon: ShoppingBag,
-      color: 'text-blue-600 dark:text-blue-400',
-      bg: 'bg-blue-100 dark:bg-blue-900/40',
     },
     {
       label: 'Tempo Médio',
       value: `${avgPrepTime}min`,
       icon: Clock,
-      color: 'text-amber-600 dark:text-amber-400',
-      bg: 'bg-amber-100 dark:bg-amber-900/40',
     },
     {
       label: 'Total do Dia',
       value: totalOrders.toString(),
       icon: CheckCircle,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bg: 'bg-emerald-100 dark:bg-emerald-900/40',
     },
   ];
 
   const orderTypes = [
-    { label: 'Mesa', count: orderCounts.table, icon: UtensilsCrossed, color: 'text-emerald-600' },
-    { label: 'Comanda', count: orderCounts.tab, icon: User, color: 'text-violet-600' },
-    { label: 'Delivery', count: orderCounts.delivery, icon: Bike, color: 'text-blue-600' },
-    { label: 'Balcão', count: orderCounts.counter, icon: Package, color: 'text-amber-600' },
+    { label: 'Mesa', count: orderCounts.table, icon: UtensilsCrossed },
+    { label: 'Comanda', count: orderCounts.tab, icon: User },
+    { label: 'Delivery', count: orderCounts.delivery, icon: Bike },
+    { label: 'Balcão', count: orderCounts.counter, icon: Package },
   ];
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm border-b px-4 py-2.5">
+    <div className="bg-card border-b px-4 py-2.5">
       <div className="flex items-center justify-between gap-6">
-        {/* Main Stats */}
-        <div className="flex items-center gap-6">
+        {/* Main Stats - Clean, minimal Revolut-style */}
+        <div className="flex items-center gap-8">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.label}
@@ -71,14 +65,14 @@ export function StatsBar({
               transition={{ delay: index * 0.1 }}
               className="flex items-center gap-3"
             >
-              <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                <stat.icon className={`w-4.5 h-4.5 ${stat.color}`} />
+              <div className="w-9 h-9 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                <stat.icon className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                   {stat.label}
                 </p>
-                <p className="text-lg font-bold text-foreground leading-tight">
+                <p className="text-lg font-semibold text-foreground leading-tight">
                   {stat.value}
                 </p>
               </div>
@@ -86,13 +80,13 @@ export function StatsBar({
           ))}
         </div>
 
-        {/* Order Type Breakdown */}
-        <div className="hidden xl:flex items-center gap-4 text-sm">
+        {/* Order Type Breakdown - Subtle, minimal */}
+        <div className="hidden xl:flex items-center gap-5 text-sm">
           {orderTypes.map((type) => (
             <div key={type.label} className="flex items-center gap-1.5">
-              <type.icon className={`w-4 h-4 ${type.color}`} />
+              <type.icon className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
               <span className="text-muted-foreground">{type.label}:</span>
-              <span className="font-semibold">{type.count}</span>
+              <span className="font-medium text-foreground">{type.count}</span>
             </div>
           ))}
         </div>
