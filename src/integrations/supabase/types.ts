@@ -504,6 +504,85 @@ export type Database = {
         }
         Relationships: []
       }
+      experience_surveys: {
+        Row: {
+          app_experience: number | null
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          delivery_speed: number | null
+          food_quality: number | null
+          id: string
+          order_id: string | null
+          overall_rating: number
+          restaurant_id: string
+          service_quality: number | null
+          value_for_money: number | null
+          what_liked: string | null
+          what_to_improve: string | null
+          would_recommend: boolean | null
+        }
+        Insert: {
+          app_experience?: number | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_speed?: number | null
+          food_quality?: number | null
+          id?: string
+          order_id?: string | null
+          overall_rating: number
+          restaurant_id: string
+          service_quality?: number | null
+          value_for_money?: number | null
+          what_liked?: string | null
+          what_to_improve?: string | null
+          would_recommend?: boolean | null
+        }
+        Update: {
+          app_experience?: number | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          delivery_speed?: number | null
+          food_quality?: number | null
+          id?: string
+          order_id?: string | null
+          overall_rating?: number
+          restaurant_id?: string
+          service_quality?: number | null
+          value_for_money?: number | null
+          what_liked?: string | null
+          what_to_improve?: string | null
+          would_recommend?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_surveys_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experience_surveys_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "experience_surveys_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           category: string | null
@@ -1741,6 +1820,69 @@ export type Database = {
           },
           {
             foreignKeyName: "stock_movements_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suggestions: {
+        Row: {
+          admin_notes: string | null
+          category: string | null
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          message: string
+          rating: number | null
+          restaurant_id: string
+          status: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          category?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          message: string
+          rating?: number | null
+          restaurant_id: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          category?: string | null
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          message?: string
+          rating?: number | null
+          restaurant_id?: string
+          status?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggestions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggestions_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
             referencedRelation: "restaurants"

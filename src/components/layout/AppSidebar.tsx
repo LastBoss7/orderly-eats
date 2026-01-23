@@ -63,6 +63,7 @@ import {
   PanelLeft,
   Receipt,
   Volume2,
+  MessageSquare,
 } from 'lucide-react';
 import logoGamako from '@/assets/logo-gamako-white-full.png';
 import logoGamakoIcon from '@/assets/logo-gamako-white-icon.png';
@@ -84,6 +85,7 @@ const cardapioSubmenu = [
 ];
 
 const bottomMenuItems = [
+  { title: 'Feedback Clientes', url: '/feedback', icon: MessageSquare },
   { title: 'Estoque', url: '/inventory', icon: Package },
   { title: 'Ficha Técnica', url: '/product-recipes', icon: ChefHat },
   { title: 'Consumo', url: '/consumption-report', icon: BarChart3 },

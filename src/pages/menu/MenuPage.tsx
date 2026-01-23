@@ -25,9 +25,12 @@ import {
   MenuSizeModal,
   MenuCart,
   MenuCheckout,
+  FeedbackDrawer,
+  ExperienceSurveyDrawer,
 } from './components';
-import { Loader2, ShoppingCart } from 'lucide-react';
+import { Loader2, ShoppingCart, MessageSquare, Star } from 'lucide-react';
 import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
+import { Button } from '@/components/ui/button';
 
 export default function MenuPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -54,6 +57,8 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Cart states
@@ -558,6 +563,20 @@ export default function MenuPage() {
         restaurantId={restaurant.id}
       />
 
+      {/* Feedback Drawer */}
+      <FeedbackDrawer
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        restaurantId={restaurant.id}
+      />
+
+      {/* Experience Survey Drawer */}
+      <ExperienceSurveyDrawer
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        restaurantId={restaurant.id}
+      />
+
       {/* Floating Cart Button (mobile) */}
       {cartCount > 0 && !cartOpen && !checkoutOpen && (
         <button
@@ -575,6 +594,28 @@ export default function MenuPage() {
           </div>
           <span className="font-bold text-lg">{formatCurrency(cartTotal - couponDiscount)}</span>
         </button>
+      )}
+
+      {/* Feedback Floating Buttons */}
+      {cartCount === 0 && !cartOpen && !checkoutOpen && !feedbackOpen && !surveyOpen && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-12 w-12 rounded-full shadow-lg"
+            onClick={() => setSurveyOpen(true)}
+          >
+            <Star className="w-5 h-5" />
+          </Button>
+          <Button
+            size="icon"
+            variant="secondary"
+            className="h-12 w-12 rounded-full shadow-lg"
+            onClick={() => setFeedbackOpen(true)}
+          >
+            <MessageSquare className="w-5 h-5" />
+          </Button>
+        </div>
       )}
     </div>
   );
