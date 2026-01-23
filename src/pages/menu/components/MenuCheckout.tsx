@@ -86,6 +86,7 @@ export function MenuCheckout({
     cep: '',
   });
   const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState(false);
 
   // Delivery fee state
   const [deliveryFeeData, setDeliveryFeeData] = useState<DeliveryFeeData | null>(null);
@@ -360,18 +361,32 @@ export function MenuCheckout({
     }
   }, [customerId, customerInfo]);
 
+  // Format CEP with mask (00000-000)
+  const formatCep = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 8);
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  };
+
   const handleCepChange = async (cep: string) => {
     const cleanedCep = cep.replace(/\D/g, '');
-    setCustomerInfo((prev) => ({ ...prev, cep: cleanedCep }));
+    const formattedCep = formatCep(cep);
+    setCustomerInfo((prev) => ({ ...prev, cep: formattedCep }));
+    setCepError(false);
 
     if (cleanedCep.length === 8) {
       setCepLoading(true);
       try {
         const response = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
         const data = await response.json();
-        if (!data.erro) {
+        if (data.erro) {
+          setCepError(true);
+          toast.error('CEP não encontrado');
+        } else {
+          setCepError(false);
           setCustomerInfo((prev) => ({
             ...prev,
+            cep: formattedCep,
             address: data.logradouro || '',
             neighborhood: data.bairro || '',
             city: data.localidade || '',
@@ -383,6 +398,8 @@ export function MenuCheckout({
         }
       } catch (error) {
         console.error('Error fetching CEP:', error);
+        setCepError(true);
+        toast.error('Erro ao buscar CEP');
       } finally {
         setCepLoading(false);
       }
@@ -815,12 +832,19 @@ export function MenuCheckout({
                                 value={customerInfo.cep}
                                 onChange={(e) => handleCepChange(e.target.value)}
                                 maxLength={9}
-                                className="h-10"
+                                inputMode="numeric"
+                                className={`h-10 ${cepError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                               />
                               {cepLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
                               )}
+                              {cepError && !cepLoading && (
+                                <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-destructive" />
+                              )}
                             </div>
+                            {cepError && (
+                              <p className="text-[10px] text-destructive mt-1">CEP não encontrado</p>
+                            )}
                           </div>
 
                           <div>
