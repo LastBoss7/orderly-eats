@@ -36,7 +36,7 @@ const formatCurrency = (value: number): string => {
  */
 const getOrderTypeLabel = (type: string | null): string => {
   switch (type) {
-    case 'delivery': return 'Delivery';
+    case 'delivery': return 'Entrega';
     case 'takeaway': return 'Retirada';
     case 'counter': return 'Balcão';
     case 'table': return 'Mesa';
@@ -50,13 +50,13 @@ const getOrderTypeLabel = (type: string | null): string => {
  */
 const getStatusLabel = (status: string | null): string => {
   switch (status) {
-    case 'pending': return '⏳ Pendente';
-    case 'preparing': return '👨‍🍳 Em preparo';
-    case 'ready': return '✅ Pronto';
-    case 'out_for_delivery': return '🚚 Saiu para entrega';
-    case 'delivered': return '🎉 Entregue';
-    case 'served': return '🍽️ Servido';
-    case 'cancelled': return '❌ Cancelado';
+    case 'pending': return 'Aguardando confirmação';
+    case 'preparing': return 'Em preparo';
+    case 'ready': return 'Pronto';
+    case 'out_for_delivery': return 'Saiu para entrega';
+    case 'delivered': return 'Entregue';
+    case 'served': return 'Servido';
+    case 'cancelled': return 'Cancelado';
     default: return status || 'Desconhecido';
   }
 };
@@ -92,19 +92,20 @@ export const formatPhoneForWhatsApp = (phone: string): string => {
 };
 
 /**
- * Generate order message for WhatsApp
+ * Generate clean, professional order message for WhatsApp
  */
 export const generateOrderMessage = (order: OrderInfo): string => {
   const orderNum = getOrderDisplayNumber(order.orderNumber, order.orderId);
   const orderType = getOrderTypeLabel(order.orderType);
-  const status = getStatusLabel(order.status);
   
-  let message = `🍽️ *${order.restaurantName || 'Restaurante'}*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+  let message = '';
   
-  message += `📋 *PEDIDO ${orderNum}*\n`;
+  // Header - Restaurant name
+  message += `*${order.restaurantName || 'Restaurante'}*\n\n`;
+  
+  // Order info
+  message += `Pedido ${orderNum}\n`;
   message += `Tipo: ${orderType}\n`;
-  message += `Status: ${status}\n`;
   
   if (order.customerName) {
     message += `Cliente: ${order.customerName}\n`;
@@ -112,23 +113,22 @@ export const generateOrderMessage = (order: OrderInfo): string => {
   
   message += `\n`;
   
-  // Items
+  // Items - Clean list format
   if (order.items && order.items.length > 0) {
-    message += `📝 *ITENS DO PEDIDO:*\n`;
-    message += `───────────────────\n`;
+    message += `*Itens:*\n`;
     
-    order.items.forEach((item, index) => {
-      message += `${index + 1}. ${item.quantity}x ${item.product_name}\n`;
-      message += `   ${formatCurrency(item.product_price * item.quantity)}\n`;
+    order.items.forEach((item) => {
+      const itemTotal = formatCurrency(item.product_price * item.quantity);
+      message += `• ${item.quantity}x ${item.product_name} — ${itemTotal}\n`;
       if (item.notes) {
-        message += `   _📌 ${item.notes}_\n`;
+        message += `  _${item.notes}_\n`;
       }
     });
     
-    message += `───────────────────\n\n`;
+    message += `\n`;
   }
   
-  // Totals
+  // Totals section
   const subtotal = order.items?.reduce(
     (acc, item) => acc + (item.product_price * item.quantity), 
     0
@@ -139,22 +139,18 @@ export const generateOrderMessage = (order: OrderInfo): string => {
     message += `Taxa de entrega: ${formatCurrency(order.deliveryFee)}\n`;
   }
   
-  message += `\n💰 *TOTAL: ${formatCurrency(order.total || subtotal)}*\n\n`;
+  message += `*Total: ${formatCurrency(order.total || subtotal)}*\n`;
   
-  // Delivery address
+  // Delivery address - Clean format
   if (order.orderType === 'delivery' && order.deliveryAddress) {
-    message += `📍 *ENDEREÇO DE ENTREGA:*\n`;
-    message += `${order.deliveryAddress}\n\n`;
+    message += `\n*Endereço:*\n`;
+    message += `${order.deliveryAddress}\n`;
   }
   
   // Notes
   if (order.notes) {
-    message += `📝 *Observações:*\n`;
-    message += `${order.notes}\n\n`;
+    message += `\n*Obs:* ${order.notes}\n`;
   }
-  
-  message += `━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `Obrigado pela preferência! 🙏`;
   
   return message;
 };
@@ -178,25 +174,30 @@ export const generateStatusUpdateMessage = (
   status: string,
   restaurantName?: string
 ): string => {
-  let message = `🍽️ *${restaurantName || 'Restaurante'}*\n\n`;
-  message += `Olá! Atualização do seu pedido ${orderNumber}:\n\n`;
-  message += `${getStatusLabel(status)}\n\n`;
+  let message = `*${restaurantName || 'Restaurante'}*\n\n`;
+  message += `Atualização do pedido ${orderNumber}:\n\n`;
+  
+  const statusLabel = getStatusLabel(status);
   
   switch (status) {
     case 'preparing':
-      message += `Seu pedido está sendo preparado com carinho! 👨‍🍳`;
+      message += `Status: ${statusLabel}\n`;
+      message += `Seu pedido está sendo preparado!`;
       break;
     case 'ready':
-      message += `Seu pedido está pronto! ✨`;
+      message += `Status: ${statusLabel}\n`;
+      message += `Seu pedido está pronto!`;
       break;
     case 'out_for_delivery':
-      message += `Seu pedido saiu para entrega! 🏍️`;
+      message += `Status: ${statusLabel}\n`;
+      message += `Seu pedido saiu para entrega!`;
       break;
     case 'delivered':
-      message += `Pedido entregue! Bom apetite! 🎉`;
+      message += `Status: ${statusLabel}\n`;
+      message += `Pedido entregue. Bom apetite!`;
       break;
     default:
-      message += `Obrigado pela preferência! 🙏`;
+      message += `Status: ${statusLabel}`;
   }
   
   return message;
