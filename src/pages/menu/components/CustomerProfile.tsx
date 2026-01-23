@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ArrowLeft,
   User,
@@ -23,8 +24,15 @@ import {
   Home,
   AlertCircle,
   Check,
+  ShoppingBag,
+  Clock,
+  ChevronRight,
+  Package,
+  Receipt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Customer {
   id: string;
@@ -48,6 +56,23 @@ interface SavedAddress {
   city: string;
   cep: string | null;
   is_default: boolean;
+}
+
+interface OrderItem {
+  id: string;
+  product_name: string;
+  product_price: number;
+  quantity: number;
+}
+
+interface CustomerOrder {
+  id: string;
+  order_number: number | null;
+  order_type: string | null;
+  status: string | null;
+  total: number | null;
+  created_at: string;
+  order_items?: OrderItem[];
 }
 
 interface CustomerProfileProps {
@@ -93,6 +118,19 @@ export function CustomerProfile({
   const [cepLoading, setCepLoading] = useState(false);
   const [cepError, setCepError] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+
+  // Order history
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+
+  // Format currency
+  const formatCurrency = (value: number | null) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value || 0);
+  };
 
   // Format phone
   const formatPhone = (value: string) => {
@@ -182,6 +220,48 @@ export function CustomerProfile({
       setLoadingAddresses(false);
     }
   }, [restaurantId]);
+
+  // Fetch order history
+  const fetchOrderHistory = useCallback(async (customerId: string) => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          order_type,
+          status,
+          total,
+          created_at,
+          order_items (
+            id,
+            product_name,
+            product_price,
+            quantity
+          )
+        `)
+        .eq('customer_id', customerId)
+        .eq('restaurant_id', restaurantId)
+        .not('status', 'in', '("cancelled")')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, [restaurantId]);
+
+  // Fetch data when customer is set
+  useEffect(() => {
+    if (customer?.id && step === 'profile') {
+      fetchOrderHistory(customer.id);
+    }
+  }, [customer?.id, step, fetchOrderHistory]);
 
   // Save profile
   const handleSaveProfile = useCallback(async () => {
@@ -801,6 +881,130 @@ export function CustomerProfile({
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Order History Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4" />
+              Histórico de Pedidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loadingOrders ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-6">
+                <Receipt className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
+                <p className="text-sm text-muted-foreground">Nenhum pedido encontrado</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Seus pedidos aparecerão aqui
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {orders.map((order) => {
+                  const isExpanded = expandedOrderId === order.id;
+                  const orderDate = new Date(order.created_at);
+                  
+                  const getStatusBadge = (status: string | null) => {
+                    switch (status) {
+                      case 'pending':
+                        return <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">Pendente</Badge>;
+                      case 'preparing':
+                        return <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/30">Preparando</Badge>;
+                      case 'ready':
+                        return <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">Pronto</Badge>;
+                      case 'delivered':
+                        return <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-600 border-green-500/30">Entregue</Badge>;
+                      case 'closed':
+                        return <Badge variant="outline" className="text-[10px] bg-gray-500/10 text-gray-600 border-gray-500/30">Concluído</Badge>;
+                      default:
+                        return <Badge variant="outline" className="text-[10px]">{status || 'N/A'}</Badge>;
+                    }
+                  };
+
+                  const getOrderTypeLabel = (type: string | null) => {
+                    switch (type) {
+                      case 'delivery': return 'Delivery';
+                      case 'takeaway': return 'Retirada';
+                      case 'table': return 'Mesa';
+                      case 'counter': return 'Balcão';
+                      default: return type || 'Pedido';
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={order.id}
+                      className={cn(
+                        'rounded-xl border transition-all overflow-hidden',
+                        isExpanded ? 'bg-muted/30' : 'hover:bg-muted/20'
+                      )}
+                    >
+                      <button
+                        onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                        className="w-full p-3 flex items-center gap-3 text-left"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Package className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-medium text-sm">
+                              #{order.order_number || '---'}
+                            </span>
+                            {getStatusBadge(order.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{getOrderTypeLabel(order.order_type)}</span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(orderDate, "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold text-sm">{formatCurrency(order.total)}</p>
+                          <ChevronRight className={cn(
+                            'w-4 h-4 text-muted-foreground transition-transform mx-auto',
+                            isExpanded && 'rotate-90'
+                          )} />
+                        </div>
+                      </button>
+
+                      {/* Expanded Content */}
+                      {isExpanded && order.order_items && order.order_items.length > 0 && (
+                        <div className="px-3 pb-3 border-t bg-background/50">
+                          <div className="pt-3 space-y-1.5">
+                            {order.order_items.map((item) => (
+                              <div key={item.id} className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">
+                                  {item.quantity}x {item.product_name}
+                                </span>
+                                <span className="text-foreground font-medium">
+                                  {formatCurrency(item.product_price * item.quantity)}
+                                </span>
+                              </div>
+                            ))}
+                            <Separator className="my-2" />
+                            <div className="flex justify-between text-sm font-medium">
+                              <span>Total</span>
+                              <span className="text-primary">{formatCurrency(order.total)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
