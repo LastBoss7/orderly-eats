@@ -305,7 +305,7 @@ export default function MenuPage() {
 
   // Submit order
   const handleSubmitOrder = useCallback(
-    async (orderType: OrderType, customerInfo: CustomerInfo) => {
+    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null) => {
       if (!restaurant || cart.length === 0) return;
 
       setSubmitting(true);
@@ -337,7 +337,7 @@ export default function MenuPage() {
           _restaurant_id: restaurant.id,
         });
 
-        // Create order
+        // Create order with customer_id
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -345,6 +345,7 @@ export default function MenuPage() {
             order_type: 'digital_menu',
             status: 'pending',
             total,
+            customer_id: customerId,
             customer_name: customerInfo.name,
             delivery_phone: customerInfo.phone,
             delivery_address: deliveryAddress,
@@ -531,6 +532,7 @@ export default function MenuPage() {
         onSubmit={handleSubmitOrder}
         loading={submitting}
         menuSettings={menuSettings}
+        restaurantId={restaurant.id}
       />
 
       {/* Floating Cart Button (mobile) */}
