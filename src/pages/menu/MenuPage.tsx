@@ -562,15 +562,18 @@ export default function MenuPage() {
       {cartCount > 0 && !cartOpen && !checkoutOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 left-3 right-3 z-50 flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 rounded-xl shadow-lg active:scale-[0.98] transition-transform"
+          className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-between bg-foreground text-background px-5 py-4 rounded-2xl shadow-2xl shadow-black/20 active:scale-[0.98] transition-all"
         >
-          <div className="flex items-center gap-2.5">
-            <div className="bg-primary-foreground/20 rounded-full w-7 h-7 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-background/20 rounded-xl w-8 h-8 flex items-center justify-center">
               <ShoppingCart className="w-4 h-4" />
             </div>
-            <span className="font-medium text-sm">Ver carrinho ({cartCount})</span>
+            <div className="text-left">
+              <span className="font-semibold text-sm block">Ver carrinho</span>
+              <span className="text-xs opacity-80">{cartCount} {cartCount === 1 ? 'item' : 'itens'}</span>
+            </div>
           </div>
-          <span className="font-bold">{formatCurrency(cartTotal - couponDiscount)}</span>
+          <span className="font-bold text-lg">{formatCurrency(cartTotal - couponDiscount)}</span>
         </button>
       )}
     </div>

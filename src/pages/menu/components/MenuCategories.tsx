@@ -1,6 +1,6 @@
 import { Category } from '../types';
 import { Button } from '@/components/ui/button';
-import { Sparkles } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useRef, useEffect } from 'react';
 
 interface MenuCategoriesProps {
@@ -34,18 +34,22 @@ export function MenuCategories({
   }, [selectedCategory]);
 
   return (
-    <div className="sticky top-[105px] z-40 bg-background border-b">
+    <div className="sticky top-[105px] z-40 bg-background/95 backdrop-blur-md border-b border-border/50">
       <div 
         ref={scrollRef}
-        className="flex gap-2 px-3 py-2.5 overflow-x-auto scrollbar-none"
+        className="flex gap-1.5 px-4 py-3 overflow-x-auto scrollbar-none"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {/* All Products */}
         <Button
           ref={selectedCategory === null ? selectedRef : undefined}
-          variant={selectedCategory === null ? 'default' : 'outline'}
+          variant={selectedCategory === null ? 'default' : 'ghost'}
           size="sm"
-          className="flex-shrink-0 h-8 px-4 text-xs font-medium rounded-full"
+          className={`flex-shrink-0 h-9 px-4 text-xs font-medium rounded-full transition-all ${
+            selectedCategory === null 
+              ? 'bg-foreground text-background hover:bg-foreground/90 shadow-sm' 
+              : 'bg-muted/50 hover:bg-muted text-foreground'
+          }`}
           onClick={() => onSelectCategory(null)}
         >
           Todos
@@ -55,12 +59,16 @@ export function MenuCategories({
         {hasFeatured && (
           <Button
             ref={selectedCategory === 'featured' ? selectedRef : undefined}
-            variant={selectedCategory === 'featured' ? 'default' : 'outline'}
+            variant={selectedCategory === 'featured' ? 'default' : 'ghost'}
             size="sm"
-            className="flex-shrink-0 h-8 px-3 text-xs font-medium rounded-full gap-1"
+            className={`flex-shrink-0 h-9 px-4 text-xs font-medium rounded-full gap-1.5 transition-all ${
+              selectedCategory === 'featured' 
+                ? 'bg-foreground text-background hover:bg-foreground/90 shadow-sm' 
+                : 'bg-muted/50 hover:bg-muted text-foreground'
+            }`}
             onClick={() => onSelectCategory(selectedCategory === 'featured' ? null : 'featured')}
           >
-            <Sparkles className="w-3 h-3" />
+            <Star className="w-3 h-3" />
             Destaques
           </Button>
         )}
@@ -70,9 +78,13 @@ export function MenuCategories({
           <Button
             key={category.id}
             ref={selectedCategory === category.id ? selectedRef : undefined}
-            variant={selectedCategory === category.id ? 'default' : 'outline'}
+            variant={selectedCategory === category.id ? 'default' : 'ghost'}
             size="sm"
-            className="flex-shrink-0 h-8 px-4 text-xs font-medium rounded-full uppercase tracking-wide"
+            className={`flex-shrink-0 h-9 px-4 text-xs font-medium rounded-full transition-all ${
+              selectedCategory === category.id 
+                ? 'bg-foreground text-background hover:bg-foreground/90 shadow-sm' 
+                : 'bg-muted/50 hover:bg-muted text-foreground'
+            }`}
             onClick={() => onSelectCategory(category.id)}
           >
             {category.icon && <span className="mr-1">{category.icon}</span>}
