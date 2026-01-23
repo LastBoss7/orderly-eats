@@ -1,7 +1,7 @@
 import { Category } from '../types';
 import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Sparkles } from 'lucide-react';
+import { useRef, useEffect } from 'react';
 
 interface MenuCategoriesProps {
   categories: Category[];
@@ -16,50 +16,69 @@ export function MenuCategories({
   onSelectCategory,
   hasFeatured,
 }: MenuCategoriesProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<HTMLButtonElement>(null);
+
+  // Scroll selected category into view
+  useEffect(() => {
+    if (selectedRef.current && scrollRef.current) {
+      const container = scrollRef.current;
+      const element = selectedRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const elementRect = element.getBoundingClientRect();
+      
+      if (elementRect.left < containerRect.left || elementRect.right > containerRect.right) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+  }, [selectedCategory]);
+
   return (
-    <div className="sticky top-[56px] sm:top-16 z-40 bg-background/95 backdrop-blur-md border-b py-2 sm:py-3">
-      <div className="container mx-auto px-3 sm:px-4">
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-1.5 sm:gap-2">
-            {/* Featured Button */}
-            {hasFeatured && (
-              <Button
-                variant={selectedCategory === 'featured' ? 'default' : 'outline'}
-                size="sm"
-                className="flex-shrink-0 gap-1 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
-                onClick={() => onSelectCategory(selectedCategory === 'featured' ? null : 'featured')}
-              >
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Destaques
-              </Button>
-            )}
+    <div className="sticky top-[105px] z-40 bg-background border-b">
+      <div 
+        ref={scrollRef}
+        className="flex gap-2 px-3 py-2.5 overflow-x-auto scrollbar-none"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {/* All Products */}
+        <Button
+          ref={selectedCategory === null ? selectedRef : undefined}
+          variant={selectedCategory === null ? 'default' : 'outline'}
+          size="sm"
+          className="flex-shrink-0 h-8 px-4 text-xs font-medium rounded-full"
+          onClick={() => onSelectCategory(null)}
+        >
+          Todos
+        </Button>
 
-            {/* All Products */}
-            <Button
-              variant={selectedCategory === null ? 'default' : 'outline'}
-              size="sm"
-              className="flex-shrink-0 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
-              onClick={() => onSelectCategory(null)}
-            >
-              Todos
-            </Button>
+        {/* Featured Button */}
+        {hasFeatured && (
+          <Button
+            ref={selectedCategory === 'featured' ? selectedRef : undefined}
+            variant={selectedCategory === 'featured' ? 'default' : 'outline'}
+            size="sm"
+            className="flex-shrink-0 h-8 px-3 text-xs font-medium rounded-full gap-1"
+            onClick={() => onSelectCategory(selectedCategory === 'featured' ? null : 'featured')}
+          >
+            <Sparkles className="w-3 h-3" />
+            Destaques
+          </Button>
+        )}
 
-            {/* Category Buttons */}
-            {categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                size="sm"
-                className="flex-shrink-0 h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm"
-                onClick={() => onSelectCategory(category.id)}
-              >
-                {category.icon && <span className="mr-1">{category.icon}</span>}
-                {category.name}
-              </Button>
-            ))}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+        {/* Category Buttons */}
+        {categories.map((category) => (
+          <Button
+            key={category.id}
+            ref={selectedCategory === category.id ? selectedRef : undefined}
+            variant={selectedCategory === category.id ? 'default' : 'outline'}
+            size="sm"
+            className="flex-shrink-0 h-8 px-4 text-xs font-medium rounded-full uppercase tracking-wide"
+            onClick={() => onSelectCategory(category.id)}
+          >
+            {category.icon && <span className="mr-1">{category.icon}</span>}
+            {category.name}
+          </Button>
+        ))}
       </div>
     </div>
   );

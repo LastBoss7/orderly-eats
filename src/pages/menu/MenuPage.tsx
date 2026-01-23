@@ -26,7 +26,7 @@ import {
   MenuCart,
   MenuCheckout,
 } from './components';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShoppingCart } from 'lucide-react';
 import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
 
 export default function MenuPage() {
@@ -210,7 +210,7 @@ export default function MenuPage() {
           },
         ];
       });
-      toast.success(`${product.name} adicionado ao carrinho`);
+      toast.success(`${product.name} adicionado`);
     }
   }, []);
 
@@ -232,7 +232,7 @@ export default function MenuPage() {
         },
       ]);
 
-      toast.success(`${selectedProduct.name} adicionado ao carrinho`);
+      toast.success(`${selectedProduct.name} adicionado`);
       setSelectedProduct(null);
     },
     [selectedProduct]
@@ -287,7 +287,7 @@ export default function MenuPage() {
       });
       setCouponDiscount(result.discount || 0);
       setCouponCode('');
-      toast.success('Cupom aplicado com sucesso!');
+      toast.success('Cupom aplicado!');
     } catch (err) {
       console.error('Error validating coupon:', err);
       setCouponError('Erro ao validar cupom');
@@ -410,13 +410,13 @@ export default function MenuPage() {
         setCheckoutOpen(false);
         setCartOpen(false);
 
-        toast.success('Pedido enviado com sucesso!');
+        toast.success('Pedido enviado!');
 
         // Open WhatsApp
         window.open(whatsappLink, '_blank');
       } catch (err) {
         console.error('Error submitting order:', err);
-        toast.error('Erro ao enviar pedido. Tente novamente.');
+        toast.error('Erro ao enviar pedido');
       } finally {
         setSubmitting(false);
       }
@@ -429,8 +429,8 @@ export default function MenuPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-          <p className="mt-4 text-muted-foreground">Carregando cardápio...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">Carregando cardápio...</p>
         </div>
       </div>
     );
@@ -439,18 +439,18 @@ export default function MenuPage() {
   // Error state
   if (error || !restaurant) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center">
-          <div className="text-6xl mb-4">😕</div>
-          <h1 className="text-2xl font-bold mb-2">Ops!</h1>
-          <p className="text-muted-foreground">{error || 'Restaurante não encontrado'}</p>
+          <div className="text-5xl mb-3">😕</div>
+          <h1 className="text-xl font-bold mb-1">Ops!</h1>
+          <p className="text-sm text-muted-foreground">{error || 'Restaurante não encontrado'}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <MenuHeader
         restaurant={restaurant}
@@ -470,16 +470,16 @@ export default function MenuPage() {
       />
 
       {/* Products Grid */}
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-24 sm:pb-6">
+      <main className="px-3 py-4">
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-5xl mb-4">🍽️</div>
-            <p className="text-base sm:text-lg font-medium text-muted-foreground">
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3">🍽️</div>
+            <p className="font-medium text-muted-foreground">
               {searchQuery ? 'Nenhum produto encontrado' : 'Nenhum produto nesta categoria'}
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3">
+          <div className="space-y-2.5">
             {filteredProducts.map((product) => (
               <MenuProductCard
                 key={product.id}
@@ -502,7 +502,7 @@ export default function MenuPage() {
         onConfirm={handleConfirmSize}
       />
 
-      {/* Cart Sheet */}
+      {/* Cart Drawer */}
       <MenuCart
         open={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -523,7 +523,7 @@ export default function MenuPage() {
         onRemoveCoupon={handleRemoveCoupon}
       />
 
-      {/* Checkout Modal */}
+      {/* Checkout Drawer */}
       <MenuCheckout
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
@@ -538,15 +538,15 @@ export default function MenuPage() {
       {cartCount > 0 && !cartOpen && !checkoutOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 left-4 right-4 z-50 flex items-center justify-between bg-primary text-primary-foreground px-5 py-3.5 rounded-xl shadow-xl hover:shadow-2xl transition-all sm:hidden active:scale-[0.98]"
+          className="fixed bottom-4 left-3 right-3 z-50 flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 rounded-xl shadow-lg active:scale-[0.98] transition-transform"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="bg-primary-foreground/20 rounded-full w-7 h-7 flex items-center justify-center">
-              <span className="font-bold text-sm">{cartCount}</span>
+              <ShoppingCart className="w-4 h-4" />
             </div>
-            <span className="font-medium text-sm">Ver carrinho</span>
+            <span className="font-medium text-sm">Ver carrinho ({cartCount})</span>
           </div>
-          <span className="font-bold text-base">{formatCurrency(cartTotal - couponDiscount)}</span>
+          <span className="font-bold">{formatCurrency(cartTotal - couponDiscount)}</span>
         </button>
       )}
     </div>
