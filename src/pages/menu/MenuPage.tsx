@@ -349,7 +349,7 @@ export default function MenuPage() {
           .from('orders')
           .insert({
             restaurant_id: restaurant.id,
-            order_type: 'digital_menu',
+            order_type: orderType, // 'delivery' or 'takeaway' - valid values in constraint
             status: 'pending',
             total,
             customer_id: customerId,
@@ -360,7 +360,7 @@ export default function MenuPage() {
             order_number: orderNumber,
             coupon_id: appliedCoupon?.id || null,
             coupon_discount: discount,
-            notes: `Pedido via Cardápio Digital - ${orderType === 'delivery' ? 'Delivery' : 'Retirada'}`,
+            notes: `Pedido via Cardápio Digital`,
           })
           .select()
           .single();
