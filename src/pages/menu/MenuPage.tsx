@@ -331,10 +331,18 @@ export default function MenuPage() {
         const discount = couponDiscount;
         const total = Math.max(0, subtotal + deliveryFee - discount);
 
-        // Get order number
-        const { data: orderNumber } = await supabase.rpc('get_next_order_number', {
-          _restaurant_id: restaurant.id,
-        });
+        // Get order number (may fail for anon users, fallback to null)
+        let orderNumber: number | null = null;
+        try {
+          const { data: orderNumData, error: orderNumError } = await supabase.rpc('get_next_order_number', {
+            _restaurant_id: restaurant.id,
+          });
+          if (!orderNumError && orderNumData) {
+            orderNumber = orderNumData;
+          }
+        } catch (numErr) {
+          console.warn('Could not get order number, proceeding without it:', numErr);
+        }
 
         // Create order with customer_id
         const { data: order, error: orderError } = await supabase
@@ -357,8 +365,13 @@ export default function MenuPage() {
           .select()
           .single();
 
-        if (orderError || !order) {
-          throw new Error('Erro ao criar pedido');
+        if (orderError) {
+          console.error('Order creation error:', orderError);
+          throw new Error(orderError.message || 'Erro ao criar pedido');
+        }
+        
+        if (!order) {
+          throw new Error('Pedido não foi criado');
         }
 
         // Create order items
