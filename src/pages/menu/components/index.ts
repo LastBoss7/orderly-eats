@@ -7,3 +7,4 @@ export { MenuCheckout } from './MenuCheckout';
 export { FeedbackDrawer } from './FeedbackDrawer';
 export { ExperienceSurveyDrawer } from './ExperienceSurveyDrawer';
 export { SavedAddressesList } from './SavedAddressesList';
+export { CustomerProfile } from './CustomerProfile';
