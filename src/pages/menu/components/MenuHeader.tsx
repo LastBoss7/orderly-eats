@@ -26,146 +26,112 @@ export function MenuHeader({
   const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours);
 
   return (
-    <>
-      {/* Banner */}
-      {menuSettings.digital_menu_banner_url && (
-        <div className="relative w-full h-36 sm:h-48 overflow-hidden">
-          <img
-            src={menuSettings.digital_menu_banner_url}
-            alt="Banner"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
-        </div>
-      )}
-
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b shadow-sm">
-        <div className="container mx-auto px-3 sm:px-4">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            {/* Logo & Name */}
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-              {restaurant.logo_url ? (
-                <img
-                  src={restaurant.logo_url}
-                  alt={restaurant.name}
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-border/50 shadow-sm flex-shrink-0"
-                />
-              ) : (
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-primary font-bold text-base sm:text-lg">
-                    {restaurant.name.charAt(0)}
-                  </span>
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <h1 className="font-bold text-base sm:text-lg leading-tight truncate">{restaurant.name}</h1>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  {/* Open/Closed Status */}
-                  <Badge 
-                    variant="outline" 
-                    className={`text-[9px] sm:text-[10px] px-1.5 py-0 gap-0.5 ${
-                      openStatus.isOpen 
-                        ? 'border-success text-success bg-success/10' 
-                        : 'border-destructive text-destructive bg-destructive/10'
-                    }`}
-                  >
-                    <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    {openStatus.isOpen ? 'Aberto' : 'Fechado'}
-                  </Badge>
-                  {menuSettings.digital_menu_delivery_enabled && (
-                    <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 gap-0.5 hidden xs:flex">
-                      <Truck className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      Delivery
-                    </Badge>
-                  )}
-                  {menuSettings.digital_menu_pickup_enabled && (
-                    <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 gap-0.5 hidden xs:flex">
-                      <ShoppingBag className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                      Retirada
-                    </Badge>
-                  )}
-                </div>
-              </div>
+    <header className="sticky top-0 z-50 bg-background border-b">
+      {/* Main Header Row */}
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          {/* Logo */}
+          {restaurant.logo_url ? (
+            <img
+              src={restaurant.logo_url}
+              alt={restaurant.name}
+              className="w-11 h-11 rounded-full object-cover border border-border flex-shrink-0"
+            />
+          ) : (
+            <div className="w-11 h-11 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+              <span className="text-primary-foreground font-bold text-lg">
+                {restaurant.name.charAt(0)}
+              </span>
             </div>
+          )}
 
-            {/* Search & Cart */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {showSearch ? (
-                <div className="flex items-center gap-1.5 animate-in slide-in-from-right">
-                  <Input
-                    type="text"
-                    placeholder="Buscar..."
-                    value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    className="w-32 sm:w-48 md:w-64 h-8 sm:h-9 text-sm"
-                    autoFocus
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 sm:h-9 sm:w-9"
-                    onClick={() => {
-                      setShowSearch(false);
-                      onSearchChange('');
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9"
-                  onClick={() => setShowSearch(true)}
-                >
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5" />
-                </Button>
-              )}
-
-              <Button
-                variant="default"
-                size="sm"
-                className="relative gap-1.5 h-8 sm:h-9 px-2.5 sm:px-3"
-                onClick={onCartClick}
+          {/* Restaurant Info */}
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-sm leading-tight line-clamp-2">{restaurant.name}</h1>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1.5 py-0.5 h-5 gap-1 font-medium ${
+                  openStatus.isOpen 
+                    ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950/50' 
+                    : 'border-red-500 text-red-600 bg-red-50 dark:bg-red-950/50'
+                }`}
               >
-                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="hidden sm:inline text-sm">Carrinho</span>
-                {cartCount > 0 && (
-                  <Badge className="absolute -top-1.5 -right-1.5 h-4 w-4 sm:h-5 sm:w-5 p-0 flex items-center justify-center bg-destructive text-destructive-foreground text-[10px] sm:text-xs">
-                    {cartCount}
-                  </Badge>
-                )}
-              </Button>
+                <Clock className="w-3 h-3" />
+                {openStatus.isOpen ? 'Aberto' : 'Fechado'}
+              </Badge>
+              {menuSettings.digital_menu_delivery_enabled && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 h-5 gap-1 font-medium">
+                  <Truck className="w-3 h-3" />
+                  Delivery
+                </Badge>
+              )}
+              {menuSettings.digital_menu_pickup_enabled && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 h-5 gap-1 font-medium">
+                  <ShoppingBag className="w-3 h-3" />
+                  Retirada
+                </Badge>
+              )}
             </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setShowSearch(!showSearch)}
+            >
+              {showSearch ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+            </Button>
+
+            <Button
+              variant="default"
+              size="icon"
+              className="h-9 w-9 relative"
+              onClick={onCartClick}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                  {cartCount}
+                </span>
+              )}
+            </Button>
           </div>
         </div>
 
-        {/* Restaurant Info Bar */}
-        <div className="bg-muted/50 border-t">
-          <div className="container mx-auto px-4 py-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            {/* Opening Hours Message */}
-            {menuSettings.use_opening_hours && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {openStatus.message}
-              </span>
-            )}
-            {restaurant.phone && (
-              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                <Phone className="w-3 h-3" />
-                {restaurant.phone}
-              </a>
-            )}
-            {restaurant.address && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {restaurant.address}
-              </span>
-            )}
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="mt-2.5">
+            <Input
+              type="text"
+              placeholder="Buscar no cardápio..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="h-9 text-sm"
+              autoFocus
+            />
           </div>
-        </div>
-      </header>
-    </>
+        )}
+      </div>
+
+      {/* Info Bar */}
+      <div className="px-3 py-2 bg-muted/50 border-t flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-muted-foreground">
+        {restaurant.phone && (
+          <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1 hover:text-foreground">
+            <Phone className="w-3 h-3" />
+            {restaurant.phone}
+          </a>
+        )}
+        {restaurant.address && (
+          <span className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            <span className="line-clamp-1">{restaurant.address}</span>
+          </span>
+        )}
+      </div>
+    </header>
   );
 }
