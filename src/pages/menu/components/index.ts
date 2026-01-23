@@ -6,3 +6,4 @@ export { MenuCart } from './MenuCart';
 export { MenuCheckout } from './MenuCheckout';
 export { FeedbackDrawer } from './FeedbackDrawer';
 export { ExperienceSurveyDrawer } from './ExperienceSurveyDrawer';
+export { SavedAddressesList } from './SavedAddressesList';
