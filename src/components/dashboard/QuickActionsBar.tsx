@@ -19,13 +19,14 @@ interface QuickActionsBarProps {
   onNewOrder: (type: 'counter' | 'takeaway' | 'table' | 'delivery') => void;
 }
 
+// Revolut/Apple-inspired: Subtle, professional button styles
 const orderTypes = [
   {
     id: 'counter' as const,
     label: 'Balcão',
     shortcut: 'B',
     icon: Store,
-    color: 'bg-blue-500 hover:bg-blue-600',
+    color: 'bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600',
     description: 'Venda no balcão',
   },
   {
@@ -33,7 +34,7 @@ const orderTypes = [
     label: 'Retirada',
     shortcut: 'R',
     icon: PackageCheck,
-    color: 'bg-amber-500 hover:bg-amber-600',
+    color: 'bg-zinc-700 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500',
     description: 'Cliente retira',
   },
   {
@@ -41,7 +42,7 @@ const orderTypes = [
     label: 'Mesa',
     shortcut: 'M',
     icon: UtensilsCrossed,
-    color: 'bg-emerald-500 hover:bg-emerald-600',
+    color: 'bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600',
     description: 'Mesa ou comanda',
   },
   {
@@ -49,7 +50,7 @@ const orderTypes = [
     label: 'Entrega',
     shortcut: 'D',
     icon: Bike,
-    color: 'bg-purple-500 hover:bg-purple-600',
+    color: 'bg-zinc-700 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500',
     description: 'Delivery',
   },
 ];
@@ -60,7 +61,7 @@ export function QuickActionsBar({ onNewOrder }: QuickActionsBarProps) {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-2 p-3 bg-gradient-to-r from-card to-muted/50 rounded-xl border shadow-sm"
+        className="flex items-center gap-2 p-3 bg-card border-b"
       >
         {/* Quick Action Buttons */}
         <div className="flex items-center gap-2">
@@ -75,14 +76,14 @@ export function QuickActionsBar({ onNewOrder }: QuickActionsBarProps) {
                 <TooltipTrigger asChild>
                   <Button
                     size="sm"
-                    className={`${type.color} text-white gap-1.5 h-9 px-3 shadow-sm transition-all hover:scale-105 active:scale-95`}
+                    className={`${type.color} text-white gap-1.5 h-8 px-3 transition-all hover:scale-[1.02] active:scale-[0.98]`}
                     onClick={() => onNewOrder(type.id)}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden md:inline">{type.label}</span>
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="hidden md:inline text-xs">{type.label}</span>
                     <Badge 
                       variant="secondary" 
-                      className="h-5 px-1.5 text-[10px] font-bold bg-white/20 text-white border-0 ml-0.5"
+                      className="h-4 px-1 text-[9px] font-medium bg-white/15 text-white/90 border-0 ml-0.5"
                     >
                       Alt+{type.shortcut}
                     </Badge>
