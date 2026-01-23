@@ -261,6 +261,15 @@ export default function MenuPage() {
     toast.success('Item removido');
   }, []);
 
+  // Update item notes in cart
+  const handleUpdateItemNotes = useCallback((index: number, notes: string) => {
+    setCart((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], notes };
+      return updated;
+    });
+  }, []);
+
   // Apply coupon
   const handleApplyCoupon = useCallback(async () => {
     if (!couponCode || !restaurant) return;
@@ -310,7 +319,7 @@ export default function MenuPage() {
 
   // Submit order
   const handleSubmitOrder = useCallback(
-    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number) => {
+    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string) => {
       if (!restaurant || cart.length === 0) return;
 
       setSubmitting(true);
@@ -356,6 +365,12 @@ export default function MenuPage() {
           status: 'pending',
         });
         
+        // Build notes
+        const notesArray = ['Pedido via Cardápio Digital'];
+        if (orderNotes.trim()) {
+          notesArray.push(orderNotes.trim());
+        }
+        
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -371,7 +386,7 @@ export default function MenuPage() {
             order_number: orderNumber,
             coupon_id: appliedCoupon?.id || null,
             coupon_discount: discount,
-            notes: `Pedido via Cardápio Digital`,
+            notes: notesArray.join(' | '),
           })
           .select()
           .maybeSingle();
@@ -428,6 +443,7 @@ export default function MenuPage() {
           total,
           deliveryFee,
           deliveryAddress,
+          notes: orderNotes || null,
           status: 'pending',
           restaurantName: restaurant.name,
         });
@@ -538,6 +554,7 @@ export default function MenuPage() {
         items={cart}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
+        onUpdateItemNotes={handleUpdateItemNotes}
         onCheckout={() => {
           setCartOpen(false);
           setCheckoutOpen(true);

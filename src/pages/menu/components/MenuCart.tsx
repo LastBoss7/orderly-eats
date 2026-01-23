@@ -10,7 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Minus, Plus, Trash2, ShoppingBag, Tag, X, Check, Loader2 } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Tag, X, Check, Loader2, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
 
 interface MenuCartProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface MenuCartProps {
   items: CartItem[];
   onUpdateQuantity: (index: number, delta: number) => void;
   onRemoveItem: (index: number) => void;
+  onUpdateItemNotes: (index: number, notes: string) => void;
   onCheckout: () => void;
   couponCode: string;
   onCouponChange: (code: string) => void;
@@ -35,6 +37,7 @@ export function MenuCart({
   items,
   onUpdateQuantity,
   onRemoveItem,
+  onUpdateItemNotes,
   onCheckout,
   couponCode,
   onCouponChange,
@@ -45,6 +48,7 @@ export function MenuCart({
   appliedCoupon,
   onRemoveCoupon,
 }: MenuCartProps) {
+  const [editingNotesIndex, setEditingNotesIndex] = useState<number | null>(null);
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const total = Math.max(0, subtotal - couponDiscount);
 
@@ -104,18 +108,11 @@ export function MenuCart({
                             <h4 className="font-medium text-sm leading-tight line-clamp-1">
                               {item.product.name}
                             </h4>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {item.size && (
-                                <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                  {getSizeLabel(item.size)}
-                                </span>
-                              )}
-                              {item.notes && (
-                                <span className="text-[11px] text-muted-foreground truncate">
-                                  {item.notes}
-                                </span>
-                              )}
-                            </div>
+                            {item.size && (
+                              <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded inline-block mt-0.5">
+                                {getSizeLabel(item.size)}
+                              </span>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
@@ -125,6 +122,36 @@ export function MenuCart({
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
+                        </div>
+
+                        {/* Item Notes */}
+                        <div className="mt-2">
+                          {editingNotesIndex === index ? (
+                            <Input
+                              placeholder="Ex: Sem cebola, bem passado..."
+                              value={item.notes}
+                              onChange={(e) => onUpdateItemNotes(index, e.target.value)}
+                              onBlur={() => setEditingNotesIndex(null)}
+                              className="h-8 text-xs"
+                              autoFocus
+                            />
+                          ) : item.notes ? (
+                            <button
+                              onClick={() => setEditingNotesIndex(index)}
+                              className="w-full text-left text-[11px] text-muted-foreground bg-muted/50 rounded px-2 py-1 flex items-center gap-1"
+                            >
+                              <MessageSquare className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{item.notes}</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setEditingNotesIndex(index)}
+                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              Adicionar observação
+                            </button>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between mt-2">

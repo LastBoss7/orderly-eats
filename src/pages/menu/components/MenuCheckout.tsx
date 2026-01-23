@@ -8,9 +8,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState, useEffect, useCallback } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft } from 'lucide-react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft, MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -25,7 +26,7 @@ interface MenuCheckoutProps {
   open: boolean;
   onClose: () => void;
   total: number;
-  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number) => void;
+  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string) => void;
   loading: boolean;
   menuSettings: MenuSettings;
   restaurantId: string;
@@ -77,6 +78,9 @@ export function MenuCheckout({
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [deliveryFeeNotFound, setDeliveryFeeNotFound] = useState(false);
 
+  // Order notes state
+  const [orderNotes, setOrderNotes] = useState('');
+
   // Calculate delivery fee
   const calculatedDeliveryFee = orderType === 'delivery' && deliveryFeeData ? deliveryFeeData.fee : 0;
 
@@ -100,6 +104,7 @@ export function MenuCheckout({
       });
       setDeliveryFeeData(null);
       setDeliveryFeeNotFound(false);
+      setOrderNotes('');
     }
   }, [open]);
 
@@ -278,7 +283,7 @@ export function MenuCheckout({
     if (orderType === 'delivery' && !customerInfo.address) return;
     
     await updateCustomerData();
-    onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee);
+    onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee, orderNotes);
   };
 
   // Search for delivery fee when neighborhood changes
@@ -660,6 +665,21 @@ export function MenuCheckout({
                     )}
                   </div>
                 )}
+
+                {/* Order Notes */}
+                <div className="space-y-2.5">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <MessageSquare className="w-4 h-4" />
+                    Observações do pedido
+                  </Label>
+                  <Textarea
+                    placeholder="Ex: Troco para R$ 100, entregar no portão, etc..."
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
+                    className="resize-none text-sm min-h-[60px]"
+                    rows={2}
+                  />
+                </div>
 
                 {/* Total */}
                 <div className="border-t pt-4 space-y-2">
