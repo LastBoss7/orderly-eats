@@ -15,7 +15,7 @@ const ToastViewport = React.forwardRef<
   <ToastPrimitives.Viewport
     ref={ref}
     className={cn(
-      "fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex max-h-screen w-full flex-col items-center gap-3 pointer-events-none md:max-w-[400px]",
+      "fixed top-4 right-4 z-[100] flex max-h-screen w-full flex-col items-end gap-3 pointer-events-none md:max-w-[400px]",
       className,
     )}
     {...props}
@@ -24,7 +24,7 @@ const ToastViewport = React.forwardRef<
 ToastViewport.displayName = ToastPrimitives.Viewport.displayName;
 
 const toastVariants = cva(
-  "group pointer-events-auto relative flex w-auto min-w-[280px] max-w-[380px] items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-bottom-full data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-8",
+  "group pointer-events-auto relative flex w-auto min-w-[280px] max-w-[380px] items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-right-full data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-right-8",
   {
     variants: {
       variant: {
@@ -49,11 +49,20 @@ const toastIconConfig = {
   info: { icon: Info, bg: "bg-blue-500/20", color: "text-blue-400" },
 };
 
+const timerBarColors = {
+  default: "bg-white/40",
+  success: "bg-emerald-400",
+  destructive: "bg-rose-400",
+  warning: "bg-amber-400",
+  info: "bg-blue-400",
+};
+
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> & VariantProps<typeof toastVariants>
 >(({ className, variant = "default", children, ...props }, ref) => {
   const config = variant ? toastIconConfig[variant] : toastIconConfig.default;
+  const timerColor = variant ? timerBarColors[variant] : timerBarColors.default;
   const Icon = config.icon;
   
   return (
@@ -74,15 +83,13 @@ const Toast = React.forwardRef<
         {children}
       </div>
 
-      {/* Subtle accent line */}
-      <div className={cn(
-        "absolute bottom-0 left-0 right-0 h-[2px] opacity-60",
-        variant === "success" && "bg-gradient-to-r from-transparent via-emerald-500 to-transparent",
-        variant === "destructive" && "bg-gradient-to-r from-transparent via-rose-500 to-transparent",
-        variant === "warning" && "bg-gradient-to-r from-transparent via-amber-500 to-transparent",
-        variant === "info" && "bg-gradient-to-r from-transparent via-blue-500 to-transparent",
-        variant === "default" && "bg-gradient-to-r from-transparent via-white/20 to-transparent",
-      )} />
+      {/* Timer bar at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10 overflow-hidden rounded-b-2xl">
+        <div 
+          className={cn("h-full animate-shrink-width origin-left", timerColor)}
+          style={{ animationDuration: `${TOAST_DURATION}ms` }}
+        />
+      </div>
     </ToastPrimitives.Root>
   );
 });
