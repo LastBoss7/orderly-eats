@@ -297,9 +297,9 @@ export function MenuCheckout({
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && !loading && onClose()}>
-      <DrawerContent className="max-h-[90vh]">
-        <div className="mx-auto w-full max-w-lg">
-          <DrawerHeader className="pb-2">
+      <DrawerContent className="max-h-[85dvh] flex flex-col">
+        <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0">
+          <DrawerHeader className="pb-2 flex-shrink-0">
             <div className="flex items-center gap-2">
               {step === 'details' && (
                 <Button
@@ -318,7 +318,7 @@ export function MenuCheckout({
             </div>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 overflow-y-auto max-h-[70vh]">
+          <div className="px-4 pb-6 overflow-y-auto flex-1 min-h-0">
             {/* Step 1: Phone identification */}
             {step === 'phone' && (
               <div className="space-y-6 py-4">
@@ -340,7 +340,16 @@ export function MenuCheckout({
                     value={phoneInput}
                     onChange={(e) => handlePhoneChange(e.target.value)}
                     className="h-12 text-center text-lg"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
                     onKeyDown={(e) => e.key === 'Enter' && canSearchPhone && handleSearchCustomer()}
+                    onFocus={(e) => {
+                      // Scroll input into view when keyboard opens
+                      setTimeout(() => {
+                        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 300);
+                    }}
                   />
                   
                   <Button
