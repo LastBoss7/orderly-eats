@@ -103,6 +103,43 @@ export function MenuCheckout({
     }
   }, [open]);
 
+  // Trigger delivery fee lookup when step changes to details with existing neighborhood
+  useEffect(() => {
+    if (step === 'details' && customerInfo.neighborhood && orderType === 'delivery' && !deliveryFeeData && !deliveryFeeLoading) {
+      // Trigger the lookup
+      const fetchDeliveryFee = async () => {
+        setDeliveryFeeLoading(true);
+        try {
+          const normalizedNeighborhood = customerInfo.neighborhood.toLowerCase().trim();
+          
+          const { data, error } = await supabase
+            .from('delivery_fees')
+            .select('fee, neighborhood, estimated_time, min_order_value')
+            .eq('restaurant_id', restaurantId)
+            .eq('is_active', true)
+            .ilike('neighborhood', `%${normalizedNeighborhood}%`)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data) {
+            setDeliveryFeeData(data);
+            setDeliveryFeeNotFound(false);
+          } else {
+            setDeliveryFeeData(null);
+            setDeliveryFeeNotFound(true);
+          }
+        } catch (error) {
+          console.error('Error fetching delivery fee:', error);
+          setDeliveryFeeNotFound(true);
+        } finally {
+          setDeliveryFeeLoading(false);
+        }
+      };
+      fetchDeliveryFee();
+    }
+  }, [step, customerInfo.neighborhood, orderType, restaurantId, deliveryFeeData, deliveryFeeLoading]);
+
   // Format phone input
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 11);
