@@ -119,11 +119,12 @@ export default function MenuPage() {
           });
         }
 
-        // Fetch categories
+        // Fetch categories (only visible in digital menu)
         const { data: categoriesData } = await supabase
           .from('categories')
-          .select('id, name, icon, sort_order')
+          .select('id, name, icon, sort_order, visible_digital_menu')
           .eq('restaurant_id', restaurantData.id)
+          .eq('visible_digital_menu', true)
           .order('sort_order', { ascending: true });
 
         setCategories(categoriesData || []);
