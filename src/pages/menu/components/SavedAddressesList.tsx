@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Plus, Trash2, Star, Check } from 'lucide-react';
+import { MapPin, Plus, Trash2, Star, Check, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SavedAddress {
@@ -20,6 +20,7 @@ interface SavedAddressesListProps {
   selectedAddressId: string | null;
   onSelect: (address: SavedAddress) => void;
   onAddNew: () => void;
+  onEdit: (address: SavedAddress) => void;
   onDelete: (id: string) => void;
   onSetDefault: (id: string) => void;
   loading?: boolean;
@@ -30,6 +31,7 @@ export function SavedAddressesList({
   selectedAddressId,
   onSelect,
   onAddNew,
+  onEdit,
   onDelete,
   onSetDefault,
   loading,
@@ -78,7 +80,7 @@ export function SavedAddressesList({
             )}
             onClick={() => onSelect(addr)}
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 pr-16">
               <div
                 className={cn(
                   'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5',
@@ -110,7 +112,19 @@ export function SavedAddressesList({
             </div>
 
             {/* Actions */}
-            <div className="absolute top-2 right-2 flex gap-1">
+            <div className="absolute top-2 right-2 flex gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(addr);
+                }}
+                title="Editar endereço"
+              >
+                <Edit2 className="w-3 h-3" />
+              </Button>
               {!addr.is_default && (
                 <Button
                   variant="ghost"

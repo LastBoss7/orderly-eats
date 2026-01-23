@@ -102,6 +102,7 @@ export function MenuCheckout({
   const [addressMode, setAddressMode] = useState<AddressMode>('list');
   const [addressLabel, setAddressLabel] = useState('Casa');
   const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
 
   // Calculate delivery fee
   const calculatedDeliveryFee = orderType === 'delivery' && deliveryFeeData ? deliveryFeeData.fee : 0;
@@ -410,38 +411,57 @@ export function MenuCheckout({
     if (!customerInfo.name || !customerInfo.phone) return;
     if (orderType === 'delivery' && !customerInfo.address) return;
     
-    // Save new address if in form mode and has address data
+    // Save or update address if in form mode and has address data
     if (addressMode === 'form' && orderType === 'delivery' && customerId && customerInfo.address && customerInfo.neighborhood) {
-      await saveNewAddress();
+      await saveOrUpdateAddress();
     }
     
     await updateCustomerData();
     onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee, orderNotes);
   };
 
-  // Save new address
-  const saveNewAddress = useCallback(async () => {
+  // Save or update address
+  const saveOrUpdateAddress = useCallback(async () => {
     if (!customerId || !customerInfo.address || !customerInfo.neighborhood) return;
 
     try {
-      const { error } = await supabase.from('customer_addresses').insert({
-        customer_id: customerId,
-        restaurant_id: restaurantId,
-        label: addressLabel || 'Casa',
-        address: customerInfo.address,
-        number: customerInfo.number || null,
-        complement: customerInfo.complement || null,
-        neighborhood: customerInfo.neighborhood,
-        city: customerInfo.city,
-        cep: customerInfo.cep || null,
-        is_default: savedAddresses.length === 0, // First address is default
-      });
+      if (editingAddressId) {
+        // Update existing address
+        const { error } = await supabase
+          .from('customer_addresses')
+          .update({
+            label: addressLabel || 'Casa',
+            address: customerInfo.address,
+            number: customerInfo.number || null,
+            complement: customerInfo.complement || null,
+            neighborhood: customerInfo.neighborhood,
+            city: customerInfo.city,
+            cep: customerInfo.cep || null,
+          })
+          .eq('id', editingAddressId);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Create new address
+        const { error } = await supabase.from('customer_addresses').insert({
+          customer_id: customerId,
+          restaurant_id: restaurantId,
+          label: addressLabel || 'Casa',
+          address: customerInfo.address,
+          number: customerInfo.number || null,
+          complement: customerInfo.complement || null,
+          neighborhood: customerInfo.neighborhood,
+          city: customerInfo.city,
+          cep: customerInfo.cep || null,
+          is_default: savedAddresses.length === 0,
+        });
+
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('Error saving address:', error);
     }
-  }, [customerId, restaurantId, customerInfo, addressLabel, savedAddresses.length]);
+  }, [customerId, restaurantId, customerInfo, addressLabel, savedAddresses.length, editingAddressId]);
 
   // Handle select saved address
   const handleSelectAddress = useCallback((addr: SavedAddress) => {
@@ -510,6 +530,7 @@ export function MenuCheckout({
   const handleAddNewAddress = useCallback(() => {
     setAddressMode('form');
     setSelectedAddressId(null);
+    setEditingAddressId(null);
     setAddressLabel('Casa');
     setCustomerInfo((prev) => ({
       ...prev,
@@ -523,6 +544,26 @@ export function MenuCheckout({
     setDeliveryFeeData(null);
     setDeliveryFeeNotFound(false);
   }, []);
+
+  // Handle edit address
+  const handleEditAddress = useCallback((addr: SavedAddress) => {
+    setEditingAddressId(addr.id);
+    setAddressMode('form');
+    setAddressLabel(addr.label);
+    setCustomerInfo((prev) => ({
+      ...prev,
+      address: addr.address,
+      number: addr.number || '',
+      complement: addr.complement || '',
+      neighborhood: addr.neighborhood,
+      city: addr.city,
+      cep: addr.cep || '',
+    }));
+    // Trigger delivery fee lookup
+    if (addr.neighborhood) {
+      handleNeighborhoodChangeDirect(addr.neighborhood);
+    }
+  }, [handleNeighborhoodChangeDirect]);
 
   // Search for delivery fee when neighborhood changes
   const handleNeighborhoodChange = useCallback(async (neighborhood: string) => {
@@ -782,7 +823,10 @@ export function MenuCheckout({
                           variant="ghost"
                           size="sm"
                           className="text-xs h-7 px-2"
-                          onClick={() => setAddressMode('list')}
+                          onClick={() => {
+                            setAddressMode('list');
+                            setEditingAddressId(null);
+                          }}
                         >
                           <Home className="w-3 h-3 mr-1" />
                           Endereços salvos
@@ -797,6 +841,7 @@ export function MenuCheckout({
                         selectedAddressId={selectedAddressId}
                         onSelect={handleSelectAddress}
                         onAddNew={handleAddNewAddress}
+                        onEdit={handleEditAddress}
                         onDelete={handleDeleteAddress}
                         onSetDefault={handleSetDefaultAddress}
                         loading={loadingAddresses}
@@ -806,8 +851,15 @@ export function MenuCheckout({
                     {/* Address form */}
                     {(addressMode === 'form' || savedAddresses.length === 0) && (
                       <div className="space-y-3">
-                        {/* Label for new address */}
-                        {savedAddresses.length > 0 && (
+                        {/* Editing indicator */}
+                        {editingAddressId && (
+                          <p className="text-xs text-primary font-medium">
+                            ✏️ Editando endereço
+                          </p>
+                        )}
+
+                        {/* Label for new/edit address */}
+                        {(savedAddresses.length > 0 || editingAddressId) && (
                           <div>
                             <Label htmlFor="addressLabel" className="text-xs text-muted-foreground">
                               Nome do endereço
