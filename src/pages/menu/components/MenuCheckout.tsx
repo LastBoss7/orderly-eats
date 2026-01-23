@@ -11,16 +11,22 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useState, useEffect, useCallback } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, Search, CheckCircle2 } from 'lucide-react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, Search, CheckCircle2, Info, Truck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+interface DeliveryFeeData {
+  fee: number;
+  neighborhood: string;
+  estimated_time: string | null;
+  min_order_value: number | null;
+}
 
 interface MenuCheckoutProps {
   open: boolean;
   onClose: () => void;
   total: number;
-  deliveryFee: number;
-  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null) => void;
+  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number) => void;
   loading: boolean;
   menuSettings: MenuSettings;
   restaurantId: string;
@@ -32,7 +38,6 @@ export function MenuCheckout({
   open,
   onClose,
   total,
-  deliveryFee,
   onSubmit,
   loading,
   menuSettings,
@@ -68,6 +73,14 @@ export function MenuCheckout({
   });
   const [cepLoading, setCepLoading] = useState(false);
 
+  // Delivery fee state
+  const [deliveryFeeData, setDeliveryFeeData] = useState<DeliveryFeeData | null>(null);
+  const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
+  const [deliveryFeeNotFound, setDeliveryFeeNotFound] = useState(false);
+
+  // Calculate delivery fee
+  const calculatedDeliveryFee = orderType === 'delivery' && deliveryFeeData ? deliveryFeeData.fee : 0;
+
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
@@ -86,6 +99,8 @@ export function MenuCheckout({
         city: '',
         cep: '',
       });
+      setDeliveryFeeData(null);
+      setDeliveryFeeNotFound(false);
     }
   }, [open]);
 
@@ -228,9 +243,48 @@ export function MenuCheckout({
     // Update customer data
     await updateCustomerData();
     
-    // Submit order with customer ID
-    onSubmit(orderType, customerInfo, customerId);
+    // Submit order with customer ID and delivery fee
+    onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee);
   };
+
+  // Search for delivery fee when neighborhood changes
+  const handleNeighborhoodChange = useCallback(async (neighborhood: string) => {
+    setCustomerInfo((prev) => ({ ...prev, neighborhood }));
+    
+    if (!neighborhood.trim() || orderType !== 'delivery') {
+      setDeliveryFeeData(null);
+      setDeliveryFeeNotFound(false);
+      return;
+    }
+
+    setDeliveryFeeLoading(true);
+    try {
+      const normalizedNeighborhood = neighborhood.toLowerCase().trim();
+      
+      const { data, error } = await supabase
+        .from('delivery_fees')
+        .select('fee, neighborhood, estimated_time, min_order_value')
+        .eq('restaurant_id', restaurantId)
+        .eq('is_active', true)
+        .ilike('neighborhood', `%${normalizedNeighborhood}%`)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setDeliveryFeeData(data);
+        setDeliveryFeeNotFound(false);
+      } else {
+        setDeliveryFeeData(null);
+        setDeliveryFeeNotFound(true);
+      }
+    } catch (error) {
+      console.error('Error fetching delivery fee:', error);
+      setDeliveryFeeNotFound(true);
+    } finally {
+      setDeliveryFeeLoading(false);
+    }
+  }, [restaurantId, orderType]);
 
   const isValid =
     customerInfo.name &&
@@ -241,7 +295,7 @@ export function MenuCheckout({
   const isClosed = menuSettings.use_opening_hours && !openStatus.isOpen;
   const canSubmit = isValid && !isBelowMinOrder && !isClosed;
 
-  const finalTotal = orderType === 'delivery' ? total + deliveryFee : total;
+  const finalTotal = orderType === 'delivery' ? total + calculatedDeliveryFee : total;
 
   const canSearchPhone = phoneInput.replace(/\D/g, '').length >= 10;
 
@@ -354,9 +408,9 @@ export function MenuCheckout({
                     <RadioGroupItem value="delivery" id="delivery" className="sr-only" />
                     <Bike className="w-8 h-8 mb-2 text-primary" />
                     <span className="font-medium">Delivery</span>
-                    {deliveryFee > 0 && (
+                    {calculatedDeliveryFee > 0 && (
                       <span className="text-xs text-muted-foreground mt-1">
-                        +{formatCurrency(deliveryFee)}
+                        +{formatCurrency(calculatedDeliveryFee)}
                       </span>
                     )}
                   </Label>
@@ -442,14 +496,18 @@ export function MenuCheckout({
 
                   <div className="space-y-2">
                     <Label htmlFor="neighborhood">Bairro</Label>
-                    <Input
-                      id="neighborhood"
-                      placeholder="Bairro"
-                      value={customerInfo.neighborhood}
-                      onChange={(e) =>
-                        setCustomerInfo((prev) => ({ ...prev, neighborhood: e.target.value }))
-                      }
-                    />
+                    <div className="relative">
+                      <Input
+                        id="neighborhood"
+                        placeholder="Bairro"
+                        value={customerInfo.neighborhood}
+                        onChange={(e) => handleNeighborhoodChange(e.target.value)}
+                        onBlur={() => handleNeighborhoodChange(customerInfo.neighborhood)}
+                      />
+                      {deliveryFeeLoading && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2 sm:col-span-2">
@@ -503,12 +561,50 @@ export function MenuCheckout({
               </div>
             )}
 
+            {/* Delivery Fee Info */}
+            {orderType === 'delivery' && (
+              <div className="space-y-2">
+                {deliveryFeeLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Buscando taxa de entrega...
+                  </div>
+                )}
+                
+                {deliveryFeeData && !deliveryFeeLoading && (
+                  <Alert className="bg-primary/5 border-primary/20">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <AlertDescription className="text-foreground">
+                      <div className="flex justify-between items-center">
+                        <span>Taxa de entrega ({deliveryFeeData.neighborhood})</span>
+                        <span className="font-semibold">{formatCurrency(deliveryFeeData.fee)}</span>
+                      </div>
+                      {deliveryFeeData.estimated_time && (
+                        <span className="text-xs text-muted-foreground">
+                          Tempo estimado: {deliveryFeeData.estimated_time} min
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {deliveryFeeNotFound && !deliveryFeeLoading && customerInfo.neighborhood && (
+                  <Alert className="bg-amber-500/10 border-amber-500/20">
+                    <Info className="h-4 w-4 text-amber-500" />
+                    <AlertDescription className="text-amber-700 dark:text-amber-400">
+                      Taxa de entrega para "{customerInfo.neighborhood}" será informada via WhatsApp
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+
             {/* Total */}
             <div className="border-t pt-4 space-y-2">
-              {orderType === 'delivery' && deliveryFee > 0 && (
+              {orderType === 'delivery' && calculatedDeliveryFee > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Taxa de entrega</span>
-                  <span>{formatCurrency(deliveryFee)}</span>
+                  <span>{formatCurrency(calculatedDeliveryFee)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold">
