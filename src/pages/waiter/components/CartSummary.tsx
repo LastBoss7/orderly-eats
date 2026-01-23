@@ -35,9 +35,9 @@ export function CartSummary({
 
   if (cart.length === 0) {
     return (
-      <div className="p-4 border-t bg-card">
-        <div className="text-center py-6 text-muted-foreground">
-          <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-30" />
+      <div className="fixed bottom-0 left-0 right-0 p-4 border-t bg-card z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
+        <div className="text-center py-4 text-muted-foreground">
+          <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">Carrinho vazio</p>
           <p className="text-xs">Toque nos produtos para adicionar</p>
         </div>
@@ -46,10 +46,21 @@ export function CartSummary({
   }
 
   return (
-    <div className="border-t bg-card flex flex-col max-h-[50vh]">
-      {/* Cart Items */}
-      <ScrollArea className="flex-1 p-3">
-        <div className="space-y-2">
+    <div className="fixed bottom-0 left-0 right-0 border-t bg-card flex flex-col max-h-[45vh] z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.1)]">
+      {/* Cart Header - Collapsible toggle */}
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <ShoppingCart className="w-4 h-4 text-primary" />
+          <span className="font-semibold text-sm">{itemCount} itens</span>
+        </div>
+        <span className="font-bold text-primary">
+          {formatCurrency(cartTotal)}
+        </span>
+      </div>
+
+      {/* Cart Items - Scrollable */}
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-3 space-y-2">
           {cart.map((item) => {
             const itemKey = `${item.product.id}-${item.size || 'default'}`;
             const isEditingNotes = editingItemNotes === itemKey;
@@ -135,30 +146,23 @@ export function CartSummary({
               </div>
             );
           })}
-        </div>
-        
-        {/* Order Notes */}
-        <div className="mt-3 pt-3 border-t">
-          <Input
-            placeholder="Observações do pedido..."
-            value={orderNotes}
-            onChange={(e) => onOrderNotesChange(e.target.value)}
-            className="h-10 text-sm"
-          />
+          
+          {/* Order Notes */}
+          <div className="pt-2 border-t">
+            <Input
+              placeholder="Observações do pedido..."
+              value={orderNotes}
+              onChange={(e) => onOrderNotesChange(e.target.value)}
+              className="h-10 text-sm"
+            />
+          </div>
         </div>
       </ScrollArea>
 
-      {/* Total & Submit */}
-      <div className="p-3 border-t bg-card">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-muted-foreground">{itemCount} itens</span>
-          <span className="text-xl font-bold text-foreground">
-            {formatCurrency(cartTotal)}
-          </span>
-        </div>
-        
+      {/* Submit Button - Fixed at bottom */}
+      <div className="p-3 border-t bg-card shrink-0">
         <Button
-          className="w-full h-14 text-lg"
+          className="w-full h-12 text-base font-semibold"
           onClick={onSubmit}
           disabled={isSubmitting}
         >
