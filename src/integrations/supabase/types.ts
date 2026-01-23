@@ -159,6 +159,9 @@ export type Database = {
           name: string
           restaurant_id: string
           sort_order: number | null
+          visible_digital_menu: boolean | null
+          visible_pos: boolean | null
+          visible_waiter_app: boolean | null
         }
         Insert: {
           created_at?: string
@@ -167,6 +170,9 @@ export type Database = {
           name: string
           restaurant_id: string
           sort_order?: number | null
+          visible_digital_menu?: boolean | null
+          visible_pos?: boolean | null
+          visible_waiter_app?: boolean | null
         }
         Update: {
           created_at?: string
@@ -175,6 +181,9 @@ export type Database = {
           name?: string
           restaurant_id?: string
           sort_order?: number | null
+          visible_digital_menu?: boolean | null
+          visible_pos?: boolean | null
+          visible_waiter_app?: boolean | null
         }
         Relationships: [
           {
