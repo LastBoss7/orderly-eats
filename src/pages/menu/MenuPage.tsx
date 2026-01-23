@@ -344,12 +344,18 @@ export default function MenuPage() {
           console.warn('Could not get order number, proceeding without it:', numErr);
         }
 
-        // Create order with customer_id
+        // Create order with customer_id - log for debugging
+        console.log('Creating order with:', {
+          restaurant_id: restaurant.id,
+          order_type: orderType,
+          status: 'pending',
+        });
+        
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
             restaurant_id: restaurant.id,
-            order_type: orderType, // 'delivery' or 'takeaway' - valid values in constraint
+            order_type: orderType,
             status: 'pending',
             total,
             customer_id: customerId,
@@ -363,10 +369,15 @@ export default function MenuPage() {
             notes: `Pedido via Cardápio Digital`,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (orderError) {
-          console.error('Order creation error:', orderError);
+          console.error('Order creation error details:', {
+            message: orderError.message,
+            details: orderError.details,
+            hint: orderError.hint,
+            code: orderError.code,
+          });
           throw new Error(orderError.message || 'Erro ao criar pedido');
         }
         
