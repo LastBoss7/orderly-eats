@@ -332,11 +332,18 @@ export function MenuCheckout({
   const finalTotal = orderType === 'delivery' ? total + calculatedDeliveryFee : total;
   const canSearchPhone = phoneInput.replace(/\D/g, '').length >= 10;
 
+  // Handle input focus for mobile keyboard
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 300);
+  };
+
   return (
     <Drawer open={open} onOpenChange={(o) => !o && !loading && onClose()}>
-      <DrawerContent className="max-h-[85dvh] flex flex-col">
+      <DrawerContent className="max-h-[90dvh] flex flex-col">
         <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0">
-          <DrawerHeader className="pb-2 flex-shrink-0">
+          <DrawerHeader className="pb-2 flex-shrink-0 border-b border-border/50">
             <div className="flex items-center gap-2">
               {step === 'details' && (
                 <Button
@@ -349,13 +356,13 @@ export function MenuCheckout({
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
               )}
-              <DrawerTitle className="text-base">
+              <DrawerTitle className="text-base font-semibold">
                 {step === 'phone' ? 'Identificação' : 'Finalizar Pedido'}
               </DrawerTitle>
             </div>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 overflow-y-auto flex-1 min-h-0">
+          <div className="px-4 pb-6 overflow-y-auto flex-1 min-h-0 overscroll-contain">
             {/* Step 1: Phone identification */}
             {step === 'phone' && (
               <div className="space-y-6 py-4">
@@ -376,17 +383,12 @@ export function MenuCheckout({
                     placeholder="(00) 00000-0000"
                     value={phoneInput}
                     onChange={(e) => handlePhoneChange(e.target.value)}
-                    className="h-12 text-center text-lg"
+                    className="h-12 text-center text-lg rounded-xl"
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
                     onKeyDown={(e) => e.key === 'Enter' && canSearchPhone && handleSearchCustomer()}
-                    onFocus={(e) => {
-                      // Scroll input into view when keyboard opens
-                      setTimeout(() => {
-                        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }, 300);
-                    }}
+                    onFocus={handleInputFocus}
                   />
                   
                   <Button
@@ -592,6 +594,8 @@ export function MenuCheckout({
                               setCustomerInfo((prev) => ({ ...prev, number: e.target.value }))
                             }
                             className="h-10 mt-1"
+                            inputMode="numeric"
+                            onFocus={handleInputFocus}
                           />
                         </div>
 
@@ -605,6 +609,7 @@ export function MenuCheckout({
                               setCustomerInfo((prev) => ({ ...prev, complement: e.target.value }))
                             }
                             className="h-10 mt-1"
+                            onFocus={handleInputFocus}
                           />
                         </div>
                       </div>
