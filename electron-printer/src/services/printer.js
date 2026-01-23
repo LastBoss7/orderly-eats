@@ -610,12 +610,25 @@ class PrinterService {
         const qty = item.quantity || 1;
         let name = this.sanitizeText(item.product_name || 'Item');
         
+        // Translate size to Portuguese label
+        const getSizeLabel = (size) => {
+          switch (size) {
+            case 'small': return 'Pequeno';
+            case 'medium': return 'Medio';
+            case 'large': return 'Grande';
+            default: return size;
+          }
+        };
+        
         // Only add size if it's NOT already in the product_name
-        // (to avoid duplication like "Salada Mista (G) (G)")
+        // Check for both English (small/medium/large) and Portuguese (Pequeno/Medio/Grande/P/M/G)
         if (layout.showItemSize !== false && item.product_size) {
-          const sizePattern = new RegExp('\\(' + item.product_size + '\\)', 'i');
-          if (!sizePattern.test(name)) {
-            name += ' (' + item.product_size + ')';
+          const sizeLabel = getSizeLabel(item.product_size);
+          const hasEnglishSize = new RegExp('\\(' + item.product_size + '\\)', 'i').test(name);
+          const hasPortugueseSize = new RegExp('\\((Pequeno|Medio|Grande|P|M|G)\\)', 'i').test(name);
+          
+          if (!hasEnglishSize && !hasPortugueseSize) {
+            name += ' (' + sizeLabel + ')';
           }
         }
         
