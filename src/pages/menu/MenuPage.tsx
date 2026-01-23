@@ -305,7 +305,7 @@ export default function MenuPage() {
 
   // Submit order
   const handleSubmitOrder = useCallback(
-    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null) => {
+    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number) => {
       if (!restaurant || cart.length === 0) return;
 
       setSubmitting(true);
@@ -328,7 +328,6 @@ export default function MenuPage() {
 
         // Calculate final total
         const subtotal = cartTotal;
-        const deliveryFee = orderType === 'delivery' ? 0 : 0; // Could fetch from delivery_fees
         const discount = couponDiscount;
         const total = Math.max(0, subtotal + deliveryFee - discount);
 
@@ -349,6 +348,7 @@ export default function MenuPage() {
             customer_name: customerInfo.name,
             delivery_phone: customerInfo.phone,
             delivery_address: deliveryAddress,
+            delivery_fee: deliveryFee,
             order_number: orderNumber,
             coupon_id: appliedCoupon?.id || null,
             coupon_discount: discount,
@@ -528,7 +528,6 @@ export default function MenuPage() {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={cartTotal - couponDiscount}
-        deliveryFee={0}
         onSubmit={handleSubmitOrder}
         loading={submitting}
         menuSettings={menuSettings}
