@@ -6,6 +6,7 @@ export { TabCard } from './TabCard';
 export { ProductCard } from './ProductCard';
 export { CartSummary } from './CartSummary';
 export { SizeModal } from './SizeModal';
+export { ProductModal } from './ProductModal';
 export { PaymentModal, type PaymentEntry } from './PaymentModal';
 export { TableActionModal } from './TableActionModal';
 export { InstallPWA } from './InstallPWA';

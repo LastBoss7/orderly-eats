@@ -80,6 +80,11 @@ export function CartSummary({
                         </span>
                       )}
                     </p>
+                    {item.addons && item.addons.length > 0 && (
+                      <p className="text-xs text-primary truncate">
+                        + {item.addons.map(a => a.name).join(', ')}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       {formatCurrency(item.unitPrice)} cada
                     </p>
