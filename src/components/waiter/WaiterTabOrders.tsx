@@ -60,7 +60,9 @@ type SplitMode = 'none' | 'equal';
 export function WaiterTabOrders({ tab, onBack, onTabClosed, restaurantId: propRestaurantId }: WaiterTabOrdersProps) {
   const { restaurant } = useAuth();
   const effectiveRestaurantId = propRestaurantId || restaurant?.id;
-  const { printConference } = usePrintToElectron({ restaurantId: effectiveRestaurantId });
+  // Use edge function when accessed via waiter PIN (no auth session)
+  const useEdgeFunction = !!propRestaurantId;
+  const { printConference } = usePrintToElectron({ restaurantId: effectiveRestaurantId, useEdgeFunction });
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -347,7 +349,7 @@ export function WaiterTabOrders({ tab, onBack, onTabClosed, restaurantId: propRe
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({

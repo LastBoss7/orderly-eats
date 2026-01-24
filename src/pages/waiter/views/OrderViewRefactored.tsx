@@ -70,7 +70,7 @@ const ProductButton = memo(function ProductButton({
   if (viewMode === 'grid') {
     return (
       <button
-        className={`flex flex-col p-2 bg-card rounded-xl text-left relative ${
+        className={`flex flex-col p-2 bg-card rounded-xl text-left relative overflow-hidden ${
           isSelected ? 'border-2 border-primary bg-primary/5' : 'border border-transparent shadow-sm'
         }`}
         onClick={onClick}
@@ -96,7 +96,7 @@ const ProductButton = memo(function ProductButton({
           )}
         </div>
         
-        <p className="font-medium text-sm truncate">{product.name}</p>
+        <p className="font-medium text-sm truncate max-w-full">{product.name}</p>
         {product.has_sizes && (
           <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded inline-block mt-0.5">P/M/G</span>
         )}
@@ -109,7 +109,7 @@ const ProductButton = memo(function ProductButton({
   
   return (
     <button
-      className={`flex items-center gap-3 p-3 bg-card rounded-xl text-left ${
+      className={`flex items-center gap-3 p-3 bg-card rounded-xl text-left overflow-hidden ${
         isSelected ? 'border-2 border-primary bg-primary/5' : 'border border-transparent shadow-sm'
       }`}
       onClick={onClick}
@@ -320,7 +320,7 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       {/* Header */}
       <header className="sticky top-0 bg-primary text-primary-foreground p-4 z-10 shadow-lg">
         <div className="flex items-center gap-3">
@@ -416,7 +416,7 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
             ))}
           </div>
         ) : (
-        <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}`}>
+        <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'} overflow-hidden`}>
           {filteredProducts.map((product) => {
             const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
             const minPrice = product.has_sizes

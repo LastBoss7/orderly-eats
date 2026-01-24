@@ -70,8 +70,8 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
   const canConfirm = !product.has_sizes || selectedSize !== null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-card rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-xl overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-hidden">
+      <div className="bg-card rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-xl overflow-hidden mx-0">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b shrink-0 bg-card">
           <div className="flex-1 min-w-0">
