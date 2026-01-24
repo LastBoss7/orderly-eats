@@ -622,16 +622,34 @@ export function MenuCheckout({
   const finalTotal = orderType === 'delivery' ? total + calculatedDeliveryFee : total;
   const canSearchPhone = phoneInput.replace(/\D/g, '').length >= 10;
 
-  // Handle input focus for mobile keyboard
+  // Handle input focus for mobile keyboard - prevent jumping too high
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setTimeout(() => {
-      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 350);
+    // Use requestAnimationFrame + timeout to wait for keyboard to fully appear
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const target = e.target;
+        const drawer = target.closest('[data-vaul-drawer]');
+        if (drawer) {
+          // Scroll within the drawer's scrollable container instead of the whole page
+          const scrollContainer = drawer.querySelector('.overflow-y-auto');
+          if (scrollContainer) {
+            const targetRect = target.getBoundingClientRect();
+            const containerRect = scrollContainer.getBoundingClientRect();
+            const offsetTop = targetRect.top - containerRect.top + scrollContainer.scrollTop;
+            // Scroll so input is roughly 1/3 from top of visible area
+            scrollContainer.scrollTo({
+              top: offsetTop - containerRect.height * 0.3,
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, 400);
+    });
   };
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && !loading && onClose()}>
-      <DrawerContent className="max-h-[85dvh] flex flex-col overflow-hidden">
+      <DrawerContent className="max-h-[90dvh] flex flex-col overflow-hidden">
         <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0 overflow-hidden">
           <DrawerHeader className="pb-2 flex-shrink-0 border-b border-border/50">
             <div className="flex items-center gap-2">
