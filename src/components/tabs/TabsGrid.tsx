@@ -130,12 +130,12 @@ export function TabsGrid({ onOpenOrderPOS }: TabsGridProps) {
     fetchTabs();
   }, [fetchTabs]);
 
-  // Realtime subscription
+  // Realtime subscription - isolated by restaurant_id for multi-tenant support
   useEffect(() => {
     if (!restaurant?.id) return;
 
     const channel = supabase
-      .channel('tabs-realtime')
+      .channel(`tabs-realtime-${restaurant.id}`)
       .on(
         'postgres_changes',
         {
