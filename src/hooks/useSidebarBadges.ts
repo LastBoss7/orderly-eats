@@ -44,7 +44,7 @@ export function useSidebarBadges() {
     if (!profile?.restaurant_id) return;
 
     const channel = supabase
-      .channel('sidebar-badges')
+      .channel(`sidebar-badges-${profile.restaurant_id}`)
       .on(
         'postgres_changes',
         {

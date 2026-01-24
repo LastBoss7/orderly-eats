@@ -98,7 +98,7 @@ export function useOrderNotifications(restaurantId: string | undefined) {
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('orders-notifications')
+      .channel(`orders-notifications-${restaurantId}`)
       .on(
         'postgres_changes',
         {

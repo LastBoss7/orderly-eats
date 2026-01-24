@@ -9,7 +9,7 @@ export const usePrintNotifications = (restaurantId: string | null) => {
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('print-notifications')
+      .channel(`print-notifications-${restaurantId}`)
       .on(
         'postgres_changes',
         {

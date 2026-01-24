@@ -334,7 +334,7 @@ export default function Dashboard() {
     if (!restaurant?.id) return;
 
     const channel = supabase
-      .channel('orders-realtime')
+      .channel(`orders-realtime-${restaurant.id}`)
       .on(
         'postgres_changes',
         {

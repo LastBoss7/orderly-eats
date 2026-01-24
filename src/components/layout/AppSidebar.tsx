@@ -137,7 +137,7 @@ export function AppSidebar() {
 
     // Subscribe to realtime changes
     const channel = supabase
-      .channel('store-status')
+      .channel(`store-status-${restaurant.id}`)
       .on(
         'postgres_changes',
         {
