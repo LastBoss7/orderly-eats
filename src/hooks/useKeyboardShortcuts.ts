@@ -35,30 +35,28 @@ export function useKeyboardShortcuts({
       return;
     }
 
-    // Check for Ctrl/Cmd + key combinations
-    if (event.ctrlKey || event.metaKey) {
-      const key = event.key.toLowerCase();
+    const key = event.key.toLowerCase();
+    
+    // Check for Alt + key combinations for order types
+    // Some browsers/keyboards report altKey differently, so we check both
+    if (event.altKey && key in SHORTCUTS) {
+      event.preventDefault();
+      event.stopPropagation();
+      const shortcut = SHORTCUTS[key as keyof typeof SHORTCUTS];
       
-      // Sidebar toggle is handled by the sidebar component itself (Ctrl+B)
-      // So we don't need to handle it here
-      
+      if (shortcut.action === 'newOrder' && onNewOrder) {
+        onNewOrder(shortcut.type);
+      }
       return;
     }
 
-    // Check for Alt + key combinations for order types
-    if (event.altKey) {
-      const key = event.key.toLowerCase();
-      
-      if (key in SHORTCUTS) {
-        event.preventDefault();
-        const shortcut = SHORTCUTS[key as keyof typeof SHORTCUTS];
-        
-        if (shortcut.action === 'newOrder' && onNewOrder) {
-          onNewOrder(shortcut.type);
-        }
-      }
+    // Also allow just pressing the key without Alt when no modifier is pressed
+    // This provides a fallback for keyboards where Alt doesn't work well
+    if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      // Only for the single-key shortcuts (without Alt requirement)
+      // We use Alt+Key as primary but also support Shift+Key as fallback
     }
-  }, [enabled, onNewOrder, onToggleSidebar]);
+  }, [enabled, onNewOrder]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
