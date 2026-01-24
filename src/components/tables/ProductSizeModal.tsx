@@ -8,7 +8,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Package, Check } from 'lucide-react';
 import { ProductAddonSelector, SelectedAddon } from '@/components/products/ProductAddonSelector';
 
@@ -113,8 +112,8 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-3">
             {product.image_url ? (
               <img
@@ -131,7 +130,8 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        {/* Scrollable Content with native scroll */}
+        <div className="flex-1 overflow-y-auto overscroll-contain -mx-6 px-6" style={{ maxHeight: 'calc(90vh - 250px)' }}>
           <div className="space-y-4 pt-4 pb-2">
             {/* Size Selection */}
             {hasSizes && sizeOptions.length > 0 ? (
@@ -201,10 +201,10 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
               />
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* Summary & Actions */}
-        <div className="border-t pt-4 space-y-3">
+        {/* Summary & Actions - Fixed at bottom */}
+        <div className="border-t pt-4 space-y-3 shrink-0 bg-background">
           {/* Addons Summary */}
           {selectedAddons.length > 0 && (
             <div className="text-sm space-y-1 p-2 bg-muted/50 rounded-lg">
