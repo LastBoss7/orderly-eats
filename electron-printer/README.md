@@ -11,12 +11,23 @@ Aplicativo desktop para impressão automática de pedidos do sistema de restaura
 - ✅ Interface amigável com log de atividades
 - ✅ Minimiza para bandeja do sistema
 - ✅ Configurações persistentes
+- ✅ **Suporte a Windows, macOS e Linux**
 
 ## 📋 Requisitos
 
-- Windows 10/11, macOS ou Linux
-- Node.js 18+ (apenas para desenvolvimento)
-- Impressora térmica conectada
+### Windows
+- Windows 10 ou 11
+- Impressora térmica instalada no Windows
+
+### macOS
+- macOS 10.13 (High Sierra) ou superior
+- Impressora térmica configurada via CUPS (Sistema de Impressão)
+- Para adicionar impressora: **Preferências do Sistema > Impressoras e Scanners**
+
+### Linux
+- Distribuição com suporte a CUPS
+- Impressora térmica configurada via CUPS
+- Comando `lp` disponível no sistema
 
 ## 🔧 Instalação para Desenvolvimento
 
@@ -39,6 +50,10 @@ npm run build:mac
 
 # Linux
 npm run build:linux
+
+# Ou use os scripts automatizados:
+# Windows: build-installer.bat
+# macOS/Linux: ./build-installer.sh
 ```
 
 O instalador será gerado na pasta `dist/`.
@@ -60,6 +75,14 @@ O instalador será gerado na pasta `dist/`.
 - Elgin i7, i9
 - Bematech MP-4200
 - Qualquer impressora térmica ESC/POS
+
+### Compatibilidade por Sistema
+
+| Sistema | Método de Impressão |
+|---------|---------------------|
+| Windows | Windows Print Spooler (RAW) |
+| macOS   | CUPS (lp/lpr) |
+| Linux   | CUPS (lp/lpr) |
 
 ## 📁 Estrutura do Projeto
 
@@ -83,6 +106,37 @@ electron-printer/
 - Comunicação via HTTPS
 - Context Isolation habilitado
 - Node Integration desabilitado
+
+## 🍎 Notas para macOS
+
+1. **Primeira Execução**: O macOS pode exibir um aviso de segurança. Vá em **Preferências do Sistema > Segurança e Privacidade** e clique em "Abrir Mesmo Assim".
+
+2. **Configurar Impressora**: A impressora térmica deve estar configurada no sistema antes de usar o app:
+   - Abra **Preferências do Sistema > Impressoras e Scanners**
+   - Clique em "+" para adicionar a impressora
+   - Para impressoras USB, conecte e o macOS deve detectar automaticamente
+   - Para impressoras de rede, adicione via IP
+
+3. **Permissões**: O app pode solicitar permissões para acessar a impressora na primeira vez.
+
+## 🐧 Notas para Linux
+
+1. **Verificar CUPS**: Certifique-se que o CUPS está instalado:
+   ```bash
+   sudo apt install cups  # Ubuntu/Debian
+   sudo yum install cups  # CentOS/RHEL
+   ```
+
+2. **Listar Impressoras**: Para ver impressoras disponíveis:
+   ```bash
+   lpstat -p -d
+   ```
+
+3. **AppImage**: Para executar o AppImage:
+   ```bash
+   chmod +x Gamako-Impressora-*.AppImage
+   ./Gamako-Impressora-*.AppImage
+   ```
 
 ## 📝 Licença
 
