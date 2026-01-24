@@ -617,16 +617,16 @@ export function MenuCheckout({
   const canSearchPhone = phoneInput.replace(/\D/g, '').length >= 10;
 
   // Handle input focus for mobile keyboard
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setTimeout(() => {
-      e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 300);
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
   };
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && !loading && onClose()}>
-      <DrawerContent className="max-h-[90dvh] flex flex-col">
-        <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0">
+      <DrawerContent className="max-h-[85dvh] flex flex-col overflow-hidden">
+        <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0 overflow-hidden">
           <DrawerHeader className="pb-2 flex-shrink-0 border-b border-border/50">
             <div className="flex items-center gap-2">
               {step === 'details' && (
@@ -646,7 +646,7 @@ export function MenuCheckout({
             </div>
           </DrawerHeader>
 
-          <div className="px-4 pb-6 overflow-y-auto flex-1 min-h-0 overscroll-contain">
+          <div className="px-4 pb-8 overflow-y-auto flex-1 min-h-0 overscroll-contain -webkit-overflow-scrolling-touch">
             {/* Step 1: Phone identification */}
             {step === 'phone' && (
               <div className="space-y-6 py-4">
@@ -662,12 +662,12 @@ export function MenuCheckout({
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <Input
                     placeholder="(00) 00000-0000"
                     value={phoneInput}
                     onChange={(e) => handlePhoneChange(e.target.value)}
-                    className="h-12 text-center text-lg rounded-xl"
+                    className="h-14 text-center text-xl rounded-xl"
                     type="tel"
                     inputMode="numeric"
                     autoComplete="tel"
@@ -677,7 +677,7 @@ export function MenuCheckout({
                   
                   <Button
                     size="lg"
-                    className="w-full h-12 gap-2"
+                    className="w-full h-14 gap-2 text-base"
                     onClick={handleSearchCustomer}
                     disabled={!canSearchPhone || searchingCustomer}
                   >
@@ -691,7 +691,7 @@ export function MenuCheckout({
                     )}
                   </Button>
 
-                  <p className="text-[11px] text-center text-muted-foreground">
+                  <p className="text-xs text-center text-muted-foreground pb-4">
                     Se já pediu antes, seus dados serão preenchidos automaticamente
                   </p>
                 </div>
@@ -791,7 +791,8 @@ export function MenuCheckout({
                         onChange={(e) =>
                           setCustomerInfo((prev) => ({ ...prev, name: e.target.value }))
                         }
-                        className="h-10 mt-1"
+                        className="h-11 mt-1"
+                        onFocus={handleInputFocus}
                       />
                     </div>
 
@@ -804,7 +805,7 @@ export function MenuCheckout({
                         id="phone"
                         value={formatPhone(customerInfo.phone)}
                         disabled
-                        className="h-10 mt-1 bg-muted"
+                        className="h-11 mt-1 bg-muted"
                       />
                     </div>
                   </div>
@@ -869,7 +870,8 @@ export function MenuCheckout({
                               placeholder="Ex: Casa, Trabalho..."
                               value={addressLabel}
                               onChange={(e) => setAddressLabel(e.target.value)}
-                              className="h-10 mt-1"
+                              className="h-11 mt-1"
+                              onFocus={handleInputFocus}
                             />
                           </div>
                         )}
@@ -885,7 +887,8 @@ export function MenuCheckout({
                                 onChange={(e) => handleCepChange(e.target.value)}
                                 maxLength={9}
                                 inputMode="numeric"
-                                className={`h-10 ${cepError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                className={`h-11 ${cepError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                                onFocus={handleInputFocus}
                               />
                               {cepLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -907,7 +910,8 @@ export function MenuCheckout({
                                 placeholder="Bairro"
                                 value={customerInfo.neighborhood}
                                 onChange={(e) => handleNeighborhoodChange(e.target.value)}
-                                className="h-10"
+                                className="h-11"
+                                onFocus={handleInputFocus}
                               />
                               {deliveryFeeLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -925,7 +929,8 @@ export function MenuCheckout({
                             onChange={(e) =>
                               setCustomerInfo((prev) => ({ ...prev, address: e.target.value }))
                             }
-                            className="h-10 mt-1"
+                            className="h-11 mt-1"
+                            onFocus={handleInputFocus}
                           />
                         </div>
 
@@ -939,7 +944,7 @@ export function MenuCheckout({
                               onChange={(e) =>
                                 setCustomerInfo((prev) => ({ ...prev, number: e.target.value }))
                               }
-                              className="h-10 mt-1"
+                              className="h-11 mt-1"
                               inputMode="numeric"
                               onFocus={handleInputFocus}
                             />
@@ -954,7 +959,7 @@ export function MenuCheckout({
                               onChange={(e) =>
                                 setCustomerInfo((prev) => ({ ...prev, complement: e.target.value }))
                               }
-                              className="h-10 mt-1"
+                              className="h-11 mt-1"
                               onFocus={handleInputFocus}
                             />
                           </div>
@@ -969,7 +974,8 @@ export function MenuCheckout({
                             onChange={(e) =>
                               setCustomerInfo((prev) => ({ ...prev, city: e.target.value }))
                             }
-                            className="h-10 mt-1"
+                            className="h-11 mt-1"
+                            onFocus={handleInputFocus}
                           />
                         </div>
 
@@ -1026,6 +1032,7 @@ export function MenuCheckout({
                     onChange={(e) => setOrderNotes(e.target.value)}
                     className="resize-none text-sm min-h-[60px]"
                     rows={2}
+                    onFocus={handleInputFocus}
                   />
                 </div>
 
@@ -1044,10 +1051,10 @@ export function MenuCheckout({
                 </div>
 
                 {/* Submit Button */}
-                <div className="pt-2 space-y-3">
+                <div className="pt-2 pb-6 space-y-3">
                   <Button
                     size="lg"
-                    className="w-full h-12 gap-2"
+                    className="w-full h-14 gap-2 text-base"
                     onClick={handleSubmit}
                     disabled={!canSubmit || loading}
                   >
@@ -1067,7 +1074,7 @@ export function MenuCheckout({
                   </Button>
                   
                   {!isClosed && (
-                    <p className="text-[10px] text-center text-muted-foreground">
+                    <p className="text-xs text-center text-muted-foreground">
                       O pedido será enviado para o WhatsApp do restaurante
                     </p>
                   )}
