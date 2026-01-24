@@ -142,15 +142,20 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
     return () => clearInterval(interval);
   }, [refreshReadyOrders]);
 
-  // Realtime subscription for authenticated access
+  // Realtime subscription for authenticated access - filtered by restaurant_id for multi-tenant isolation
   useEffect(() => {
     if (!restaurantId || isPublicAccess) return;
 
     const channel = supabase
-      .channel('waiter-realtime')
+      .channel(`waiter-state-${restaurantId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'tables' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'tables',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
         async () => {
           const { data } = await supabase.from('tables').select('*').eq('restaurant_id', restaurantId).order('number');
           setTables((data || []) as Table[]);
@@ -158,7 +163,12 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'tabs' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'tabs',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
         async () => {
           const { data } = await supabase.from('tabs').select('*').eq('restaurant_id', restaurantId).order('number');
           setTabs((data || []) as Tab[]);
@@ -166,7 +176,12 @@ export function useWaiterState({ restaurantId, isPublicAccess }: UseWaiterStateO
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`
+        },
         () => refreshReadyOrders()
       )
       .subscribe();
