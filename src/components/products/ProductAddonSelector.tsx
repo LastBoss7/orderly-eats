@@ -273,15 +273,15 @@ export function ProductAddonSelector({
                   <div
                     key={addon.id}
                     className={`
-                      w-full flex items-center justify-between p-2.5 rounded-lg border transition-all
+                      w-full flex items-center justify-between p-3 rounded-lg border transition-all gap-3
                       ${isSelected 
                         ? 'border-primary bg-primary/5' 
-                        : 'border-border'
+                        : 'border-border hover:border-primary/30'
                       }
                     `}
                   >
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm">{addon.name}</span>
+                      <span className="text-sm font-medium">{addon.name}</span>
                       {addon.price > 0 && (
                         <span className="text-sm font-medium text-primary ml-2">
                           +{formatCurrency(addon.price)}
@@ -289,27 +289,28 @@ export function ProductAddonSelector({
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    {/* Quantity Controls - Always visible */}
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant={qty > 0 ? "default" : "outline"}
                         size="icon"
-                        className="h-7 w-7 rounded-full"
+                        className="h-8 w-8 rounded-full"
                         onClick={() => handleDecrement(addon)}
                         disabled={qty <= 0}
                       >
-                        <Minus className="h-3 w-3" />
+                        <Minus className="h-4 w-4" />
                       </Button>
-                      <span className="text-sm font-bold w-6 text-center">{qty}</span>
+                      <span className="text-sm font-bold w-8 text-center tabular-nums">{qty}</span>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant={canAddMore ? "default" : "outline"}
                         size="icon"
-                        className="h-7 w-7 rounded-full"
+                        className="h-8 w-8 rounded-full"
                         onClick={() => handleIncrement(addon, group)}
                         disabled={!canAddMore}
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
