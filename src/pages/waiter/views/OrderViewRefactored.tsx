@@ -180,6 +180,9 @@ const CartItemRow = memo(function CartItemRow({
               </span>
             )}
           </p>
+          {item.addons && item.addons.length > 0 && (
+            <p className="text-xs text-primary truncate">+ {item.addons.map(a => a.name).join(', ')}</p>
+          )}
           <p className="text-xs text-muted-foreground">{formatCurrency(item.unitPrice)}</p>
         </div>
         <div className="flex items-center gap-1">

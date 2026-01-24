@@ -10,7 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { 
   WaiterPinLogin,
   TableActionModal,
-  SizeModal,
+  ProductModal,
   PaymentModal,
   PaymentEntry,
   InstallPWA,
@@ -538,28 +538,35 @@ export default function WaiterAppRefactored({
   };
 
   const handleProductClick = (product: Product) => {
-    if (product.has_sizes) {
-      setSizeModalProduct(product);
-    } else {
-      addToCart(product, null);
-    }
+    // Always show the ProductModal for size, addons, notes, and quantity
+    setSizeModalProduct(product);
   };
 
-  const addToCart = (product: Product, size: ProductSize | null) => {
-    const unitPrice = getProductPrice(product, size);
+  const addToCart = (product: Product, size: ProductSize | null, quantity: number = 1, notes: string = '', addons: { id: string; name: string; price: number; groupId: string; groupName: string }[] = []) => {
+    const basePrice = getProductPrice(product, size);
+    const addonsPrice = addons.reduce((sum, a) => sum + a.price, 0);
+    const unitPrice = basePrice + addonsPrice;
+    
+    // Each product with different addons/size/notes combo is a unique cart item
+    const cartItemKey = `${product.id}-${size || 'default'}-${addons.map(a => a.id).sort().join(',')}-${notes}`;
     
     setCart(prev => {
-      const existing = prev.find(item => 
-        item.product.id === product.id && item.size === size
-      );
+      // Check for exact match (same product, size, addons, and notes)
+      const existing = prev.find(item => {
+        const itemKey = `${item.product.id}-${item.size || 'default'}-${(item.addons || []).map(a => a.id).sort().join(',')}-${item.notes}`;
+        return itemKey === cartItemKey;
+      });
+      
       if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id && item.size === size
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+        return prev.map(item => {
+          const itemKey = `${item.product.id}-${item.size || 'default'}-${(item.addons || []).map(a => a.id).sort().join(',')}-${item.notes}`;
+          return itemKey === cartItemKey
+            ? { ...item, quantity: item.quantity + quantity }
+            : item;
+        });
       }
-      return [...prev, { product, quantity: 1, notes: '', size, unitPrice }];
+      
+      return [...prev, { product, quantity, notes, size, unitPrice, addons }];
     });
     setSizeModalProduct(null);
   };
@@ -634,17 +641,27 @@ export default function WaiterAppRefactored({
         }
       }
 
-      const orderItems = cart.map(item => ({
-        product_id: item.product.id,
-        product_name: item.size 
-          ? `${item.product.name} (${getSizeLabel(item.size)})`
-          : item.product.name,
-        product_price: item.unitPrice,
-        quantity: item.quantity,
-        notes: item.notes || null,
-        product_size: item.size || null,
-        category_id: item.product.category_id,
-      }));
+      const orderItems = cart.map(item => {
+        // Build product name with size and addons
+        let productName = item.product.name;
+        if (item.size) {
+          productName += ` (${getSizeLabel(item.size)})`;
+        }
+        if (item.addons && item.addons.length > 0) {
+          const addonNames = item.addons.map(a => a.name).join(', ');
+          productName += ` + ${addonNames}`;
+        }
+        
+        return {
+          product_id: item.product.id,
+          product_name: productName,
+          product_price: item.unitPrice,
+          quantity: item.quantity,
+          notes: item.notes || null,
+          product_size: item.size || null,
+          category_id: item.product.category_id,
+        };
+      });
 
       // Use waiterData hook for order creation
       await waiterData.createOrder({
@@ -915,11 +932,12 @@ export default function WaiterAppRefactored({
           />
         )}
 
-        {/* Size Modal */}
-        {sizeModalProduct && (
-          <SizeModal
+        {/* Product Modal */}
+        {sizeModalProduct && restaurant?.id && (
+          <ProductModal
             product={sizeModalProduct}
-            onSelectSize={(size) => addToCart(sizeModalProduct, size)}
+            restaurantId={restaurant.id}
+            onConfirm={(size, qty, notes, addons) => addToCart(sizeModalProduct, size, qty, notes, addons)}
             onClose={() => setSizeModalProduct(null)}
           />
         )}
@@ -952,11 +970,12 @@ export default function WaiterAppRefactored({
           onCategoryChange={fetchProductsByCategory}
         />
 
-        {/* Size Modal */}
-        {sizeModalProduct && (
-          <SizeModal
+        {/* Product Modal */}
+        {sizeModalProduct && restaurant?.id && (
+          <ProductModal
             product={sizeModalProduct}
-            onSelectSize={(size) => addToCart(sizeModalProduct, size)}
+            restaurantId={restaurant.id}
+            onConfirm={(size, qty, notes, addons) => addToCart(sizeModalProduct, size, qty, notes, addons)}
             onClose={() => setSizeModalProduct(null)}
           />
         )}
@@ -1031,10 +1050,12 @@ export default function WaiterAppRefactored({
           onCategoryChange={fetchProductsByCategory}
         />
 
-        {sizeModalProduct && (
-          <SizeModal
+        {/* Product Modal */}
+        {sizeModalProduct && restaurant?.id && (
+          <ProductModal
             product={sizeModalProduct}
-            onSelectSize={(size) => addToCart(sizeModalProduct, size)}
+            restaurantId={restaurant.id}
+            onConfirm={(size, qty, notes, addons) => addToCart(sizeModalProduct, size, qty, notes, addons)}
             onClose={() => setSizeModalProduct(null)}
           />
         )}
