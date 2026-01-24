@@ -469,28 +469,131 @@ class PrinterService {
     
     try {
       fs.writeFileSync(tmpFile, data);
+      console.log('[PrintUnix] Temp file:', tmpFile);
+      console.log('[PrintUnix] Target printer:', printerName || 'default');
+      console.log('[PrintUnix] Platform:', this.platform);
+      console.log('[PrintUnix] Data size:', data.length, 'bytes');
       
-      const printerArg = printerName ? '-d "' + printerName + '"' : '';
+      // Try multiple methods for macOS/Linux
+      const methods = [
+        { name: 'CUPS lp', fn: () => this.printCupsLp(tmpFile, printerName) },
+        { name: 'CUPS lpr', fn: () => this.printCupsLpr(tmpFile, printerName) },
+      ];
       
-      return new Promise((resolve, reject) => {
-        exec(
-          'lp -o raw ' + printerArg + ' "' + tmpFile + '"',
-          { timeout: 15000 },
-          (error, stdout, stderr) => {
-            this.cleanup(tmpFile);
-            
-            if (error) {
-              reject(new Error(stderr || error.message));
-            } else {
-              resolve(true);
-            }
-          }
-        );
-      });
+      const errors = [];
+      
+      for (let i = 0; i < methods.length; i++) {
+        try {
+          console.log('[PrintUnix] Method ' + (i + 1) + '/' + methods.length + ': ' + methods[i].name + '...');
+          await methods[i].fn();
+          console.log('[PrintUnix] SUCCESS with', methods[i].name);
+          this.cleanup(tmpFile);
+          return true;
+        } catch (err) {
+          const errMsg = methods[i].name + ': ' + err.message;
+          console.log('[PrintUnix] ' + errMsg);
+          errors.push(errMsg);
+        }
+      }
+      
+      this.cleanup(tmpFile);
+      throw new Error('Todos os métodos falharam - ' + errors.join('; '));
+      
     } catch (error) {
       this.cleanup(tmpFile);
       throw error;
     }
+  }
+  
+  /**
+   * macOS/Linux: Print via CUPS lp command
+   */
+  async printCupsLp(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      const printerArg = printerName ? '-d "' + printerName + '"' : '';
+      const cmd = 'lp -o raw ' + printerArg + ' "' + filePath + '"';
+      
+      console.log('[CUPS lp] Command:', cmd);
+      
+      exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr?.trim() || error.message));
+        } else {
+          console.log('[CUPS lp] Output:', stdout);
+          resolve(true);
+        }
+      });
+    });
+  }
+  
+  /**
+   * macOS/Linux: Print via CUPS lpr command (alternative)
+   */
+  async printCupsLpr(filePath, printerName) {
+    return new Promise((resolve, reject) => {
+      const printerArg = printerName ? '-P "' + printerName + '"' : '';
+      const cmd = 'lpr -o raw ' + printerArg + ' "' + filePath + '"';
+      
+      console.log('[CUPS lpr] Command:', cmd);
+      
+      exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr?.trim() || error.message));
+        } else {
+          console.log('[CUPS lpr] Output:', stdout);
+          resolve(true);
+        }
+      });
+    });
+  }
+  
+  /**
+   * macOS/Linux: Get available printers via CUPS
+   */
+  async getUnixPrinters() {
+    return new Promise((resolve, reject) => {
+      exec('lpstat -p -d', { timeout: 5000 }, (error, stdout, stderr) => {
+        if (error) {
+          console.log('[GetUnixPrinters] Error:', error.message);
+          resolve([]);
+          return;
+        }
+        
+        const printers = [];
+        const lines = stdout.split('\n');
+        let defaultPrinter = null;
+        
+        // Parse lpstat output
+        for (const line of lines) {
+          // Format: "printer PrinterName is idle..."
+          const printerMatch = line.match(/^printer\s+(\S+)\s/);
+          if (printerMatch) {
+            printers.push({
+              name: printerMatch[1],
+              displayName: printerMatch[1],
+              isDefault: false
+            });
+          }
+          
+          // Format: "system default destination: PrinterName"
+          const defaultMatch = line.match(/system default destination:\s*(\S+)/);
+          if (defaultMatch) {
+            defaultPrinter = defaultMatch[1];
+          }
+        }
+        
+        // Mark default printer
+        if (defaultPrinter) {
+          const printer = printers.find(p => p.name === defaultPrinter);
+          if (printer) {
+            printer.isDefault = true;
+          }
+        }
+        
+        console.log('[GetUnixPrinters] Found:', printers.length, 'printers');
+        resolve(printers);
+      });
+    });
   }
 
   // ============================================
