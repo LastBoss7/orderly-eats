@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, Minus, Plus } from 'lucide-react';
 
 interface AddonGroup {
   id: string;
@@ -28,6 +28,7 @@ export interface SelectedAddon {
   price: number;
   groupId: string;
   groupName: string;
+  quantity: number;
 }
 
 interface ProductAddonSelectorProps {
@@ -158,44 +159,49 @@ export function ProductAddonSelector({
     fetchAddons();
   }, [productId, productCategoryId, restaurantId, useEdgeFunction]);
 
-  const handleToggleAddon = (addon: Addon, group: AddonGroup) => {
-    const isSelected = selectedAddons.some(a => a.id === addon.id);
+  const handleIncrement = (addon: Addon, group: AddonGroup) => {
+    const existing = selectedAddons.find(a => a.id === addon.id);
     
-    if (isSelected) {
-      // Remove addon
-      onSelectionChange(selectedAddons.filter(a => a.id !== addon.id));
+    // Check max selections for this group
+    const groupTotalQty = selectedAddons
+      .filter(a => a.groupId === group.id)
+      .reduce((sum, a) => sum + a.quantity, 0);
+    
+    if (groupTotalQty >= group.max_selections) {
+      return; // Cannot add more
+    }
+    
+    if (existing) {
+      // Increment quantity
+      onSelectionChange(selectedAddons.map(a => 
+        a.id === addon.id ? { ...a, quantity: a.quantity + 1 } : a
+      ));
     } else {
-      // Check max selections for this group
-      const groupSelectedCount = selectedAddons.filter(a => a.groupId === group.id).length;
-      
-      if (groupSelectedCount >= group.max_selections) {
-        // Replace the first selected addon in this group if max reached
-        const newAddons = selectedAddons.filter(a => a.groupId !== group.id || groupSelectedCount < group.max_selections);
-        if (groupSelectedCount >= group.max_selections) {
-          // Remove oldest selection from this group
-          const firstInGroup = selectedAddons.find(a => a.groupId === group.id);
-          if (firstInGroup) {
-            const filtered = selectedAddons.filter(a => a.id !== firstInGroup.id);
-            onSelectionChange([...filtered, {
-              id: addon.id,
-              name: addon.name,
-              price: addon.price,
-              groupId: group.id,
-              groupName: group.name,
-            }]);
-            return;
-          }
-        }
-      }
-      
-      // Add addon
+      // Add new addon with quantity 1
       onSelectionChange([...selectedAddons, {
         id: addon.id,
         name: addon.name,
         price: addon.price,
         groupId: group.id,
         groupName: group.name,
+        quantity: 1,
       }]);
+    }
+  };
+
+  const handleDecrement = (addon: Addon) => {
+    const existing = selectedAddons.find(a => a.id === addon.id);
+    
+    if (!existing) return;
+    
+    if (existing.quantity <= 1) {
+      // Remove addon
+      onSelectionChange(selectedAddons.filter(a => a.id !== addon.id));
+    } else {
+      // Decrement quantity
+      onSelectionChange(selectedAddons.map(a => 
+        a.id === addon.id ? { ...a, quantity: a.quantity - 1 } : a
+      ));
     }
   };
 
@@ -211,7 +217,14 @@ export function ProductAddonSelector({
   };
 
   const getGroupSelectedCount = (groupId: string) => {
-    return selectedAddons.filter(a => a.groupId === groupId).length;
+    return selectedAddons
+      .filter(a => a.groupId === groupId)
+      .reduce((sum, a) => sum + a.quantity, 0);
+  };
+
+  const getAddonQuantity = (addonId: string) => {
+    const addon = selectedAddons.find(a => a.id === addonId);
+    return addon?.quantity || 0;
   };
 
   if (loading) {
@@ -231,6 +244,7 @@ export function ProductAddonSelector({
       {addonGroups.map((group) => {
         const groupAddons = getGroupAddons(group.id);
         const selectedCount = getGroupSelectedCount(group.id);
+        const canAddMore = selectedCount < group.max_selections;
         
         if (groupAddons.length === 0) return null;
         
@@ -252,30 +266,53 @@ export function ProductAddonSelector({
             )}
             <div className="space-y-1">
               {groupAddons.map((addon) => {
-                const isSelected = selectedAddons.some(a => a.id === addon.id);
+                const qty = getAddonQuantity(addon.id);
+                const isSelected = qty > 0;
+                
                 return (
-                  <button
+                  <div
                     key={addon.id}
-                    type="button"
-                    onClick={() => handleToggleAddon(addon, group)}
                     className={`
-                      w-full flex items-center justify-between p-2.5 rounded-lg border transition-all text-left
+                      w-full flex items-center justify-between p-2.5 rounded-lg border transition-all
                       ${isSelected 
                         ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-primary/50'
+                        : 'border-border'
                       }
                     `}
                   >
-                    <div className="flex items-center gap-2">
-                      <Checkbox checked={isSelected} className="pointer-events-none" />
+                    <div className="flex-1 min-w-0">
                       <span className="text-sm">{addon.name}</span>
+                      {addon.price > 0 && (
+                        <span className="text-sm font-medium text-primary ml-2">
+                          +{formatCurrency(addon.price)}
+                        </span>
+                      )}
                     </div>
-                    {addon.price > 0 && (
-                      <span className="text-sm font-medium text-primary">
-                        +{formatCurrency(addon.price)}
-                      </span>
-                    )}
-                  </button>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 rounded-full"
+                        onClick={() => handleDecrement(addon)}
+                        disabled={qty <= 0}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-sm font-bold w-6 text-center">{qty}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7 rounded-full"
+                        onClick={() => handleIncrement(addon, group)}
+                        disabled={!canAddMore}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
                 );
               })}
             </div>

@@ -112,12 +112,22 @@ export interface Product {
 
 export type ProductSize = 'small' | 'medium' | 'large';
 
+export interface CartItemAddon {
+  id: string;
+  name: string;
+  price: number;
+  groupId: string;
+  groupName: string;
+  quantity: number;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;
   notes: string;
   size: ProductSize | null;
   unitPrice: number;
+  addons?: CartItemAddon[];
 }
 
 export interface Coupon {

@@ -223,10 +223,12 @@ export default function MenuPage() {
 
   // Handle confirm size modal
   const handleConfirmSize = useCallback(
-    (size: ProductSize | null, quantity: number, notes: string) => {
+    (size: ProductSize | null, quantity: number, notes: string, addons?: import('./types').CartItemAddon[]) => {
       if (!selectedProduct) return;
 
-      const unitPrice = getProductPrice(selectedProduct, size);
+      const basePrice = getProductPrice(selectedProduct, size);
+      const addonsPrice = (addons || []).reduce((sum, a) => sum + (a.price * a.quantity), 0);
+      const unitPrice = basePrice + addonsPrice;
 
       setCart((prev) => [
         ...prev,
@@ -236,6 +238,7 @@ export default function MenuPage() {
           notes,
           size,
           unitPrice,
+          addons,
         },
       ]);
 
@@ -547,6 +550,7 @@ export default function MenuPage() {
           setSelectedProduct(null);
         }}
         onConfirm={handleConfirmSize}
+        restaurantId={restaurant?.id}
       />
 
       {/* Cart Drawer */}

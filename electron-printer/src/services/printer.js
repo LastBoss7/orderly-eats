@@ -777,7 +777,7 @@ class PrinterService {
           });
         }
         
-        // Print addons as sub-items
+        // Print addons as sub-items (may include quantity like "2x Bacon")
         if (addons.length > 0) {
           for (const addon of addons) {
             lines.push('   - ' + this.sanitizeText(addon));
