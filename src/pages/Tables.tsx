@@ -105,18 +105,19 @@ export default function Tables() {
     fetchTables();
   }, [fetchTables]);
 
-  // Realtime subscription for tables
+  // Realtime subscription for tables - filtered by restaurant_id
   useEffect(() => {
     if (!restaurant?.id) return;
 
     const channel = supabase
-      .channel('tables-realtime')
+      .channel(`tables-realtime-${restaurant.id}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'tables',
+          filter: `restaurant_id=eq.${restaurant.id}`,
         },
         () => {
           fetchTables();
