@@ -103,6 +103,7 @@ export function MenuCheckout({
   const [addressLabel, setAddressLabel] = useState('Casa');
   const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [deliveryFeeCheckedNeighborhoods, setDeliveryFeeCheckedNeighborhoods] = useState<Set<string>>(new Set());
 
   // Calculate delivery fee
   const calculatedDeliveryFee = orderType === 'delivery' && deliveryFeeData ? deliveryFeeData.fee : 0;
@@ -219,7 +220,12 @@ export function MenuCheckout({
 
   // Trigger delivery fee lookup when step changes to details with existing neighborhood
   useEffect(() => {
-    if (step === 'details' && customerInfo.neighborhood && orderType === 'delivery' && !deliveryFeeData && !deliveryFeeLoading) {
+    const neighborhoodKey = `${customerInfo.neighborhood}-${orderType}`;
+    
+    if (step === 'details' && customerInfo.neighborhood && orderType === 'delivery' && !deliveryFeeCheckedNeighborhoods.has(neighborhoodKey)) {
+      // Mark this neighborhood as checked to prevent re-triggers
+      setDeliveryFeeCheckedNeighborhoods(prev => new Set(prev).add(neighborhoodKey));
+      
       // Trigger the lookup
       const fetchDeliveryFee = async () => {
         setDeliveryFeeLoading(true);
@@ -252,7 +258,7 @@ export function MenuCheckout({
       };
       fetchDeliveryFee();
     }
-  }, [step, customerInfo.neighborhood, orderType, restaurantId, deliveryFeeData, deliveryFeeLoading]);
+  }, [step, customerInfo.neighborhood, orderType, restaurantId, deliveryFeeCheckedNeighborhoods]);
 
   // Format phone input
   const formatPhone = (value: string) => {
@@ -1011,8 +1017,8 @@ export function MenuCheckout({
                     
                     {deliveryFeeNotFound && !deliveryFeeLoading && customerInfo.neighborhood && (
                       <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                        <Info className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
+                        <Info className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                        <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs break-words">
                           Taxa para "{customerInfo.neighborhood}" será informada via WhatsApp
                         </AlertDescription>
                       </Alert>

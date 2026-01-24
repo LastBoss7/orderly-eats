@@ -45,6 +45,14 @@ export function DeliveryViewRefactored({
     return () => clearTimeout(timer);
   }, [customerSearchTerm, onSearchCustomers]);
 
+  // Format phone for display
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  };
+
   const updateForm = (field: keyof DeliveryForm, value: string | number) => {
     onDeliveryFormChange({ ...deliveryForm, [field]: value });
   };
@@ -139,8 +147,13 @@ export function DeliveryViewRefactored({
                 <Label className="text-sm text-muted-foreground">Telefone *</Label>
                 <Input
                   placeholder="(00) 00000-0000"
-                  value={deliveryForm.customerPhone}
-                  onChange={(e) => updateForm('customerPhone', e.target.value)}
+                  value={formatPhone(deliveryForm.customerPhone)}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    updateForm('customerPhone', digits);
+                  }}
+                  type="tel"
+                  inputMode="numeric"
                   className="mt-1 bg-muted/50"
                 />
               </div>

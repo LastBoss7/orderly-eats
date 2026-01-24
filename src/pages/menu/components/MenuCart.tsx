@@ -120,6 +120,24 @@ export function MenuCart({
                                 {getSizeLabel(item.size)}
                               </span>
                             )}
+                            {/* Display addons */}
+                            {item.addons && item.addons.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {item.addons.map((addon) => (
+                                  <span
+                                    key={addon.id}
+                                    className="text-[10px] text-muted-foreground block"
+                                  >
+                                    + {addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
+                                    {addon.price > 0 && (
+                                      <span className="text-primary ml-1">
+                                        (+{formatCurrency(addon.price * addon.quantity)})
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
