@@ -2696,8 +2696,35 @@ export type Database = {
         }
         Returns: string
       }
+      delete_customer_address: {
+        Args: {
+          _address_id: string
+          _customer_id: string
+          _restaurant_id: string
+        }
+        Returns: boolean
+      }
       generate_verification_token: { Args: never; Returns: string }
       generate_waiter_invite_token: { Args: never; Returns: string }
+      get_customer_addresses: {
+        Args: { _customer_id: string; _restaurant_id: string }
+        Returns: {
+          address: string
+          cep: string
+          city: string
+          complement: string
+          created_at: string
+          customer_id: string
+          id: string
+          is_default: boolean
+          label: string
+          neighborhood: string
+          number: string
+          restaurant_id: string
+          state: string
+          updated_at: string
+        }[]
+      }
       get_next_order_number: {
         Args: { _restaurant_id: string }
         Returns: number
@@ -2721,6 +2748,31 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      set_default_customer_address: {
+        Args: {
+          _address_id: string
+          _customer_id: string
+          _restaurant_id: string
+        }
+        Returns: boolean
+      }
+      upsert_customer_address: {
+        Args: {
+          _address?: string
+          _address_id?: string
+          _cep?: string
+          _city?: string
+          _complement?: string
+          _customer_id: string
+          _is_default?: boolean
+          _label?: string
+          _neighborhood?: string
+          _number?: string
+          _restaurant_id: string
+          _state?: string
+        }
+        Returns: string
+      }
       use_coupon: { Args: { p_coupon_id: string }; Returns: boolean }
       validate_coupon: {
         Args: { p_code: string; p_order_total: number; p_restaurant_id: string }

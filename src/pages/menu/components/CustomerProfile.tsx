@@ -200,17 +200,15 @@ export function CustomerProfile({
     }
   }, [phoneInput, restaurantId]);
 
-  // Fetch saved addresses
+  // Fetch saved addresses using secure RPC function
   const fetchSavedAddresses = useCallback(async (customerId: string) => {
     setLoadingAddresses(true);
     try {
       const { data, error } = await supabase
-        .from('customer_addresses')
-        .select('*')
-        .eq('customer_id', customerId)
-        .eq('restaurant_id', restaurantId)
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: false });
+        .rpc('get_customer_addresses', {
+          _restaurant_id: restaurantId,
+          _customer_id: customerId,
+        });
 
       if (error) throw error;
       setSavedAddresses(data || []);
@@ -321,7 +319,7 @@ export function CustomerProfile({
     }
   }, []);
 
-  // Save address
+  // Save address using secure RPC function
   const handleSaveAddress = useCallback(async () => {
     if (!customer || !addressForm.address || !addressForm.neighborhood) {
       toast.error('Preencha o endereço e bairro');
@@ -330,41 +328,23 @@ export function CustomerProfile({
 
     setSavingAddress(true);
     try {
-      if (editingAddressId) {
-        // Update existing
-        const { error } = await supabase
-          .from('customer_addresses')
-          .update({
-            label: addressForm.label || 'Casa',
-            address: addressForm.address,
-            number: addressForm.number || null,
-            complement: addressForm.complement || null,
-            neighborhood: addressForm.neighborhood,
-            city: addressForm.city,
-            cep: addressForm.cep || null,
-          })
-          .eq('id', editingAddressId);
+      const { error } = await supabase.rpc('upsert_customer_address', {
+        _restaurant_id: restaurantId,
+        _customer_id: customer.id,
+        _address_id: editingAddressId || null,
+        _label: addressForm.label || 'Casa',
+        _address: addressForm.address,
+        _number: addressForm.number || null,
+        _complement: addressForm.complement || null,
+        _neighborhood: addressForm.neighborhood,
+        _city: addressForm.city,
+        _state: null,
+        _cep: addressForm.cep || null,
+        _is_default: savedAddresses.length === 0,
+      });
 
-        if (error) throw error;
-        toast.success('Endereço atualizado');
-      } else {
-        // Create new
-        const { error } = await supabase.from('customer_addresses').insert({
-          customer_id: customer.id,
-          restaurant_id: restaurantId,
-          label: addressForm.label || 'Casa',
-          address: addressForm.address,
-          number: addressForm.number || null,
-          complement: addressForm.complement || null,
-          neighborhood: addressForm.neighborhood,
-          city: addressForm.city,
-          cep: addressForm.cep || null,
-          is_default: savedAddresses.length === 0,
-        });
-
-        if (error) throw error;
-        toast.success('Endereço salvo');
-      }
+      if (error) throw error;
+      toast.success(editingAddressId ? 'Endereço atualizado' : 'Endereço salvo');
 
       // Refresh addresses
       await fetchSavedAddresses(customer.id);
@@ -408,15 +388,16 @@ export function CustomerProfile({
     setShowAddressForm(true);
   };
 
-  // Delete address
+  // Delete address using secure RPC function
   const handleDeleteAddress = useCallback(async (addressId: string) => {
     if (!customer) return;
 
     try {
-      const { error } = await supabase
-        .from('customer_addresses')
-        .delete()
-        .eq('id', addressId);
+      const { error } = await supabase.rpc('delete_customer_address', {
+        _restaurant_id: restaurantId,
+        _customer_id: customer.id,
+        _address_id: addressId,
+      });
 
       if (error) throw error;
 
@@ -426,15 +407,18 @@ export function CustomerProfile({
       console.error('Error deleting address:', error);
       toast.error('Erro ao excluir endereço');
     }
-  }, [customer]);
+  }, [customer, restaurantId]);
 
-  // Set default address
+  // Set default address using secure RPC function
   const handleSetDefaultAddress = useCallback(async (addressId: string) => {
+    if (!customer) return;
+
     try {
-      const { error } = await supabase
-        .from('customer_addresses')
-        .update({ is_default: true })
-        .eq('id', addressId);
+      const { error } = await supabase.rpc('set_default_customer_address', {
+        _restaurant_id: restaurantId,
+        _customer_id: customer.id,
+        _address_id: addressId,
+      });
 
       if (error) throw error;
 
@@ -450,7 +434,7 @@ export function CustomerProfile({
       console.error('Error setting default:', error);
       toast.error('Erro ao definir padrão');
     }
-  }, []);
+  }, [customer, restaurantId]);
 
   // LOGIN STEP
   if (step === 'login') {
