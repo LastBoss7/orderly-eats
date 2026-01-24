@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Minus, Plus, X } from 'lucide-react';
 import { Product, ProductSize, formatCurrency } from '../types';
 import { ProductAddonSelector, SelectedAddon } from '@/components/products/ProductAddonSelector';
@@ -71,10 +70,10 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
   const canConfirm = !product.has_sizes || selectedSize !== null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-card rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-xl">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-card rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b shrink-0">
+        <div className="flex items-center justify-between p-4 border-b shrink-0 bg-card">
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-bold text-foreground truncate">{product.name}</h3>
             {product.description && (
@@ -86,8 +85,8 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
           </Button>
         </div>
 
-        {/* Scrollable Content */}
-        <ScrollArea className="flex-1 min-h-0">
+        {/* Scrollable Content - with explicit max height calculation */}
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(85vh - 180px)' }}>
           <div className="p-4 space-y-4">
             {/* Size Selection */}
             {product.has_sizes && (
@@ -211,9 +210,9 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
-        {/* Footer */}
+        {/* Footer - fixed at bottom */}
         <div className="p-4 border-t space-y-3 shrink-0">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Total</span>
