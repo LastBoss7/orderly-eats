@@ -1484,6 +1484,7 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         open={!!sizeModalProduct}
         onClose={() => setSizeModalProduct(null)}
         onConfirm={handleSizeModalConfirm}
+        restaurantId={restaurant?.id}
       />
     </Dialog>
   );
