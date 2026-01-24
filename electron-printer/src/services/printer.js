@@ -1152,12 +1152,29 @@ class PrinterService {
 
   wrapText(text, maxWidth) {
     if (!text) return [''];
-    const words = String(text).split(/\s+/);
+    const str = String(text);
+    const width = parseInt(maxWidth, 10) || 48;
+    
+    // If the entire text fits, return as single line
+    if (str.length <= width) return [str];
+    
+    const words = str.split(/\s+/);
     const lines = [];
     let current = '';
     
     for (const word of words) {
-      if (current.length + word.length + 1 <= maxWidth) {
+      // If single word is longer than width, force-split it
+      if (word.length > width) {
+        // Push any accumulated text first
+        if (current) {
+          lines.push(current);
+          current = '';
+        }
+        // Split the long word into chunks
+        for (let i = 0; i < word.length; i += width) {
+          lines.push(word.slice(i, i + width));
+        }
+      } else if (current.length + word.length + 1 <= width) {
         current = current ? current + ' ' + word : word;
       } else {
         if (current) lines.push(current);
