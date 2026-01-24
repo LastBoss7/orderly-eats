@@ -606,19 +606,20 @@ class PrinterService {
     const divSmall = '-'.repeat(width);
     const lines = [];
     
-    // Date/Time
-    if (layout.showDateTime !== false) {
-      const now = new Date(order.created_at || Date.now());
-      lines.push(this.center(
-        now.toLocaleDateString('pt-BR') + ' ' + 
-        now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        width
-      ));
+    // Restaurant name FIRST (wrap if too long)
+    if (layout.showRestaurantName !== false && restaurantInfo.name) {
+      const restaurantName = this.sanitizeText(restaurantInfo.name.toUpperCase());
+      this.wrapText(restaurantName, width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
     }
     
-    // Restaurant name
-    if (layout.showRestaurantName !== false && restaurantInfo.name) {
-      lines.push(this.center(this.sanitizeText(restaurantInfo.name.toUpperCase()), width));
+    // Date/Time - always show prominently
+    if (layout.showDateTime !== false) {
+      const orderDate = new Date(order.created_at || Date.now());
+      const dateStr = orderDate.toLocaleDateString('pt-BR');
+      const timeStr = orderDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      lines.push(this.center(dateStr + ' - ' + timeStr, width));
     }
     
     // Restaurant Address (from layout settings)
@@ -707,11 +708,24 @@ class PrinterService {
     lines.push('ITENS:');
     lines.push(divSmall);
     
-    // Items
+    // Items - with addon support
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
         const qty = item.quantity || 1;
-        let name = this.sanitizeText(item.product_name || 'Item');
+        let rawName = item.product_name || 'Item';
+        
+        // Parse addons from product_name format: "Product (Size) + Addon1, Addon2"
+        let baseName = rawName;
+        let addons = [];
+        
+        const addonSeparatorIndex = rawName.indexOf(' + ');
+        if (addonSeparatorIndex > -1) {
+          baseName = rawName.substring(0, addonSeparatorIndex);
+          const addonsPart = rawName.substring(addonSeparatorIndex + 3);
+          addons = addonsPart.split(', ').map(a => a.trim()).filter(a => a);
+        }
+        
+        let name = this.sanitizeText(baseName);
         
         // Translate size to Portuguese label
         const getSizeLabel = (size) => {
@@ -754,9 +768,16 @@ class PrinterService {
           });
         }
         
+        // Print addons as sub-items
+        if (addons.length > 0) {
+          for (const addon of addons) {
+            lines.push('   - ' + this.sanitizeText(addon));
+          }
+        }
+        
         // Item notes
         if (layout.showItemNotes !== false && item.notes) {
-          lines.push('  OBS: ' + this.sanitizeText(item.notes));
+          lines.push('   OBS: ' + this.sanitizeText(item.notes));
         }
       }
     }
@@ -848,9 +869,12 @@ class PrinterService {
     const serviceCharge = conf.serviceCharge || order.service_charge || 0;
     const payments = conf.payments || [];
     
-    // Header
+    // Header - wrap restaurant name if too long
     if (restaurantInfo.name) {
-      lines.push(this.center(this.sanitizeText(restaurantInfo.name.toUpperCase()), width));
+      const restaurantName = this.sanitizeText(restaurantInfo.name.toUpperCase());
+      this.wrapText(restaurantName, width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
     }
     
     lines.push('');
@@ -874,7 +898,7 @@ class PrinterService {
     lines.push('ITENS:');
     lines.push(divSmall);
     
-    // Items
+    // Items - with addon support
     let subtotal = 0;
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
@@ -882,10 +906,30 @@ class PrinterService {
         const price = item.product_price || 0;
         subtotal += price * qty;
         
-        const name = this.sanitizeText(item.product_name || 'Item');
+        let rawName = item.product_name || 'Item';
+        
+        // Parse addons from product_name format: "Product (Size) + Addon1, Addon2"
+        let baseName = rawName;
+        let addons = [];
+        
+        const addonSeparatorIndex = rawName.indexOf(' + ');
+        if (addonSeparatorIndex > -1) {
+          baseName = rawName.substring(0, addonSeparatorIndex);
+          const addonsPart = rawName.substring(addonSeparatorIndex + 3);
+          addons = addonsPart.split(', ').map(a => a.trim()).filter(a => a);
+        }
+        
+        const name = this.sanitizeText(baseName);
         const priceStr = 'R$ ' + (price * qty).toFixed(2).replace('.', ',');
         
         lines.push(this.alignBoth('(' + qty + ') ' + name, priceStr, width));
+        
+        // Print addons as sub-items
+        if (addons.length > 0) {
+          for (const addon of addons) {
+            lines.push('   - ' + this.sanitizeText(addon));
+          }
+        }
       }
     }
     
@@ -961,9 +1005,12 @@ class PrinterService {
     
     const settings = data.receiptSettings || {};
     
-    // Header
+    // Header - wrap restaurant name if too long
     if (restaurantInfo.name || data.restaurantName) {
-      lines.push(this.center(this.sanitizeText((restaurantInfo.name || data.restaurantName).toUpperCase()), width));
+      const restaurantName = this.sanitizeText((restaurantInfo.name || data.restaurantName).toUpperCase());
+      this.wrapText(restaurantName, width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
     }
     
     if (settings.showAddress && (settings.address || restaurantInfo.address)) {
