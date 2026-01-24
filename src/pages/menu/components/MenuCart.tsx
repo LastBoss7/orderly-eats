@@ -52,10 +52,17 @@ export function MenuCart({
   const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const total = Math.max(0, subtotal - couponDiscount);
 
+  // Handle input focus for mobile keyboard
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+  };
+
   return (
     <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
-      <DrawerContent className="max-h-[90dvh]">
-        <div className="mx-auto w-full max-w-lg flex flex-col max-h-[90dvh]">
+      <DrawerContent className="max-h-[85dvh] flex flex-col overflow-hidden">
+        <div className="mx-auto w-full max-w-lg flex flex-col flex-1 min-h-0 overflow-hidden">
           <DrawerHeader className="pb-3 flex-shrink-0 border-b border-border/50">
             <DrawerTitle className="flex items-center gap-2 text-lg font-semibold">
               <ShoppingBag className="w-5 h-5" />
@@ -81,7 +88,7 @@ export function MenuCart({
             </div>
           ) : (
             <>
-              <ScrollArea className="flex-1 px-4">
+              <ScrollArea className="flex-1 min-h-0 px-4">
                 <div className="space-y-2 py-4">
                   {items.map((item, index) => (
                     <div
@@ -132,8 +139,9 @@ export function MenuCart({
                               value={item.notes}
                               onChange={(e) => onUpdateItemNotes(index, e.target.value)}
                               onBlur={() => setEditingNotesIndex(null)}
-                              className="h-8 text-xs"
+                              className="h-9 text-xs"
                               autoFocus
+                              onFocus={handleInputFocus}
                             />
                           ) : item.notes ? (
                             <button
@@ -226,12 +234,13 @@ export function MenuCart({
                         placeholder="Digite o código"
                         value={couponCode}
                         onChange={(e) => onCouponChange(e.target.value.toUpperCase())}
-                        className="flex-1 h-10 text-sm rounded-xl bg-muted/50 border-transparent"
+                        className="flex-1 h-11 text-sm rounded-xl bg-muted/50 border-transparent"
+                        onFocus={handleInputFocus}
                       />
                       <Button
                         variant="secondary"
                         size="sm"
-                        className="h-10 px-4 rounded-xl"
+                        className="h-11 px-4 rounded-xl"
                         onClick={onApplyCoupon}
                         disabled={!couponCode || couponLoading}
                       >
@@ -270,7 +279,7 @@ export function MenuCart({
                 {/* Checkout Button */}
                 <Button
                   size="lg"
-                  className="w-full h-12 rounded-xl text-base font-semibold shadow-lg"
+                  className="w-full h-14 rounded-xl text-base font-semibold shadow-lg"
                   onClick={onCheckout}
                 >
                   Continuar
