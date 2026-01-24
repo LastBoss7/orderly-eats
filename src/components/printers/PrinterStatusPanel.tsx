@@ -118,7 +118,7 @@ export function PrinterStatusPanel() {
     if (!profile?.restaurant_id) return;
 
     const channel = supabase
-      .channel('printer-status-logs')
+      .channel(`printer-status-logs-${profile.restaurant_id}`)
       .on(
         'postgres_changes',
         {

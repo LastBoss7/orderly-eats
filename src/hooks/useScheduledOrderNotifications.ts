@@ -147,7 +147,7 @@ export function useScheduledOrderNotifications({
     if (!restaurantId) return;
 
     const channel = supabase
-      .channel('scheduled-orders-notifications')
+      .channel(`scheduled-orders-notifications-${restaurantId}`)
       .on(
         'postgres_changes',
         {

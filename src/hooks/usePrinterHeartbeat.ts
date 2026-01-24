@@ -111,7 +111,7 @@ export const usePrinterHeartbeat = (restaurantId?: string) => {
     if (!effectiveRestaurantId) return;
 
     const channel = supabase
-      .channel('printer-heartbeats')
+      .channel(`printer-heartbeats-${effectiveRestaurantId}`)
       .on(
         'postgres_changes',
         {

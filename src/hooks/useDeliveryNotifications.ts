@@ -27,7 +27,7 @@ export function useDeliveryNotifications({
     if (!enabled || !restaurantId) return;
 
     const channel = supabase
-      .channel('delivery-orders')
+      .channel(`delivery-orders-${restaurantId}`)
       .on(
         'postgres_changes',
         {

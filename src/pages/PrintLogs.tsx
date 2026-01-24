@@ -79,7 +79,7 @@ export default function PrintLogs() {
     if (!profile?.restaurant_id) return;
 
     const channel = supabase
-      .channel('print-logs-changes')
+      .channel(`print-logs-changes-${profile.restaurant_id}`)
       .on(
         'postgres_changes',
         {

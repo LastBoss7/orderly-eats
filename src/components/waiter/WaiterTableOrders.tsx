@@ -128,7 +128,7 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
     if (!effectiveRestaurantId) return;
 
     const channel = supabase
-      .channel(`waiter-table-${table.id}`)
+      .channel(`waiter-table-${effectiveRestaurantId}-${table.id}`)
       .on(
         'postgres_changes',
         {
@@ -145,6 +145,7 @@ export function WaiterTableOrders({ table, onBack, onTableClosed, restaurantId: 
           event: '*',
           schema: 'public',
           table: 'order_items',
+          filter: `restaurant_id=eq.${effectiveRestaurantId}`,
         },
         () => fetchOrders()
       )
