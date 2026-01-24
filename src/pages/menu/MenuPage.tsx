@@ -410,17 +410,31 @@ export default function MenuPage() {
           throw new Error('Pedido não foi criado');
         }
 
-        // Create order items
-        const orderItems = cart.map((item) => ({
-          order_id: order.id,
-          restaurant_id: restaurant.id,
-          product_id: item.product.id,
-          product_name: item.product.name + (item.size ? ` (${getSizeLabel(item.size)})` : ''),
-          product_price: item.unitPrice,
-          product_size: item.size,
-          quantity: item.quantity,
-          notes: item.notes || null,
-        }));
+        // Create order items - include addons in product_name
+        const orderItems = cart.map((item) => {
+          let productName = item.product.name;
+          if (item.size) {
+            productName += ` (${getSizeLabel(item.size)})`;
+          }
+          // Add addons to product name for receipt/kitchen printing
+          if (item.addons && item.addons.length > 0) {
+            const addonNames = item.addons.map(a => 
+              a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name
+            ).join(', ');
+            productName += ` + ${addonNames}`;
+          }
+          
+          return {
+            order_id: order.id,
+            restaurant_id: restaurant.id,
+            product_id: item.product.id,
+            product_name: productName,
+            product_price: item.unitPrice,
+            product_size: item.size,
+            quantity: item.quantity,
+            notes: item.notes || null,
+          };
+        });
 
         const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
 
@@ -434,17 +448,48 @@ export default function MenuPage() {
         }
 
         // Generate WhatsApp message and open
-        const whatsappLink = generateWhatsAppOrderLink(restaurant.phone || customerInfo.phone, {
+        // IMPORTANT: Use restaurant phone for the link
+        const targetPhone = restaurant.phone || '';
+        
+        if (!targetPhone) {
+          // If restaurant has no phone configured, show warning but still save order
+          toast.warning('Pedido salvo! Entre em contato com o restaurante para confirmar.', {
+            duration: 6000,
+          });
+          console.warn('Restaurant phone not configured - order saved but WhatsApp not opened');
+          
+          // Clear cart and close modals
+          setCart([]);
+          setAppliedCoupon(null);
+          setCouponDiscount(0);
+          setCheckoutOpen(false);
+          setCartOpen(false);
+          return;
+        }
+        
+        const whatsappLink = generateWhatsAppOrderLink(targetPhone, {
           orderId: order.id,
           orderNumber: order.order_number,
           customerName: customerInfo.name,
           orderType: orderType,
-          items: cart.map((item) => ({
-            product_name: item.product.name + (item.size ? ` (${getSizeLabel(item.size)})` : ''),
-            quantity: item.quantity,
-            product_price: item.unitPrice,
-            notes: item.notes || null,
-          })),
+          items: cart.map((item) => {
+            let itemName = item.product.name;
+            if (item.size) {
+              itemName += ` (${getSizeLabel(item.size)})`;
+            }
+            if (item.addons && item.addons.length > 0) {
+              const addonNames = item.addons.map(a => 
+                a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name
+              ).join(', ');
+              itemName += ` + ${addonNames}`;
+            }
+            return {
+              product_name: itemName,
+              quantity: item.quantity,
+              product_price: item.unitPrice,
+              notes: item.notes || null,
+            };
+          }),
           total,
           deliveryFee,
           deliveryAddress,
