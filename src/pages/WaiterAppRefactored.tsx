@@ -1059,6 +1059,19 @@ export default function WaiterAppRefactored({
               toast.error('Erro ao reimprimir pedido');
             }
           }}
+          onMarkOrderServed={async (orderId) => {
+            try {
+              await waiterData.updateOrderStatus(orderId, 'served');
+              // Refresh table orders after marking as served
+              const refreshedOrders = await waiterData.fetchTableOrders(selectedTable.id);
+              setTableOrders(refreshedOrders);
+              toast.success('Pedido marcado como entregue');
+            } catch (error) {
+              console.error('Error marking order as served:', error);
+              toast.error('Erro ao marcar pedido como entregue');
+              throw error;
+            }
+          }}
         />
 
         {/* Payment Modal */}
@@ -1113,6 +1126,19 @@ export default function WaiterAppRefactored({
             } catch (error) {
               console.error('Error reprinting order:', error);
               toast.error('Erro ao reimprimir pedido');
+            }
+          }}
+          onMarkOrderServed={async (orderId) => {
+            try {
+              await waiterData.updateOrderStatus(orderId, 'served');
+              // Refresh tab orders after marking as served
+              const refreshedOrders = await waiterData.fetchTabOrders(selectedTab.id);
+              setTableOrders(refreshedOrders);
+              toast.success('Pedido marcado como entregue');
+            } catch (error) {
+              console.error('Error marking order as served:', error);
+              toast.error('Erro ao marcar pedido como entregue');
+              throw error;
             }
           }}
         />

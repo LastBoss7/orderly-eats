@@ -475,6 +475,31 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     return data?.reduce((sum, order) => sum + (order.total || 0), 0) || 0;
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 
+  const updateOrderStatus = useCallback(async (orderId: string, status: string) => {
+    if (useEdgeFunction) {
+      return postToEdge('update-order-status', { order_id: orderId, status });
+    }
+
+    const updateData: Record<string, any> = { status };
+
+    if (status === 'delivered') {
+      updateData.closed_at = new Date().toISOString();
+    }
+
+    if (status === 'ready') {
+      updateData.ready_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', orderId)
+      .eq('restaurant_id', restaurantId);
+
+    if (error) throw error;
+    return { success: true };
+  }, [restaurantId, useEdgeFunction, postToEdge]);
+
   return {
     loading,
     fetchTables,
@@ -493,5 +518,6 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     updateTable,
     createCustomer,
     searchCustomers,
+    updateOrderStatus,
   };
 }
