@@ -25,6 +25,7 @@ interface TablesViewRefactoredProps {
   tables: Table[];
   tabs: Tab[];
   tableReadyOrders: Record<string, boolean>;
+  pendingTotals: { tableTotals: Record<string, number>; tabTotals: Record<string, number> };
   onTableClick: (table: Table) => void;
   onTabClick: (tab: Tab) => void;
   onStartDelivery: () => void;
@@ -56,15 +57,21 @@ interface TablesViewRefactoredProps {
 const TableButton = memo(function TableButton({
   table,
   hasReadyOrder,
+  hasPendingTotal,
   onClick,
 }: {
   table: Table;
   hasReadyOrder: boolean;
+  hasPendingTotal: boolean;
   onClick: () => void;
 }) {
-  const bgClass = table.status === 'available' 
+  // CRITICAL: Override status to 'occupied' if there are pending totals
+  // This ensures tables with unpaid orders are NEVER shown as available
+  const effectiveStatus = hasPendingTotal ? 'occupied' : table.status;
+  
+  const bgClass = effectiveStatus === 'available' 
     ? 'bg-emerald-500' 
-    : table.status === 'closing' 
+    : effectiveStatus === 'closing' 
       ? 'bg-amber-500' 
       : 'bg-rose-500';
   
@@ -79,7 +86,7 @@ const TableButton = memo(function TableButton({
           🔔 Pronto!
         </Badge>
       )}
-      {table.status === 'available' && (
+      {effectiveStatus === 'available' && (
         <span className="text-[10px] text-white/80">Disponível</span>
       )}
     </button>
@@ -89,14 +96,19 @@ const TableButton = memo(function TableButton({
 // Memoized tab button - removed transition-colors for performance
 const TabButton = memo(function TabButton({
   tab,
+  hasPendingTotal,
   onClick,
 }: {
   tab: Tab;
+  hasPendingTotal: boolean;
   onClick: () => void;
 }) {
-  const bgClass = tab.status === 'available' 
+  // CRITICAL: Override status to 'occupied' if there are pending totals
+  const effectiveStatus = hasPendingTotal ? 'occupied' : tab.status;
+  
+  const bgClass = effectiveStatus === 'available' 
     ? 'bg-emerald-500' 
-    : tab.status === 'closing' 
+    : effectiveStatus === 'closing' 
       ? 'bg-amber-500' 
       : 'bg-rose-500';
 
@@ -112,7 +124,7 @@ const TabButton = memo(function TabButton({
           {tab.customer_name}
         </p>
       )}
-      {tab.status === 'available' && !tab.customer_name && (
+      {effectiveStatus === 'available' && !tab.customer_name && (
         <span className="text-[10px] text-white/80">Disponível</span>
       )}
     </button>
@@ -125,6 +137,7 @@ export const TablesViewRefactored = memo(function TablesViewRefactored({
   tables,
   tabs,
   tableReadyOrders,
+  pendingTotals,
   onTableClick,
   onTabClick,
   onStartDelivery,
@@ -301,6 +314,7 @@ export const TablesViewRefactored = memo(function TablesViewRefactored({
                 key={table.id}
                 table={table}
                 hasReadyOrder={tableReadyOrders[table.id] || false}
+                hasPendingTotal={(pendingTotals.tableTotals[table.id] || 0) > 0}
                 onClick={() => onTableClick(table)}
               />
             ))}
@@ -320,6 +334,7 @@ export const TablesViewRefactored = memo(function TablesViewRefactored({
               <TabButton
                 key={tab.id}
                 tab={tab}
+                hasPendingTotal={(pendingTotals.tabTotals[tab.id] || 0) > 0}
                 onClick={() => onTabClick(tab)}
               />
             ))}

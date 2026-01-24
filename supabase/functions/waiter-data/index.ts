@@ -190,6 +190,36 @@ Deno.serve(async (req) => {
       );
     }
 
+    // GET pending totals for all tables and tabs (for status override)
+    if (action === "pending-totals") {
+      // Get all orders that are not closed, grouped by table_id or tab_id
+      const { data: orders, error } = await supabase
+        .from("orders")
+        .select("table_id, tab_id, total")
+        .eq("restaurant_id", restaurantId)
+        .is("closed_at", null);
+
+      if (error) throw error;
+
+      // Aggregate totals by table and tab
+      const tableTotals: Record<string, number> = {};
+      const tabTotals: Record<string, number> = {};
+
+      for (const order of orders || []) {
+        if (order.table_id) {
+          tableTotals[order.table_id] = (tableTotals[order.table_id] || 0) + (order.total || 0);
+        }
+        if (order.tab_id) {
+          tabTotals[order.tab_id] = (tabTotals[order.tab_id] || 0) + (order.total || 0);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ tableTotals, tabTotals }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // GET table total
     if (action === "table-total") {
       const tableId = url.searchParams.get("table_id");

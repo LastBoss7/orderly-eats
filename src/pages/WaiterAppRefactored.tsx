@@ -89,7 +89,7 @@ export default function WaiterAppRefactored({
   const [tableOrders, setTableOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [tableReadyOrders, setTableReadyOrders] = useState<Record<string, boolean>>({});
-
+  const [pendingTotals, setPendingTotals] = useState<{ tableTotals: Record<string, number>; tabTotals: Record<string, number> }>({ tableTotals: {}, tabTotals: {} });
   // Selection states
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [selectedTab, setSelectedTab] = useState<Tab | null>(null);
@@ -251,6 +251,17 @@ export default function WaiterAppRefactored({
     }
   }, [restaurantId, waiterData]);
 
+  const refreshPendingTotals = useCallback(async () => {
+    if (!restaurantId) return;
+    
+    try {
+      const totals = await waiterData.fetchPendingTotals();
+      setPendingTotals(totals);
+    } catch (error) {
+      console.error('Error fetching pending totals:', error);
+    }
+  }, [restaurantId, waiterData]);
+
   // ========== EFFECTS ==========
 
   useEffect(() => {
@@ -262,8 +273,9 @@ export default function WaiterAppRefactored({
   useEffect(() => {
     if (!restaurantId) return;
 
-    // Initial fetch of ready orders
+    // Initial fetch of ready orders and pending totals
     refreshReadyOrders();
+    refreshPendingTotals();
 
     // Create realtime channel with restaurant_id filter for multi-tenant isolation
     const channelName = `waiter-realtime-${restaurantId}`;
@@ -321,8 +333,8 @@ export default function WaiterAppRefactored({
           filter: `restaurant_id=eq.${restaurantId}`
         },
         async (payload) => {
-          // Refresh ready orders status for table indicators
-          await refreshReadyOrders();
+          // Refresh ready orders status and pending totals for table indicators
+          await Promise.all([refreshReadyOrders(), refreshPendingTotals()]);
           
           // If we're viewing orders for a table/tab, refresh them too
           if (view === 'table-orders' && selectedTable) {
@@ -850,6 +862,7 @@ export default function WaiterAppRefactored({
           tables={tables}
           tabs={tabs}
           tableReadyOrders={tableReadyOrders}
+          pendingTotals={pendingTotals}
           onTableClick={handleTableClick}
           onTabClick={handleTabClick}
           onStartDelivery={() => handleStartDelivery('delivery')}
