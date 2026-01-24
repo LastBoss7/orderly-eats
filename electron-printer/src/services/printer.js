@@ -606,20 +606,33 @@ class PrinterService {
     const divSmall = '-'.repeat(width);
     const lines = [];
     
-    // Restaurant name FIRST (wrap if too long)
-    if (layout.showRestaurantName !== false && restaurantInfo.name) {
+    console.log('[formatReceipt] Restaurant info:', JSON.stringify(restaurantInfo));
+    console.log('[formatReceipt] Layout:', JSON.stringify(layout));
+    console.log('[formatReceipt] Width:', width);
+    
+    // Restaurant name FIRST (wrap if too long) - show by default
+    const showRestaurantName = layout.showRestaurantName !== false;
+    if (showRestaurantName && restaurantInfo.name) {
       const restaurantName = this.sanitizeText(restaurantInfo.name.toUpperCase());
+      console.log('[formatReceipt] Adding restaurant name:', restaurantName);
       this.wrapText(restaurantName, width).forEach(line => {
         lines.push(this.center(line, width));
       });
+    } else {
+      console.log('[formatReceipt] Skipping restaurant name - showRestaurantName:', showRestaurantName, 'name:', restaurantInfo.name);
     }
     
-    // Date/Time - always show prominently
-    if (layout.showDateTime !== false) {
+    lines.push(div);
+    
+    // Date/Time - always show prominently after divider
+    const showDateTime = layout.showDateTime !== false;
+    if (showDateTime) {
       const orderDate = new Date(order.created_at || Date.now());
       const dateStr = orderDate.toLocaleDateString('pt-BR');
       const timeStr = orderDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      lines.push(this.center(dateStr + ' - ' + timeStr, width));
+      const dateTimeText = dateStr + '  ' + timeStr;
+      lines.push(this.center(dateTimeText, width));
+      console.log('[formatReceipt] Adding datetime:', dateTimeText);
     }
     
     // Restaurant Address (from layout settings)
@@ -639,18 +652,13 @@ class PrinterService {
       lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
     }
     
-    lines.push(div);
-    
-    // Receipt title (customizable)
-    if (layout.receiptTitle) {
-      lines.push(this.center(layout.receiptTitle, width));
-      lines.push('');
-    }
+    lines.push(divSmall);
     
     // Order number - BIG
-    if (layout.showOrderNumber !== false) {
+    const showOrderNumber = layout.showOrderNumber !== false;
+    if (showOrderNumber) {
       const num = order.order_number || (order.id ? order.id.slice(0, 8).toUpperCase() : '0');
-      lines.push(this.center('Pedido #' + num, width));
+      lines.push(this.center('*** PEDIDO #' + num + ' ***', width));
     }
     
     lines.push('');
@@ -1127,9 +1135,10 @@ class PrinterService {
 
   center(text, width) {
     const str = String(text || '');
-    if (str.length >= width) return str.slice(0, width);
-    const left = Math.floor((width - str.length) / 2);
-    return ' '.repeat(left) + str + ' '.repeat(width - left - str.length);
+    const w = parseInt(width, 10) || 48; // Ensure width is a number
+    if (str.length >= w) return str.slice(0, w);
+    const left = Math.floor((w - str.length) / 2);
+    return ' '.repeat(left) + str + ' '.repeat(w - left - str.length);
   }
 
   alignBoth(left, right, width) {

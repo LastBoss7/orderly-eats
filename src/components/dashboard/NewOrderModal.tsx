@@ -93,12 +93,21 @@ interface Customer {
   state: string | null;
 }
 
+interface SelectedAddon {
+  id: string;
+  name: string;
+  price: number;
+  groupId: string;
+  groupName: string;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
   size?: string | null;
   unitPrice: number;
+  addons?: SelectedAddon[];
 }
 
 interface DeliveryFee {
@@ -551,29 +560,35 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     }
   };
 
-  const addToCartDirect = (product: Product, size: string | null, price: number, notes?: string) => {
+  const addToCartDirect = (product: Product, size: string | null, price: number, notes?: string, addons?: SelectedAddon[]) => {
     setCart(prev => {
-      // Create unique key for product + size combination
-      const cartKey = size ? `${product.id}-${size}` : product.id;
+      // Create unique key for product + size + addons combination
+      const addonsKey = addons?.map(a => a.id).sort().join(',') || '';
+      const cartKey = size ? `${product.id}-${size}-${addonsKey}` : `${product.id}-${addonsKey}`;
+      
+      // Only merge items with identical product, size, AND addons
       const existing = prev.find(item => {
-        const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+        const itemAddonsKey = item.addons?.map(a => a.id).sort().join(',') || '';
+        const itemKey = item.size ? `${item.product.id}-${item.size}-${itemAddonsKey}` : `${item.product.id}-${itemAddonsKey}`;
         return itemKey === cartKey;
       });
       
-      if (existing) {
+      if (existing && (!addons || addons.length === 0)) {
+        // Only merge if no addons (items with addons should stay separate for clarity)
         return prev.map(item => {
-          const itemKey = item.size ? `${item.product.id}-${item.size}` : item.product.id;
+          const itemAddonsKey = item.addons?.map(a => a.id).sort().join(',') || '';
+          const itemKey = item.size ? `${item.product.id}-${item.size}-${itemAddonsKey}` : `${item.product.id}-${itemAddonsKey}`;
           return itemKey === cartKey
             ? { ...item, quantity: item.quantity + 1 }
             : item;
         });
       }
-      return [...prev, { product, quantity: 1, size, unitPrice: price, notes }];
+      return [...prev, { product, quantity: 1, size, unitPrice: price, notes, addons }];
     });
   };
 
-  const handleSizeModalConfirm = (product: Product, size: string | null, price: number, notes: string) => {
-    addToCartDirect(product, size, price, notes || undefined);
+  const handleSizeModalConfirm = (product: Product, size: string | null, price: number, notes: string, addons?: SelectedAddon[]) => {
+    addToCartDirect(product, size, price, notes || undefined, addons);
     setSizeModalProduct(null);
   };
 
@@ -801,17 +816,30 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
 
       if (orderError) throw orderError;
 
-      const orderItems = cart.map(item => ({
-        restaurant_id: restaurant?.id,
-        order_id: order.id,
-        product_id: item.product.id,
-        product_name: item.size ? `${item.product.name} (${item.size})` : item.product.name,
-        product_price: item.unitPrice,
-        product_size: item.size || null,
-        quantity: item.quantity,
-        notes: item.notes || null,
-        category_id: item.product.category_id || null,
-      }));
+      const orderItems = cart.map(item => {
+        // Build product name with size and addons
+        let productName = item.product.name;
+        if (item.size) {
+          productName += ` (${item.size})`;
+        }
+        // Append addons to product name (format: "Product (G) + Addon1, Addon2")
+        if (item.addons && item.addons.length > 0) {
+          const addonNames = item.addons.map(a => a.name).join(', ');
+          productName += ` + ${addonNames}`;
+        }
+        
+        return {
+          restaurant_id: restaurant?.id,
+          order_id: order.id,
+          product_id: item.product.id,
+          product_name: productName,
+          product_price: item.unitPrice,
+          product_size: item.size || null,
+          quantity: item.quantity,
+          notes: item.notes || null,
+          category_id: item.product.category_id || null,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
@@ -1378,61 +1406,77 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {cart.map((item) => (
-                      <div
-                        key={item.product.id}
-                        className="p-2 bg-muted/50 rounded-lg space-y-2"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {item.product.name}
-                              {item.size && <span className="text-muted-foreground ml-1">({item.size})</span>}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatCurrency(item.unitPrice)}
-                            </p>
+                    {cart.map((item, index) => {
+                      // Create unique key based on product, size, and addons
+                      const addonsKey = item.addons?.map(a => a.id).sort().join(',') || '';
+                      const itemKey = `${item.product.id}-${item.size || ''}-${addonsKey}-${index}`;
+                      
+                      return (
+                        <div
+                          key={itemKey}
+                          className="p-2 bg-muted/50 rounded-lg space-y-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {item.product.name}
+                                {item.size && <span className="text-muted-foreground ml-1">({item.size})</span>}
+                              </p>
+                              {/* Show addons if any */}
+                              {item.addons && item.addons.length > 0 && (
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {item.addons.map(addon => (
+                                    <span key={addon.id} className="mr-1.5">
+                                      + {addon.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(item.unitPrice)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => updateQuantity(item.product.id, item.size, -1)}
+                              >
+                                <Minus className="w-3 h-3" />
+                              </Button>
+                              <span className="w-6 text-center text-sm">{item.quantity}</span>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => updateQuantity(item.product.id, item.size, 1)}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive"
+                                onClick={() => removeFromCart(item.product.id, item.size)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => updateQuantity(item.product.id, item.size, -1)}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <span className="w-6 text-center text-sm">{item.quantity}</span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => updateQuantity(item.product.id, item.size, 1)}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive"
-                              onClick={() => removeFromCart(item.product.id, item.size)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                          {/* Item Notes */}
+                          <div className="relative">
+                            <MessageSquare className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                            <Input
+                              placeholder="Obs: sem cebola, bem passado..."
+                              value={item.notes || ''}
+                              onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
+                              className="h-7 text-xs pl-7 bg-background"
+                            />
                           </div>
                         </div>
-                        {/* Item Notes */}
-                        <div className="relative">
-                          <MessageSquare className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                          <Input
-                            placeholder="Obs: sem cebola, bem passado..."
-                            value={item.notes || ''}
-                            onChange={(e) => updateItemNotes(item.product.id, item.size, e.target.value)}
-                            className="h-7 text-xs pl-7 bg-background"
-                          />
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -858,6 +858,9 @@ async function printOrderToAllPrinters(order, dbPrinters) {
         : (cachedPrintLayout || defaultLayout);
       const restaurantInfo = cachedRestaurantInfo || { name: '', phone: '', address: '', cnpj: '' };
       
+      console.log('[PrintOrder] Using restaurantInfo:', JSON.stringify(restaurantInfo));
+      console.log('[PrintOrder] Using layout:', JSON.stringify(layout));
+      
       try {
         console.log(`[PrintOrder] Printing to "${dbPrinter.name}" with ${filteredItems.length}/${order.order_items?.length || 0} items`);
         sendToRenderer('log', `🖨️ ${orderLabel} -> ${dbPrinter.name} (${filteredItems.length} itens)`);
