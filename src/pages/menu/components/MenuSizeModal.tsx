@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useState, useEffect } from 'react';
 import { Minus, Plus, ShoppingCart, Check } from 'lucide-react';
 import { ProductAddonSelector, SelectedAddon } from '@/components/products/ProductAddonSelector';
@@ -94,8 +93,8 @@ export function MenuSizeModal({ product, open, onClose, onConfirm, restaurantId 
             </div>
           </DrawerHeader>
 
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="px-4 pb-4 space-y-5">
+          {/* Scrollable Content with native scroll */}
+          <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 space-y-5" style={{ maxHeight: 'calc(85vh - 200px)' }}>
               {/* Size Selection */}
               {product.has_sizes && (
                 <div className="space-y-2.5">
@@ -132,17 +131,15 @@ export function MenuSizeModal({ product, open, onClose, onConfirm, restaurantId 
                 </div>
               )}
 
-              {/* Addons Selection */}
-              {restaurantId && (
-                <ProductAddonSelector
-                  productId={product.id}
-                  productCategoryId={product.category_id}
-                  restaurantId={restaurantId}
-                  selectedAddons={selectedAddons}
-                  onSelectionChange={setSelectedAddons}
-                  useEdgeFunction={true}
-                />
-              )}
+              {/* Addons Selection - Always show with edge function for public menu */}
+              <ProductAddonSelector
+                productId={product.id}
+                productCategoryId={product.category_id}
+                restaurantId={restaurantId || ''}
+                selectedAddons={selectedAddons}
+                onSelectionChange={setSelectedAddons}
+                useEdgeFunction={true}
+              />
 
               {/* Quantity */}
               <div className="space-y-2.5">
@@ -194,9 +191,8 @@ export function MenuSizeModal({ product, open, onClose, onConfirm, restaurantId 
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          </ScrollArea>
+            )}
+          </div>
 
           <DrawerFooter className="pt-2 pb-6 shrink-0">
             <Button
