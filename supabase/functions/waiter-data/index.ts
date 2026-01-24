@@ -101,6 +101,67 @@ Deno.serve(async (req) => {
       );
     }
 
+    // GET product addons (for waiter app - bypasses RLS)
+    if (action === "product-addons") {
+      const productId = url.searchParams.get("product_id");
+      const productCategoryId = url.searchParams.get("category_id");
+
+      if (!productId) {
+        return new Response(
+          JSON.stringify({ error: "product_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Get addon groups linked directly to this product
+      const { data: productLinks } = await supabase
+        .from("product_addon_groups")
+        .select("addon_group_id")
+        .eq("product_id", productId);
+
+      // Get addon groups linked to the product's category
+      let categoryGroupIds: string[] = [];
+      if (productCategoryId) {
+        const { data: categoryLinks } = await supabase
+          .from("category_addon_groups")
+          .select("addon_group_id")
+          .eq("category_id", productCategoryId);
+        categoryGroupIds = (categoryLinks || []).map((l: any) => l.addon_group_id);
+      }
+
+      // Combine both sources (remove duplicates)
+      const productGroupIds = (productLinks || []).map((l: any) => l.addon_group_id);
+      const allGroupIds = [...new Set([...productGroupIds, ...categoryGroupIds])];
+
+      if (allGroupIds.length === 0) {
+        return new Response(
+          JSON.stringify({ groups: [], addons: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Fetch the addon groups
+      const { data: groups } = await supabase
+        .from("addon_groups")
+        .select("id, name, description, is_required, min_selections, max_selections")
+        .in("id", allGroupIds)
+        .eq("is_active", true)
+        .order("sort_order");
+
+      // Fetch all addons for these groups
+      const { data: addons } = await supabase
+        .from("addons")
+        .select("id, group_id, name, price, is_available")
+        .in("group_id", allGroupIds)
+        .eq("is_available", true)
+        .order("sort_order");
+
+      return new Response(
+        JSON.stringify({ groups: groups || [], addons: addons || [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // GET products (with optional category filter for lazy loading)
     if (action === "products") {
       const categoryId = url.searchParams.get("category_id");
