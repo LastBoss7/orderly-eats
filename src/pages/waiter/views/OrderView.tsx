@@ -182,7 +182,7 @@ export function OrderView({
 
       {/* Products */}
       <ScrollArea className="flex-1">
-        <div className={`p-3 pb-48 ${menuViewMode === 'grid' ? 'grid grid-cols-3 gap-2' : 'space-y-2'}`}>
+        <div className={`p-3 pb-48 ${menuViewMode === 'grid' ? 'grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-2' : 'space-y-2'}`}>
           {filteredProducts.length === 0 ? (
             <div className="col-span-3 text-center py-12 text-muted-foreground">
               <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-30" />
