@@ -5,6 +5,272 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ============= INPUT VALIDATION UTILITIES =============
+
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Slug validation regex (alphanumeric, hyphens, underscores)
+const SLUG_REGEX = /^[a-z0-9_-]+$/i;
+
+// Phone validation regex (digits, spaces, hyphens, parentheses, plus sign)
+const PHONE_REGEX = /^[\d\s\-()+ ]{8,20}$/;
+
+// CEP validation regex (Brazilian postal code)
+const CEP_REGEX = /^[\d\-]{8,9}$/;
+
+// Max lengths for text fields to prevent overflow attacks
+const MAX_LENGTHS = {
+  name: 200,
+  phone: 30,
+  address: 500,
+  notes: 2000,
+  customerName: 200,
+  slug: 100,
+  search: 100,
+  city: 100,
+  neighborhood: 100,
+  complement: 200,
+  number: 20,
+  cep: 10,
+  orderType: 50,
+  status: 50,
+  paymentMethod: 50,
+} as const;
+
+// Allowed order types
+const VALID_ORDER_TYPES = ['table', 'tab', 'delivery', 'takeaway', 'counter', 'conference', 'closing'];
+
+// Allowed statuses
+const VALID_ORDER_STATUSES = ['pending', 'preparing', 'ready', 'served', 'delivered', 'cancelled', 'conference', 'closing'];
+
+// Allowed table/tab statuses
+const VALID_TABLE_STATUSES = ['available', 'occupied', 'closing'];
+
+// Allowed payment methods
+const VALID_PAYMENT_METHODS = ['cash', 'credit', 'debit', 'pix', 'mixed'];
+
+// Allowed print statuses
+const VALID_PRINT_STATUSES = ['pending', 'printed', 'error'];
+
+// Allowed actions
+const VALID_ACTIONS = [
+  'get-restaurant', 'tables', 'tabs', 'categories', 'products', 
+  'product-addons', 'table-orders', 'tab-orders', 'ready-orders',
+  'pending-totals', 'table-total', 'tab-total', 'search-customers',
+  'create-order', 'update-table', 'close-orders', 'update-tab',
+  'create-tab', 'create-customer', 'add-to-order', 'print-conference',
+  'reprint-order', 'update-order-status', 'bulk-update-order-status'
+];
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+// Validates UUID format
+function isValidUUID(value: unknown): value is string {
+  return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+// Validates slug format
+function isValidSlug(value: unknown): value is string {
+  return typeof value === 'string' && SLUG_REGEX.test(value) && value.length <= MAX_LENGTHS.slug;
+}
+
+// Sanitize string input - removes dangerous characters and trims
+function sanitizeString(value: unknown, maxLength: number): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') return null;
+  
+  // Trim and limit length
+  let sanitized = value.trim().slice(0, maxLength);
+  
+  // Remove null bytes and control characters (except newlines/tabs for notes)
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  return sanitized || null;
+}
+
+// Sanitize and validate phone number
+function sanitizePhone(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') return null;
+  
+  const sanitized = value.trim().slice(0, MAX_LENGTHS.phone);
+  // Only allow digits, spaces, hyphens, parentheses, plus sign
+  const cleaned = sanitized.replace(/[^\d\s\-()+ ]/g, '');
+  
+  if (!cleaned || cleaned.length < 8) return null;
+  return cleaned;
+}
+
+// Validate and sanitize number
+function sanitizeNumber(value: unknown, min: number = 0, max: number = 1000000): number | null {
+  if (value === null || value === undefined) return null;
+  
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (typeof num !== 'number' || isNaN(num)) return null;
+  if (num < min || num > max) return null;
+  
+  return num;
+}
+
+// Validate positive integer
+function sanitizePositiveInt(value: unknown, max: number = 10000): number | null {
+  const num = sanitizeNumber(value, 0, max);
+  if (num === null) return null;
+  return Math.floor(num);
+}
+
+// Validate array of UUIDs
+function validateUUIDArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  if (value.length === 0) return [];
+  if (value.length > 1000) return null; // Prevent DoS with huge arrays
+  
+  const validIds: string[] = [];
+  for (const id of value) {
+    if (!isValidUUID(id)) return null;
+    validIds.push(id);
+  }
+  return validIds;
+}
+
+// Validate action parameter
+function isValidAction(action: string): boolean {
+  return VALID_ACTIONS.includes(action);
+}
+
+// Validate order type
+function isValidOrderType(orderType: unknown): orderType is string {
+  return typeof orderType === 'string' && VALID_ORDER_TYPES.includes(orderType);
+}
+
+// Validate order status
+function isValidOrderStatus(status: unknown): status is string {
+  return typeof status === 'string' && VALID_ORDER_STATUSES.includes(status);
+}
+
+// Validate table/tab status
+function isValidTableStatus(status: unknown): status is string {
+  return typeof status === 'string' && VALID_TABLE_STATUSES.includes(status);
+}
+
+// Validate payment method
+function isValidPaymentMethod(method: unknown): method is string {
+  return typeof method === 'string' && VALID_PAYMENT_METHODS.includes(method);
+}
+
+// Validate and sanitize order items array
+function validateOrderItems(items: unknown): { valid: boolean; items: any[]; error?: string } {
+  if (!Array.isArray(items)) {
+    return { valid: false, items: [], error: 'items must be an array' };
+  }
+  
+  if (items.length === 0) {
+    return { valid: true, items: [] };
+  }
+  
+  if (items.length > 500) {
+    return { valid: false, items: [], error: 'Too many items in order' };
+  }
+  
+  const validatedItems: any[] = [];
+  
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    
+    if (typeof item !== 'object' || item === null) {
+      return { valid: false, items: [], error: `Item ${i} is invalid` };
+    }
+    
+    const productName = sanitizeString(item.product_name, MAX_LENGTHS.name);
+    if (!productName) {
+      return { valid: false, items: [], error: `Item ${i} has invalid product_name` };
+    }
+    
+    const productPrice = sanitizeNumber(item.product_price, 0, 100000);
+    if (productPrice === null) {
+      return { valid: false, items: [], error: `Item ${i} has invalid product_price` };
+    }
+    
+    const quantity = sanitizePositiveInt(item.quantity, 1000);
+    if (quantity === null || quantity < 1) {
+      return { valid: false, items: [], error: `Item ${i} has invalid quantity` };
+    }
+    
+    validatedItems.push({
+      product_id: isValidUUID(item.product_id) ? item.product_id : null,
+      product_name: productName,
+      product_price: productPrice,
+      quantity: quantity,
+      notes: sanitizeString(item.notes, MAX_LENGTHS.notes),
+      product_size: ['small', 'medium', 'large'].includes(item.product_size) ? item.product_size : null,
+      category_id: isValidUUID(item.category_id) ? item.category_id : null,
+    });
+  }
+  
+  return { valid: true, items: validatedItems };
+}
+
+// Validate payments array for mixed payments
+function validatePayments(payments: unknown): { valid: boolean; payments: any[]; error?: string } {
+  if (!Array.isArray(payments)) {
+    return { valid: true, payments: [] }; // Optional field
+  }
+  
+  if (payments.length > 20) {
+    return { valid: false, payments: [], error: 'Too many payment entries' };
+  }
+  
+  const validatedPayments: any[] = [];
+  
+  for (let i = 0; i < payments.length; i++) {
+    const payment = payments[i];
+    
+    if (typeof payment !== 'object' || payment === null) {
+      return { valid: false, payments: [], error: `Payment ${i} is invalid` };
+    }
+    
+    if (!isValidPaymentMethod(payment.method)) {
+      return { valid: false, payments: [], error: `Payment ${i} has invalid method` };
+    }
+    
+    const amount = sanitizeNumber(payment.amount, 0, 1000000);
+    if (amount === null) {
+      return { valid: false, payments: [], error: `Payment ${i} has invalid amount` };
+    }
+    
+    validatedPayments.push({
+      id: isValidUUID(payment.id) ? payment.id : null,
+      method: payment.method,
+      amount: amount,
+      cashReceived: sanitizeNumber(payment.cashReceived, 0, 1000000),
+    });
+  }
+  
+  return { valid: true, payments: validatedPayments };
+}
+
+// Create error response helper
+function errorResponse(message: string, status: number = 400): Response {
+  return new Response(
+    JSON.stringify({ error: message }),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// Create success response helper
+function successResponse(data: unknown, status: number = 200): Response {
+  return new Response(
+    JSON.stringify(data),
+    { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// ============= MAIN HANDLER =============
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,17 +282,21 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const restaurantId = url.searchParams.get("restaurant_id");
     const action = url.searchParams.get("action") || "tables";
+    
+    // Validate action
+    if (!isValidAction(action)) {
+      return errorResponse("Invalid action");
+    }
+
+    const restaurantId = url.searchParams.get("restaurant_id");
 
     // GET restaurant by slug (public endpoint - no restaurant_id needed)
     if (action === "get-restaurant") {
       const slug = url.searchParams.get("slug");
-      if (!slug) {
-        return new Response(
-          JSON.stringify({ error: "slug is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      
+      if (!slug || !isValidSlug(slug)) {
+        return errorResponse("Valid slug is required");
       }
 
       const { data, error } = await supabase
@@ -43,17 +313,12 @@ Deno.serve(async (req) => {
         );
       }
 
-      return new Response(
-        JSON.stringify({ data, found: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data, found: true });
     }
 
-    if (!restaurantId) {
-      return new Response(
-        JSON.stringify({ error: "restaurant_id is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Validate restaurant_id for all other actions
+    if (!restaurantId || !isValidUUID(restaurantId)) {
+      return errorResponse("Valid restaurant_id is required");
     }
 
     // GET tables
@@ -65,10 +330,7 @@ Deno.serve(async (req) => {
         .order("number");
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET tabs
@@ -80,10 +342,7 @@ Deno.serve(async (req) => {
         .order("number");
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET categories
@@ -95,10 +354,7 @@ Deno.serve(async (req) => {
         .order("sort_order");
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET product addons (for waiter app - bypasses RLS)
@@ -106,11 +362,13 @@ Deno.serve(async (req) => {
       const productId = url.searchParams.get("product_id");
       const productCategoryId = url.searchParams.get("category_id");
 
-      if (!productId) {
-        return new Response(
-          JSON.stringify({ error: "product_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!productId || !isValidUUID(productId)) {
+        return errorResponse("Valid product_id is required");
+      }
+
+      // Validate optional category_id
+      if (productCategoryId && !isValidUUID(productCategoryId)) {
+        return errorResponse("Invalid category_id format");
       }
 
       // Get addon groups linked directly to this product
@@ -134,10 +392,7 @@ Deno.serve(async (req) => {
       const allGroupIds = [...new Set([...productGroupIds, ...categoryGroupIds])];
 
       if (allGroupIds.length === 0) {
-        return new Response(
-          JSON.stringify({ groups: [], addons: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return successResponse({ groups: [], addons: [] });
       }
 
       // Fetch the addon groups
@@ -156,15 +411,17 @@ Deno.serve(async (req) => {
         .eq("is_available", true)
         .order("sort_order");
 
-      return new Response(
-        JSON.stringify({ groups: groups || [], addons: addons || [] }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ groups: groups || [], addons: addons || [] });
     }
 
     // GET products (with optional category filter for lazy loading)
     if (action === "products") {
       const categoryId = url.searchParams.get("category_id");
+      
+      // Validate optional category_id
+      if (categoryId && !isValidUUID(categoryId)) {
+        return errorResponse("Invalid category_id format");
+      }
       
       let query = supabase
         .from("products")
@@ -179,20 +436,15 @@ Deno.serve(async (req) => {
       const { data, error } = await query.order("name");
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET orders for a table
     if (action === "table-orders") {
       const tableId = url.searchParams.get("table_id");
-      if (!tableId) {
-        return new Response(
-          JSON.stringify({ error: "table_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      
+      if (!tableId || !isValidUUID(tableId)) {
+        return errorResponse("Valid table_id is required");
       }
 
       const { data, error } = await supabase
@@ -204,20 +456,15 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET orders for a tab
     if (action === "tab-orders") {
       const tabId = url.searchParams.get("tab_id");
-      if (!tabId) {
-        return new Response(
-          JSON.stringify({ error: "tab_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      
+      if (!tabId || !isValidUUID(tabId)) {
+        return errorResponse("Valid tab_id is required");
       }
 
       const { data, error } = await supabase
@@ -229,10 +476,7 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET ready orders for tables
@@ -245,15 +489,11 @@ Deno.serve(async (req) => {
         .not("table_id", "is", null);
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ data });
     }
 
     // GET pending totals for all tables and tabs (for status override)
     if (action === "pending-totals") {
-      // Get all orders that are not closed, grouped by table_id or tab_id
       const { data: orders, error } = await supabase
         .from("orders")
         .select("table_id, tab_id, total")
@@ -275,20 +515,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      return new Response(
-        JSON.stringify({ tableTotals, tabTotals }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ tableTotals, tabTotals });
     }
 
     // GET table total
     if (action === "table-total") {
       const tableId = url.searchParams.get("table_id");
-      if (!tableId) {
-        return new Response(
-          JSON.stringify({ error: "table_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      
+      if (!tableId || !isValidUUID(tableId)) {
+        return errorResponse("Valid table_id is required");
       }
 
       const { data, error } = await supabase
@@ -300,15 +535,94 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
       const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
-      return new Response(
-        JSON.stringify({ total }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ total });
+    }
+
+    // GET tab total
+    if (action === "tab-total") {
+      const tabId = url.searchParams.get("tab_id");
+      
+      if (!tabId || !isValidUUID(tabId)) {
+        return errorResponse("Valid tab_id is required");
+      }
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("total")
+        .eq("restaurant_id", restaurantId)
+        .eq("tab_id", tabId)
+        .is("closed_at", null);
+
+      if (error) throw error;
+      const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
+      return successResponse({ total });
+    }
+
+    // GET search customers
+    if (action === "search-customers") {
+      const searchRaw = url.searchParams.get("search") || "";
+      const search = sanitizeString(searchRaw, MAX_LENGTHS.search);
+      
+      if (!search || search.length < 2) {
+        return successResponse({ data: [] });
+      }
+
+      // Escape special characters for ILIKE pattern
+      const escapedSearch = search.replace(/[%_\\]/g, '\\$&');
+
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .or(`phone.ilike.%${escapedSearch}%,name.ilike.%${escapedSearch}%`)
+        .limit(10);
+
+      if (error) throw error;
+      return successResponse({ data });
     }
 
     // POST create order
     if (req.method === "POST" && action === "create-order") {
       const body = await req.json();
+      
+      // Validate order type
+      if (!isValidOrderType(body.order_type)) {
+        return errorResponse("Invalid order_type");
+      }
+
+      // Validate optional UUIDs
+      if (body.table_id && !isValidUUID(body.table_id)) {
+        return errorResponse("Invalid table_id format");
+      }
+      if (body.tab_id && !isValidUUID(body.tab_id)) {
+        return errorResponse("Invalid tab_id format");
+      }
+      if (body.customer_id && !isValidUUID(body.customer_id)) {
+        return errorResponse("Invalid customer_id format");
+      }
+      if (body.waiter_id && !isValidUUID(body.waiter_id)) {
+        return errorResponse("Invalid waiter_id format");
+      }
+
+      // Validate print_status if provided
+      if (body.print_status && !VALID_PRINT_STATUSES.includes(body.print_status)) {
+        return errorResponse("Invalid print_status");
+      }
+
+      // Validate total
+      const total = sanitizeNumber(body.total, 0, 1000000);
+      if (total === null) {
+        return errorResponse("Invalid total amount");
+      }
+
+      // Validate delivery_fee
+      const deliveryFee = sanitizeNumber(body.delivery_fee, 0, 10000) || 0;
+
+      // Validate items
+      const itemsValidation = validateOrderItems(body.items || []);
+      if (!itemsValidation.valid) {
+        return errorResponse(itemsValidation.error || "Invalid items");
+      }
       
       // Get next order number atomically using database function
       const { data: orderNumber, error: orderNumberError } = await supabase
@@ -325,13 +639,13 @@ Deno.serve(async (req) => {
           order_type: body.order_type,
           status: "pending",
           print_status: body.print_status || "pending",
-          total: body.total,
-          notes: body.notes || null,
+          total: total,
+          notes: sanitizeString(body.notes, MAX_LENGTHS.notes),
           customer_id: body.customer_id || null,
-          customer_name: body.customer_name || null,
-          delivery_address: body.delivery_address || null,
-          delivery_phone: body.delivery_phone || null,
-          delivery_fee: body.delivery_fee || 0,
+          customer_name: sanitizeString(body.customer_name, MAX_LENGTHS.customerName),
+          delivery_address: sanitizeString(body.delivery_address, MAX_LENGTHS.address),
+          delivery_phone: sanitizePhone(body.delivery_phone),
+          delivery_fee: deliveryFee,
           waiter_id: body.waiter_id || null,
           order_number: orderNumber,
         })
@@ -341,17 +655,17 @@ Deno.serve(async (req) => {
       if (orderError) throw orderError;
 
       // Insert order items
-      if (body.items && body.items.length > 0) {
-        const orderItems = body.items.map((item: any) => ({
+      if (itemsValidation.items.length > 0) {
+        const orderItems = itemsValidation.items.map((item: any) => ({
           restaurant_id: restaurantId,
           order_id: order.id,
           product_id: item.product_id,
           product_name: item.product_name,
           product_price: item.product_price,
           quantity: item.quantity,
-          notes: item.notes || null,
-          product_size: item.product_size || null,
-          category_id: item.category_id || null,
+          notes: item.notes,
+          product_size: item.product_size,
+          category_id: item.category_id,
         }));
 
         const { error: itemsError } = await supabase
@@ -377,15 +691,20 @@ Deno.serve(async (req) => {
           .eq("id", body.tab_id);
       }
 
-      return new Response(
-        JSON.stringify({ success: true, order }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, order });
     }
 
     // POST update table status
     if (req.method === "POST" && action === "update-table") {
       const body = await req.json();
+      
+      if (!body.table_id || !isValidUUID(body.table_id)) {
+        return errorResponse("Valid table_id is required");
+      }
+
+      if (!isValidTableStatus(body.status)) {
+        return errorResponse("Invalid status. Must be: available, occupied, or closing");
+      }
       
       const { error } = await supabase
         .from("tables")
@@ -394,30 +713,56 @@ Deno.serve(async (req) => {
         .eq("restaurant_id", restaurantId);
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true });
     }
 
     // POST close orders (for table/tab closing)
     if (req.method === "POST" && action === "close-orders") {
       const body = await req.json();
       
+      // Validate order_ids
+      const orderIds = validateUUIDArray(body.order_ids);
+      if (orderIds === null) {
+        return errorResponse("order_ids must be a valid array of UUIDs");
+      }
+
+      // Validate optional UUIDs
+      if (body.table_id && !isValidUUID(body.table_id)) {
+        return errorResponse("Invalid table_id format");
+      }
+      if (body.tab_id && !isValidUUID(body.tab_id)) {
+        return errorResponse("Invalid tab_id format");
+      }
+
+      // Validate payment_method
+      if (body.payment_method && !isValidPaymentMethod(body.payment_method)) {
+        return errorResponse("Invalid payment_method");
+      }
+
+      // Validate payments array
+      const paymentsValidation = validatePayments(body.payments);
+      if (!paymentsValidation.valid) {
+        return errorResponse(paymentsValidation.error || "Invalid payments");
+      }
+
+      // Validate numeric fields
+      const cashReceived = sanitizeNumber(body.cash_received, 0, 1000000);
+      const changeGiven = sanitizeNumber(body.change_given, 0, 1000000);
+      const splitCount = sanitizePositiveInt(body.split_count, 100);
+      
       // Determine payment method for orders
-      // If mixed payments, use 'mixed' as payment_method on orders
-      const isMixedPayment = body.payments && body.payments.length > 0;
+      const isMixedPayment = paymentsValidation.payments.length > 0;
       const paymentMethodForOrders = isMixedPayment ? 'mixed' : body.payment_method;
       
-      for (const orderId of body.order_ids) {
+      for (const orderId of orderIds) {
         await supabase
           .from("orders")
           .update({
             status: "delivered",
             payment_method: paymentMethodForOrders,
-            cash_received: body.cash_received || null,
-            change_given: body.change_given || null,
-            split_people: body.split_count || null,
+            cash_received: cashReceived,
+            change_given: changeGiven,
+            split_people: splitCount,
             closed_at: new Date().toISOString(),
           })
           .eq("id", orderId)
@@ -426,8 +771,8 @@ Deno.serve(async (req) => {
 
       // Save mixed payments to tab_payments table
       if (isMixedPayment && body.tab_id) {
-        for (const payment of body.payments) {
-          const changeGiven = payment.method === 'cash' && payment.cashReceived && payment.cashReceived > payment.amount
+        for (const payment of paymentsValidation.payments) {
+          const paymentChangeGiven = payment.method === 'cash' && payment.cashReceived && payment.cashReceived > payment.amount
             ? payment.cashReceived - payment.amount
             : null;
             
@@ -439,7 +784,7 @@ Deno.serve(async (req) => {
               payment_method: payment.method,
               amount: payment.amount,
               cash_received: payment.cashReceived || null,
-              change_given: changeGiven,
+              change_given: paymentChangeGiven,
             });
         }
       }
@@ -462,136 +807,136 @@ Deno.serve(async (req) => {
           .eq("restaurant_id", restaurantId);
       }
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true });
     }
 
     // POST update tab (for tab customer assignment)
     if (req.method === "POST" && action === "update-tab") {
       const body = await req.json();
       
+      if (!body.tab_id || !isValidUUID(body.tab_id)) {
+        return errorResponse("Valid tab_id is required");
+      }
+
+      if (!isValidTableStatus(body.status)) {
+        return errorResponse("Invalid status");
+      }
+      
       const { error } = await supabase
         .from("tabs")
         .update({
           status: body.status,
-          customer_name: body.customer_name ?? null,
-          customer_phone: body.customer_phone ?? null,
+          customer_name: sanitizeString(body.customer_name, MAX_LENGTHS.customerName),
+          customer_phone: sanitizePhone(body.customer_phone),
         })
         .eq("id", body.tab_id)
         .eq("restaurant_id", restaurantId);
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true });
     }
 
     // POST create tab
     if (req.method === "POST" && action === "create-tab") {
       const body = await req.json();
       
+      const tabNumber = sanitizePositiveInt(body.number, 10000);
+      if (tabNumber === null) {
+        return errorResponse("Valid tab number is required");
+      }
+
+      // Validate status if provided
+      const status = body.status || 'occupied';
+      if (!isValidTableStatus(status)) {
+        return errorResponse("Invalid status");
+      }
+      
       const { data: newTab, error } = await supabase
         .from("tabs")
         .insert({
           restaurant_id: restaurantId,
-          number: body.number,
-          customer_name: body.customer_name || null,
-          customer_phone: body.customer_phone || null,
-          status: body.status || 'occupied',
+          number: tabNumber,
+          customer_name: sanitizeString(body.customer_name, MAX_LENGTHS.customerName),
+          customer_phone: sanitizePhone(body.customer_phone),
+          status: status,
         })
         .select()
         .single();
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ success: true, tab: newTab }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, tab: newTab });
     }
 
     // POST create customer
     if (req.method === "POST" && action === "create-customer") {
       const body = await req.json();
       
+      const name = sanitizeString(body.name, MAX_LENGTHS.name);
+      if (!name) {
+        return errorResponse("Valid customer name is required");
+      }
+
+      const phone = sanitizePhone(body.phone);
+      if (!phone) {
+        return errorResponse("Valid phone number is required");
+      }
+      
       const { data: newCustomer, error } = await supabase
         .from("customers")
         .insert({
           restaurant_id: restaurantId,
-          name: body.name,
-          phone: body.phone,
-          address: body.address || null,
-          number: body.number || null,
-          complement: body.complement || null,
-          neighborhood: body.neighborhood || null,
-          city: body.city || null,
-          cep: body.cep || null,
+          name: name,
+          phone: phone,
+          address: sanitizeString(body.address, MAX_LENGTHS.address),
+          number: sanitizeString(body.number, MAX_LENGTHS.number),
+          complement: sanitizeString(body.complement, MAX_LENGTHS.complement),
+          neighborhood: sanitizeString(body.neighborhood, MAX_LENGTHS.neighborhood),
+          city: sanitizeString(body.city, MAX_LENGTHS.city),
+          cep: sanitizeString(body.cep, MAX_LENGTHS.cep),
         })
         .select()
         .single();
 
       if (error) throw error;
-      return new Response(
-        JSON.stringify({ success: true, customer: newCustomer }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // GET search customers
-    if (action === "search-customers") {
-      const search = url.searchParams.get("search") || "";
-      
-      if (search.length < 2) {
-        return new Response(
-          JSON.stringify({ data: [] }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { data, error } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("restaurant_id", restaurantId)
-        .or(`phone.ilike.%${search}%,name.ilike.%${search}%`)
-        .limit(10);
-
-      if (error) throw error;
-      return new Response(
-        JSON.stringify({ data }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // GET tab total
-    if (action === "tab-total") {
-      const tabId = url.searchParams.get("tab_id");
-      if (!tabId) {
-        return new Response(
-          JSON.stringify({ error: "tab_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const { data, error } = await supabase
-        .from("orders")
-        .select("total")
-        .eq("restaurant_id", restaurantId)
-        .eq("tab_id", tabId)
-        .is("closed_at", null);
-
-      if (error) throw error;
-      const total = data?.reduce((sum: number, order: { total: number | null }) => sum + (order.total || 0), 0) || 0;
-      return new Response(
-        JSON.stringify({ total }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, customer: newCustomer });
     }
 
     // POST add order to existing (for adding more items to a table/tab)
     if (req.method === "POST" && action === "add-to-order") {
       const body = await req.json();
+      
+      // Validate order type
+      if (!isValidOrderType(body.order_type)) {
+        return errorResponse("Invalid order_type");
+      }
+
+      // Validate optional UUIDs
+      if (body.table_id && !isValidUUID(body.table_id)) {
+        return errorResponse("Invalid table_id format");
+      }
+      if (body.tab_id && !isValidUUID(body.tab_id)) {
+        return errorResponse("Invalid tab_id format");
+      }
+      if (body.waiter_id && !isValidUUID(body.waiter_id)) {
+        return errorResponse("Invalid waiter_id format");
+      }
+
+      // Validate print_status if provided
+      if (body.print_status && !VALID_PRINT_STATUSES.includes(body.print_status)) {
+        return errorResponse("Invalid print_status");
+      }
+
+      // Validate total
+      const total = sanitizeNumber(body.total, 0, 1000000);
+      if (total === null) {
+        return errorResponse("Invalid total amount");
+      }
+
+      // Validate items
+      const itemsValidation = validateOrderItems(body.items || []);
+      if (!itemsValidation.valid) {
+        return errorResponse(itemsValidation.error || "Invalid items");
+      }
       
       // Get next order number atomically
       const { data: orderNumber, error: orderNumberError } = await supabase
@@ -608,8 +953,8 @@ Deno.serve(async (req) => {
           order_type: body.order_type,
           status: "pending",
           print_status: body.print_status || "pending",
-          total: body.total,
-          notes: body.notes || null,
+          total: total,
+          notes: sanitizeString(body.notes, MAX_LENGTHS.notes),
           waiter_id: body.waiter_id || null,
           order_number: orderNumber,
         })
@@ -619,17 +964,17 @@ Deno.serve(async (req) => {
       if (orderError) throw orderError;
 
       // Insert order items
-      if (body.items && body.items.length > 0) {
-        const orderItems = body.items.map((item: any) => ({
+      if (itemsValidation.items.length > 0) {
+        const orderItems = itemsValidation.items.map((item: any) => ({
           restaurant_id: restaurantId,
           order_id: order.id,
           product_id: item.product_id,
           product_name: item.product_name,
           product_price: item.product_price,
           quantity: item.quantity,
-          notes: item.notes || null,
-          product_size: item.product_size || null,
-          category_id: item.category_id || null,
+          notes: item.notes,
+          product_size: item.product_size,
+          category_id: item.category_id,
         }));
 
         const { error: itemsError } = await supabase
@@ -639,15 +984,48 @@ Deno.serve(async (req) => {
         if (itemsError) throw itemsError;
       }
 
-      return new Response(
-        JSON.stringify({ success: true, order }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, order });
     }
 
     // POST print conference (for printing table/tab receipt)
     if (req.method === "POST" && action === "print-conference") {
       const body = await req.json();
+      
+      // Validate entity type
+      const entityType = body.entity_type;
+      if (!['table', 'tab'].includes(entityType)) {
+        return errorResponse("entity_type must be 'table' or 'tab'");
+      }
+
+      // Validate entity number
+      const entityNumber = sanitizePositiveInt(body.entity_number, 10000);
+      if (entityNumber === null) {
+        return errorResponse("Valid entity_number is required");
+      }
+
+      // Validate total
+      const total = sanitizeNumber(body.total, 0, 1000000);
+      if (total === null) {
+        return errorResponse("Invalid total amount");
+      }
+
+      // Validate items
+      const itemsValidation = validateOrderItems(body.items || []);
+      if (!itemsValidation.valid) {
+        return errorResponse(itemsValidation.error || "Invalid items");
+      }
+
+      // Validate numeric fields
+      const serviceCharge = sanitizeNumber(body.service_charge, 0, 100000);
+      const discount = sanitizeNumber(body.discount, 0, 100000) || 0;
+      const addition = sanitizeNumber(body.addition, 0, 100000) || 0;
+      const splitCount = sanitizePositiveInt(body.split_count, 100) || 1;
+
+      // Validate payments if provided
+      const paymentsValidation = validatePayments(body.payments);
+      if (!paymentsValidation.valid) {
+        return errorResponse(paymentsValidation.error || "Invalid payments");
+      }
       
       // Create a temporary order for the conference print
       const { data: order, error: orderError } = await supabase
@@ -655,21 +1033,22 @@ Deno.serve(async (req) => {
         .insert({
           restaurant_id: restaurantId,
           order_type: 'conference',
-          customer_name: body.customer_name || `${body.entity_type === 'table' ? 'Mesa' : 'Comanda'} ${body.entity_number}`,
-          total: body.total,
-          service_charge: body.service_charge || null,
+          customer_name: sanitizeString(body.customer_name, MAX_LENGTHS.customerName) || 
+            `${entityType === 'table' ? 'Mesa' : 'Comanda'} ${entityNumber}`,
+          total: total,
+          service_charge: serviceCharge,
           status: 'conference',
           print_status: 'pending',
           notes: JSON.stringify({
-            entityType: body.entity_type,
-            entityNumber: body.entity_number,
-            discount: body.discount || 0,
-            addition: body.addition || 0,
-            serviceCharge: body.service_charge || 0,
-            splitCount: body.split_count || 1,
+            entityType: entityType,
+            entityNumber: entityNumber,
+            discount: discount,
+            addition: addition,
+            serviceCharge: serviceCharge || 0,
+            splitCount: splitCount,
             isConference: !body.is_final_receipt,
-            isFinalReceipt: body.is_final_receipt || false,
-            payments: body.payments || [],
+            isFinalReceipt: !!body.is_final_receipt,
+            payments: paymentsValidation.payments,
           }),
         })
         .select('id, order_number')
@@ -678,8 +1057,8 @@ Deno.serve(async (req) => {
       if (orderError) throw orderError;
 
       // Add items to the order
-      if (body.items && body.items.length > 0) {
-        const itemsToInsert = body.items.map((item: any) => ({
+      if (itemsValidation.items.length > 0) {
+        const itemsToInsert = itemsValidation.items.map((item: any) => ({
           order_id: order.id,
           restaurant_id: restaurantId,
           product_name: item.product_name,
@@ -702,24 +1081,18 @@ Deno.serve(async (req) => {
         event_type: 'print',
         status: 'pending',
         printer_name: 'Electron App',
-        items_count: body.items?.length || 0,
+        items_count: itemsValidation.items.length,
       });
 
-      return new Response(
-        JSON.stringify({ success: true, order }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, order });
     }
 
     // POST reprint order
     if (req.method === "POST" && action === "reprint-order") {
       const body = await req.json();
       
-      if (!body.order_id) {
-        return new Response(
-          JSON.stringify({ error: "order_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!body.order_id || !isValidUUID(body.order_id)) {
+        return errorResponse("Valid order_id is required");
       }
 
       // Get current print count
@@ -751,36 +1124,25 @@ Deno.serve(async (req) => {
       await supabase.from("print_logs").insert({
         restaurant_id: restaurantId,
         order_id: body.order_id,
-        order_number: currentOrder?.order_number?.toString() || body.order_number || null,
+        order_number: currentOrder?.order_number?.toString() || null,
         event_type: "reprint",
         status: "pending",
         printer_name: "Electron App",
       });
 
-      return new Response(
-        JSON.stringify({ success: true, print_count: newPrintCount }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true, print_count: newPrintCount });
     }
 
     // POST update order status (mark as served, delivered, etc.)
     if (req.method === "POST" && action === "update-order-status") {
       const body = await req.json();
       
-      if (!body.order_id || !body.status) {
-        return new Response(
-          JSON.stringify({ error: "order_id and status are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!body.order_id || !isValidUUID(body.order_id)) {
+        return errorResponse("Valid order_id is required");
       }
 
-      // Validate status
-      const validStatuses = ["pending", "preparing", "ready", "served", "delivered", "cancelled"];
-      if (!validStatuses.includes(body.status)) {
-        return new Response(
-          JSON.stringify({ error: "Invalid status" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!isValidOrderStatus(body.status)) {
+        return errorResponse("Invalid status. Must be: pending, preparing, ready, served, delivered, or cancelled");
       }
 
       const updateData: Record<string, any> = {
@@ -805,21 +1167,20 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true });
     }
 
     // POST bulk update order status (for closing table/tab)
     if (req.method === "POST" && action === "bulk-update-order-status") {
       const body = await req.json();
       
-      if (!body.order_ids || !Array.isArray(body.order_ids) || !body.status) {
-        return new Response(
-          JSON.stringify({ error: "order_ids array and status are required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      const orderIds = validateUUIDArray(body.order_ids);
+      if (orderIds === null || orderIds.length === 0) {
+        return errorResponse("order_ids must be a non-empty array of valid UUIDs");
+      }
+
+      if (!isValidOrderStatus(body.status)) {
+        return errorResponse("Invalid status");
       }
 
       const updateData: Record<string, any> = {
@@ -830,7 +1191,7 @@ Deno.serve(async (req) => {
         updateData.closed_at = new Date().toISOString();
       }
 
-      for (const orderId of body.order_ids) {
+      for (const orderId of orderIds) {
         await supabase
           .from("orders")
           .update(updateData)
@@ -838,16 +1199,10 @@ Deno.serve(async (req) => {
           .eq("restaurant_id", restaurantId);
       }
 
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return successResponse({ success: true });
     }
 
-    return new Response(
-      JSON.stringify({ error: "Invalid action" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return errorResponse("Invalid action");
   } catch (error) {
     console.error("Error:", error);
     return new Response(
