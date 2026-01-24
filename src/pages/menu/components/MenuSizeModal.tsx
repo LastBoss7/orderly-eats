@@ -140,6 +140,7 @@ export function MenuSizeModal({ product, open, onClose, onConfirm, restaurantId 
                   restaurantId={restaurantId}
                   selectedAddons={selectedAddons}
                   onSelectionChange={setSelectedAddons}
+                  useEdgeFunction={true}
                 />
               )}
 
