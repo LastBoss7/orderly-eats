@@ -27,6 +27,7 @@ interface TableOrdersViewProps {
   onPrintReceipt: () => void;
   onCloseTable: () => void;
   onReprintOrder: (order: Order) => void;
+  onMarkOrderServed?: (orderId: string) => Promise<void>;
 }
 
 // Memoized order card
@@ -35,6 +36,7 @@ const OrderCard = memo(function OrderCard({
   isMenuOpen,
   isDelivered,
   isReprinting,
+  isMarkingServed,
   onToggleMenu,
   onMarkDelivered,
   onReprint,
@@ -43,6 +45,7 @@ const OrderCard = memo(function OrderCard({
   isMenuOpen: boolean;
   isDelivered: boolean;
   isReprinting: boolean;
+  isMarkingServed: boolean;
   onToggleMenu: () => void;
   onMarkDelivered: () => void;
   onReprint: () => void;
@@ -135,11 +138,15 @@ const OrderCard = memo(function OrderCard({
         <div className="flex items-center justify-end gap-2 mt-3">
           <Checkbox 
             id={`delivered-${order.id}`}
-            checked={isDelivered}
+            checked={isDelivered || order.status === 'served'}
             onCheckedChange={onMarkDelivered}
+            disabled={isMarkingServed || order.status === 'served'}
           />
-          <label htmlFor={`delivered-${order.id}`} className="text-muted-foreground text-sm cursor-pointer">
-            Marcar como entregue
+          <label 
+            htmlFor={`delivered-${order.id}`} 
+            className={`text-muted-foreground text-sm cursor-pointer ${isMarkingServed ? 'opacity-50' : ''}`}
+          >
+            {isMarkingServed ? 'Marcando...' : 'Marcar como entregue'}
           </label>
         </div>
       </div>
@@ -156,23 +163,40 @@ export const TableOrdersView = memo(function TableOrdersView({
   onPrintReceipt,
   onCloseTable,
   onReprintOrder,
+  onMarkOrderServed,
 }: TableOrdersViewProps) {
   const [deliveredOrders, setDeliveredOrders] = useState<Set<string>>(new Set());
   const [openOrderMenu, setOpenOrderMenu] = useState<string | null>(null);
   const [reprintingOrder, setReprintingOrder] = useState<string | null>(null);
+  const [markingServedOrder, setMarkingServedOrder] = useState<string | null>(null);
 
   const ordersTotal = orders.reduce((sum, o) => sum + (o.total || 0), 0);
 
-  const handleMarkDelivered = (orderId: string) => {
-    setDeliveredOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
+  const handleMarkDelivered = async (orderId: string) => {
+    // If already marking or callback not provided, just toggle local state
+    if (!onMarkOrderServed || markingServedOrder) {
+      setDeliveredOrders(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(orderId)) {
+          newSet.delete(orderId);
+        } else {
+          newSet.add(orderId);
+        }
+        return newSet;
+      });
+      return;
+    }
+
+    // Call API to mark as served
+    setMarkingServedOrder(orderId);
+    try {
+      await onMarkOrderServed(orderId);
+      setDeliveredOrders(prev => new Set([...prev, orderId]));
+    } catch (error) {
+      console.error('Failed to mark order as served:', error);
+    } finally {
+      setMarkingServedOrder(null);
+    }
   };
 
   const handleReprintOrder = async (order: Order) => {
@@ -228,6 +252,7 @@ export const TableOrdersView = memo(function TableOrdersView({
                 isMenuOpen={openOrderMenu === order.id}
                 isDelivered={deliveredOrders.has(order.id)}
                 isReprinting={reprintingOrder === order.id}
+                isMarkingServed={markingServedOrder === order.id}
                 onToggleMenu={() => setOpenOrderMenu(openOrderMenu === order.id ? null : order.id)}
                 onMarkDelivered={() => handleMarkDelivered(order.id)}
                 onReprint={() => handleReprintOrder(order)}
