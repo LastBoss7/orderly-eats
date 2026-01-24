@@ -56,6 +56,7 @@ export interface CartItemAddon {
   price: number;
   groupId: string;
   groupName: string;
+  quantity: number;
 }
 
 export interface CartItem {

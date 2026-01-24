@@ -80,7 +80,7 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
   };
 
   const getAddonsTotal = (): number => {
-    return selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
+    return selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0);
   };
 
   const getTotalPrice = (): number => {
@@ -211,8 +211,8 @@ export function ProductSizeModal({ product, open, onClose, onConfirm, restaurant
               <p className="font-medium text-xs text-muted-foreground">Adicionais selecionados:</p>
               {selectedAddons.map(addon => (
                 <div key={addon.id} className="flex justify-between text-xs">
-                  <span>{addon.name}</span>
-                  {addon.price > 0 && <span>+{formatCurrency(addon.price)}</span>}
+                  <span>{addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}</span>
+                  {addon.price > 0 && <span>+{formatCurrency(addon.price * addon.quantity)}</span>}
                 </div>
               ))}
               <div className="flex justify-between font-medium pt-1 border-t border-border/50">

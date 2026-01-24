@@ -99,6 +99,7 @@ interface SelectedAddon {
   price: number;
   groupId: string;
   groupName: string;
+  quantity: number;
 }
 
 interface CartItem {
@@ -624,10 +625,10 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
     }));
   };
 
-  const cartTotal = cart.reduce(
-    (sum, item) => sum + item.unitPrice * item.quantity,
-    0
-  );
+  const cartTotal = cart.reduce((sum, item) => {
+    const addonsPrice = (item.addons || []).reduce((aSum, a) => aSum + (a.price * a.quantity), 0);
+    return sum + (item.unitPrice + addonsPrice) * item.quantity;
+  }, 0);
 
   const orderTotal = cartTotal + (orderType === 'delivery' ? deliveryFee : 0);
 
@@ -822,9 +823,9 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
         if (item.size) {
           productName += ` (${item.size})`;
         }
-        // Append addons to product name (format: "Product (G) + Addon1, Addon2")
+        // Append addons to product name with quantity (format: "Product (G) + 2x Bacon, 1x Queijo")
         if (item.addons && item.addons.length > 0) {
-          const addonNames = item.addons.map(a => a.name).join(', ');
+          const addonNames = item.addons.map(a => a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name).join(', ');
           productName += ` + ${addonNames}`;
         }
         

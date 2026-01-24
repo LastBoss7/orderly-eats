@@ -49,7 +49,7 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
   };
 
   const getAddonsTotal = () => {
-    return selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
+    return selectedAddons.reduce((sum, addon) => sum + (addon.price * addon.quantity), 0);
   };
 
   const getTotalPrice = () => {
@@ -204,8 +204,8 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
                 <p className="text-xs font-medium text-muted-foreground">Adicionais selecionados:</p>
                 {selectedAddons.map(addon => (
                   <div key={addon.id} className="flex justify-between text-sm">
-                    <span>{addon.name}</span>
-                    <span className="text-primary">+{formatCurrency(addon.price)}</span>
+                    <span>{addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}</span>
+                    <span className="text-primary">+{formatCurrency(addon.price * addon.quantity)}</span>
                   </div>
                 ))}
               </div>

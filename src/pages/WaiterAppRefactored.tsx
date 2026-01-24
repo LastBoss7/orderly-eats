@@ -30,6 +30,7 @@ import {
   Order,
   Customer,
   CartItem,
+  CartItemAddon,
   ProductSize,
   DeliveryForm,
   formatCurrency,
@@ -542,24 +543,26 @@ export default function WaiterAppRefactored({
     setSizeModalProduct(product);
   };
 
-  const addToCart = (product: Product, size: ProductSize | null, quantity: number = 1, notes: string = '', addons: { id: string; name: string; price: number; groupId: string; groupName: string }[] = []) => {
+  const addToCart = (product: Product, size: ProductSize | null, quantity: number = 1, notes: string = '', addons: CartItemAddon[] = []) => {
     const basePrice = getProductPrice(product, size);
-    const addonsPrice = addons.reduce((sum, a) => sum + a.price, 0);
+    const addonsPrice = addons.reduce((sum, a) => sum + (a.price * a.quantity), 0);
     const unitPrice = basePrice + addonsPrice;
     
     // Each product with different addons/size/notes combo is a unique cart item
-    const cartItemKey = `${product.id}-${size || 'default'}-${addons.map(a => a.id).sort().join(',')}-${notes}`;
+    const cartItemKey = `${product.id}-${size || 'default'}-${addons.map(a => `${a.id}:${a.quantity}`).sort().join(',')}-${notes}`;
     
     setCart(prev => {
       // Check for exact match (same product, size, addons, and notes)
       const existing = prev.find(item => {
-        const itemKey = `${item.product.id}-${item.size || 'default'}-${(item.addons || []).map(a => a.id).sort().join(',')}-${item.notes}`;
+        const itemAddonsKey = (item.addons || []).map(a => `${a.id}:${a.quantity}`).sort().join(',');
+        const itemKey = `${item.product.id}-${item.size || 'default'}-${itemAddonsKey}-${item.notes}`;
         return itemKey === cartItemKey;
       });
       
       if (existing) {
         return prev.map(item => {
-          const itemKey = `${item.product.id}-${item.size || 'default'}-${(item.addons || []).map(a => a.id).sort().join(',')}-${item.notes}`;
+          const itemAddonsKey = (item.addons || []).map(a => `${a.id}:${a.quantity}`).sort().join(',');
+          const itemKey = `${item.product.id}-${item.size || 'default'}-${itemAddonsKey}-${item.notes}`;
           return itemKey === cartItemKey
             ? { ...item, quantity: item.quantity + quantity }
             : item;
@@ -648,7 +651,7 @@ export default function WaiterAppRefactored({
           productName += ` (${getSizeLabel(item.size)})`;
         }
         if (item.addons && item.addons.length > 0) {
-          const addonNames = item.addons.map(a => a.name).join(', ');
+          const addonNames = item.addons.map(a => a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name).join(', ');
           productName += ` + ${addonNames}`;
         }
         
