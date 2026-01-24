@@ -36,6 +36,8 @@ interface ProductAddonSelectorProps {
   restaurantId: string;
   selectedAddons: SelectedAddon[];
   onSelectionChange: (addons: SelectedAddon[]) => void;
+  /** Use edge function instead of direct supabase queries (for waiter app) */
+  useEdgeFunction?: boolean;
 }
 
 export function ProductAddonSelector({
@@ -44,6 +46,7 @@ export function ProductAddonSelector({
   restaurantId,
   selectedAddons,
   onSelectionChange,
+  useEdgeFunction = false,
 }: ProductAddonSelectorProps) {
   const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
   const [addons, setAddons] = useState<Addon[]>([]);
@@ -57,6 +60,41 @@ export function ProductAddonSelector({
       }
 
       try {
+        // Use edge function for waiter app (bypasses RLS)
+        if (useEdgeFunction) {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          
+          const params = new URLSearchParams({
+            restaurant_id: restaurantId,
+            action: 'product-addons',
+            product_id: productId,
+          });
+          if (productCategoryId) {
+            params.append('category_id', productCategoryId);
+          }
+          
+          const response = await fetch(`${supabaseUrl}/functions/v1/waiter-data?${params}`, {
+            headers: {
+              'apikey': supabaseKey,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            setAddonGroups(result.groups || []);
+            setAddons(result.addons || []);
+          } else {
+            console.error('Failed to fetch addons via edge function');
+            setAddonGroups([]);
+            setAddons([]);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Direct supabase queries (for dashboard with auth)
         // Get addon groups linked directly to this product
         const { data: productLinks, error: productLinksError } = await supabase
           .from('product_addon_groups')
@@ -118,7 +156,7 @@ export function ProductAddonSelector({
     };
 
     fetchAddons();
-  }, [productId, productCategoryId, restaurantId]);
+  }, [productId, productCategoryId, restaurantId, useEdgeFunction]);
 
   const handleToggleAddon = (addon: Addon, group: AddonGroup) => {
     const isSelected = selectedAddons.some(a => a.id === addon.id);

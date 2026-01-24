@@ -159,6 +159,7 @@ export function ProductModal({ product, restaurantId, onConfirm, onClose }: Prod
               restaurantId={restaurantId}
               selectedAddons={selectedAddons}
               onSelectionChange={setSelectedAddons}
+              useEdgeFunction={true}
             />
 
             {/* Notes */}

@@ -607,32 +607,38 @@ class PrinterService {
     const lines = [];
     
     console.log('[formatReceipt] Restaurant info:', JSON.stringify(restaurantInfo));
-    console.log('[formatReceipt] Layout:', JSON.stringify(layout));
+    console.log('[formatReceipt] Layout showRestaurantName:', layout.showRestaurantName);
     console.log('[formatReceipt] Width:', width);
-    
-    // Restaurant name FIRST (wrap if too long) - show by default
-    const showRestaurantName = layout.showRestaurantName !== false;
-    if (showRestaurantName && restaurantInfo.name) {
-      const restaurantName = this.sanitizeText(restaurantInfo.name.toUpperCase());
-      console.log('[formatReceipt] Adding restaurant name:', restaurantName);
-      this.wrapText(restaurantName, width).forEach(line => {
-        lines.push(this.center(line, width));
-      });
-    } else {
-      console.log('[formatReceipt] Skipping restaurant name - showRestaurantName:', showRestaurantName, 'name:', restaurantInfo.name);
-    }
     
     lines.push(div);
     
-    // Date/Time - always show prominently after divider
+    // Restaurant name FIRST (wrap if too long) - show by default
+    const showRestaurantName = layout.showRestaurantName !== false;
+    const restaurantName = restaurantInfo.name || restaurantInfo.restaurantName || '';
+    
+    if (showRestaurantName && restaurantName) {
+      const cleanName = this.sanitizeText(restaurantName.toUpperCase());
+      console.log('[formatReceipt] Adding restaurant name:', cleanName);
+      this.wrapText(cleanName, width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
+    } else {
+      console.log('[formatReceipt] Skipping restaurant name - showRestaurantName:', showRestaurantName, 'name:', restaurantName);
+    }
+    
+    // Date/Time - always show prominently after restaurant name
     const showDateTime = layout.showDateTime !== false;
     if (showDateTime) {
       const orderDate = new Date(order.created_at || Date.now());
       const dateStr = orderDate.toLocaleDateString('pt-BR');
       const timeStr = orderDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const dateTimeText = dateStr + '  ' + timeStr;
+      const dateTimeText = dateStr + '   ' + timeStr;
       lines.push(this.center(dateTimeText, width));
-      console.log('[formatReceipt] Adding datetime:', dateTimeText);
+    }
+    
+    // Restaurant CNPJ (from layout settings) - right after date
+    if (layout.showCnpj !== false && restaurantInfo.cnpj) {
+      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
     }
     
     // Restaurant Address (from layout settings)
@@ -645,11 +651,6 @@ class PrinterService {
     // Restaurant Phone (from layout settings)
     if (layout.showPhone !== false && restaurantInfo.phone) {
       lines.push(this.center('Tel: ' + restaurantInfo.phone, width));
-    }
-    
-    // Restaurant CNPJ (from layout settings)
-    if (layout.showCnpj !== false && restaurantInfo.cnpj) {
-      lines.push(this.center('CNPJ: ' + restaurantInfo.cnpj, width));
     }
     
     lines.push(divSmall);
