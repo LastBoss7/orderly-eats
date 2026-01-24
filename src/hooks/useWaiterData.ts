@@ -188,6 +188,37 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     return data || [];
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 
+  const fetchPendingTotals = useCallback(async () => {
+    if (useEdgeFunction) {
+      const result = await fetchFromEdge('pending-totals');
+      return { 
+        tableTotals: result.tableTotals || {}, 
+        tabTotals: result.tabTotals || {} 
+      };
+    }
+    
+    // Direct Supabase query
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('table_id, tab_id, total')
+      .eq('restaurant_id', restaurantId)
+      .is('closed_at', null);
+
+    const tableTotals: Record<string, number> = {};
+    const tabTotals: Record<string, number> = {};
+
+    for (const order of orders || []) {
+      if (order.table_id) {
+        tableTotals[order.table_id] = (tableTotals[order.table_id] || 0) + (order.total || 0);
+      }
+      if (order.tab_id) {
+        tabTotals[order.tab_id] = (tabTotals[order.tab_id] || 0) + (order.total || 0);
+      }
+    }
+
+    return { tableTotals, tabTotals };
+  }, [restaurantId, useEdgeFunction, fetchFromEdge]);
+
   const fetchTableTotal = useCallback(async (tableId: string) => {
     if (useEdgeFunction) {
       const result = await fetchFromEdge('table-total', { table_id: tableId });
@@ -519,5 +550,6 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
     createCustomer,
     searchCustomers,
     updateOrderStatus,
+    fetchPendingTotals,
   };
 }
