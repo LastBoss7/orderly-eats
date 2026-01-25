@@ -1145,8 +1145,11 @@ export default function WaiterAppRefactored({
           onMarkOrderServed={async (orderId) => {
             try {
               await waiterData.updateOrderStatus(orderId, 'served');
-              // Refresh table orders after marking as served
-              const refreshedOrders = await waiterData.fetchTableOrders(selectedTable.id);
+              // Refresh table orders and ready orders indicator after marking as served
+              const [refreshedOrders] = await Promise.all([
+                waiterData.fetchTableOrders(selectedTable.id),
+                refreshReadyOrders(), // Refresh ready orders so the indicator disappears
+              ]);
               setTableOrders(refreshedOrders);
               toast.success('Pedido marcado como entregue');
             } catch (error) {
@@ -1214,8 +1217,11 @@ export default function WaiterAppRefactored({
           onMarkOrderServed={async (orderId) => {
             try {
               await waiterData.updateOrderStatus(orderId, 'served');
-              // Refresh tab orders after marking as served
-              const refreshedOrders = await waiterData.fetchTabOrders(selectedTab.id);
+              // Refresh tab orders and ready orders indicator after marking as served
+              const [refreshedOrders] = await Promise.all([
+                waiterData.fetchTabOrders(selectedTab.id),
+                refreshReadyOrders(), // Refresh ready orders so the indicator disappears
+              ]);
               setTableOrders(refreshedOrders);
               toast.success('Pedido marcado como entregue');
             } catch (error) {
