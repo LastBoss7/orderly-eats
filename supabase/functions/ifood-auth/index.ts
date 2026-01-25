@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          grantType: "client_credentials",
-          clientId,
-          clientSecret,
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
         }),
       });
 
@@ -145,10 +145,10 @@ Deno.serve(async (req) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          grantType: "refresh_token",
-          clientId,
-          clientSecret,
-          refreshToken: settings.refresh_token,
+          grant_type: "refresh_token",
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: settings.refresh_token,
         }),
       });
 
