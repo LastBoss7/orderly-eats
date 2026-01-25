@@ -416,7 +416,7 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
             ))}
           </div>
         ) : (
-        <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'} overflow-hidden`}>
+        <div className={`p-3 pb-24 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'} overflow-hidden`}>
           {filteredProducts.map((product) => {
             const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
             const minPrice = product.has_sizes
@@ -437,6 +437,26 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
         </div>
         )}
       </ScrollArea>
+
+      {/* Floating Action Button - Quick access to send order */}
+      {cart.length > 0 && (
+        <Button
+          className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
+          disabled={submitting}
+          onClick={onSubmitOrder}
+        >
+          {submitting ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
+            <div className="relative">
+              <Send className="w-6 h-6" />
+              <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            </div>
+          )}
+        </Button>
+      )}
 
       {/* Cart Summary */}
       {cart.length > 0 && (
