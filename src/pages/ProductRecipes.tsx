@@ -7,45 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { PremiumRecipeStats } from '@/components/inventory';
 import {
   Plus,
   Search,
   ChefHat,
   Trash2,
-  Package,
-  FileText,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 
 interface Product {
@@ -289,15 +264,30 @@ export default function ProductRecipes() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
-        {/* Header */}
+        {/* Premium Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Ficha Técnica</h1>
-            <p className="text-muted-foreground">
-              Defina a composição de ingredientes de cada produto
-            </p>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+              <ChefHat className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">Ficha Técnica</h1>
+                <Sparkles className="w-5 h-5 text-amber-500" />
+              </div>
+              <p className="text-muted-foreground">
+                Gerencie a composição e custos de cada produto
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Premium Stats */}
+        <PremiumRecipeStats
+          totalProducts={products.length}
+          withRecipe={Object.keys(groupedRecipes).length}
+          withoutRecipe={productsWithoutRecipes.length}
+        />
 
         {/* Search */}
         <div className="relative max-w-md">
@@ -306,51 +296,8 @@ export default function ProductRecipes() {
             placeholder="Buscar produtos..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11"
           />
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Package className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Produtos</p>
-                  <p className="text-2xl font-bold">{products.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Com Ficha Técnica</p>
-                  <p className="text-2xl font-bold">{Object.keys(groupedRecipes).length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Sem Ficha Técnica</p>
-                  <p className="text-2xl font-bold">{productsWithoutRecipes.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {loading ? (
