@@ -32,17 +32,6 @@ interface IFoodOrder {
   created_at: string;
   updated_at: string;
 }
-  restaurant_id: string;
-  ifood_order_id: string;
-  ifood_display_id: string | null;
-  order_data: Record<string, unknown>;
-  status: string;
-  local_order_id: string | null;
-  expires_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export function useIFoodIntegration() {
   const { restaurant } = useAuth();
