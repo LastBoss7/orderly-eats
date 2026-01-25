@@ -723,7 +723,7 @@ class PrinterService {
         const qty = item.quantity || 1;
         let rawName = item.product_name || 'Item';
         
-        // Parse addons from product_name format: "Product (Size) + Addon1, Addon2"
+        // Parse addons from product_name format: "Product (Size) + 2x Addon1 - unit, 3x Addon2 - unit"
         let baseName = rawName;
         let addons = [];
         
@@ -731,7 +731,16 @@ class PrinterService {
         if (addonSeparatorIndex > -1) {
           baseName = rawName.substring(0, addonSeparatorIndex);
           const addonsPart = rawName.substring(addonSeparatorIndex + 3);
-          addons = addonsPart.split(', ').map(a => a.trim()).filter(a => a);
+          // Parse each addon with format "Nx Name - unit" or "Name - unit"
+          addons = addonsPart.split(', ').map(a => {
+            const trimmed = a.trim();
+            // Extract quantity if present (e.g., "2x Bacon" or "10x OVO - unidade")
+            const qtyMatch = trimmed.match(/^(\d+)x\s+(.+)$/i);
+            if (qtyMatch) {
+              return { qty: parseInt(qtyMatch[1], 10), name: qtyMatch[2] };
+            }
+            return { qty: 1, name: trimmed };
+          }).filter(a => a.name);
         }
         
         let name = this.sanitizeText(baseName);
@@ -777,10 +786,12 @@ class PrinterService {
           });
         }
         
-        // Print addons as sub-items (may include quantity like "2x Bacon")
+        // Print addons as sub-items with quantity and indented format
+        // Format: "      (qty) - Name"
         if (addons.length > 0) {
           for (const addon of addons) {
-            lines.push('   - ' + this.sanitizeText(addon));
+            const addonLine = '      (' + addon.qty + ') - ' + this.sanitizeText(addon.name);
+            lines.push(addonLine);
           }
         }
         
@@ -917,7 +928,7 @@ class PrinterService {
         
         let rawName = item.product_name || 'Item';
         
-        // Parse addons from product_name format: "Product (Size) + Addon1, Addon2"
+        // Parse addons from product_name format: "Product (Size) + 2x Addon1 - unit, 3x Addon2 - unit"
         let baseName = rawName;
         let addons = [];
         
@@ -925,7 +936,16 @@ class PrinterService {
         if (addonSeparatorIndex > -1) {
           baseName = rawName.substring(0, addonSeparatorIndex);
           const addonsPart = rawName.substring(addonSeparatorIndex + 3);
-          addons = addonsPart.split(', ').map(a => a.trim()).filter(a => a);
+          // Parse each addon with format "Nx Name - unit" or "Name - unit"
+          addons = addonsPart.split(', ').map(a => {
+            const trimmed = a.trim();
+            // Extract quantity if present (e.g., "2x Bacon" or "10x OVO - unidade")
+            const qtyMatch = trimmed.match(/^(\d+)x\s+(.+)$/i);
+            if (qtyMatch) {
+              return { qty: parseInt(qtyMatch[1], 10), name: qtyMatch[2] };
+            }
+            return { qty: 1, name: trimmed };
+          }).filter(a => a.name);
         }
         
         const name = this.sanitizeText(baseName);
@@ -933,10 +953,11 @@ class PrinterService {
         
         lines.push(this.alignBoth('(' + qty + ') ' + name, priceStr, width));
         
-        // Print addons as sub-items
+        // Print addons as sub-items with quantity and indented format
         if (addons.length > 0) {
           for (const addon of addons) {
-            lines.push('   - ' + this.sanitizeText(addon));
+            const addonLine = '      (' + addon.qty + ') - ' + this.sanitizeText(addon.name);
+            lines.push(addonLine);
           }
         }
       }
