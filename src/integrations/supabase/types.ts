@@ -705,6 +705,133 @@ export type Database = {
           },
         ]
       }
+      ifood_orders: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          ifood_display_id: string | null
+          ifood_order_id: string
+          local_order_id: string | null
+          order_data: Json
+          rejection_reason: string | null
+          restaurant_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ifood_display_id?: string | null
+          ifood_order_id: string
+          local_order_id?: string | null
+          order_data: Json
+          rejection_reason?: string | null
+          restaurant_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          ifood_display_id?: string | null
+          ifood_order_id?: string
+          local_order_id?: string | null
+          order_data?: Json
+          rejection_reason?: string | null
+          restaurant_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ifood_orders_local_order_id_fkey"
+            columns: ["local_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ifood_orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ifood_orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ifood_settings: {
+        Row: {
+          access_token: string | null
+          auto_accept_orders: boolean
+          created_at: string
+          id: string
+          is_enabled: boolean
+          last_sync_at: string | null
+          merchant_id: string | null
+          refresh_token: string | null
+          restaurant_id: string
+          sync_status: string
+          token_expires_at: string | null
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          auto_accept_orders?: boolean
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          merchant_id?: string | null
+          refresh_token?: string | null
+          restaurant_id: string
+          sync_status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          auto_accept_orders?: boolean
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_sync_at?: string | null
+          merchant_id?: string | null
+          refresh_token?: string | null
+          restaurant_id?: string
+          sync_status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ifood_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ifood_settings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
+            referencedRelation: "restaurants_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           category: string | null

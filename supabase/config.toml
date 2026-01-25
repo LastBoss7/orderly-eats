@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.verify-email-token]
 verify_jwt = false
+
+[functions.ifood-auth]
+verify_jwt = false
+
+[functions.ifood-webhook]
+verify_jwt = false
+
+[functions.ifood-orders]
+verify_jwt = false
