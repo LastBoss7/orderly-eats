@@ -171,7 +171,7 @@ export function useIFoodIntegration() {
 
     setIsConnecting(true);
     try {
-      const response = await supabase.functions.invoke('ifood-auth', {
+      const response = await supabase.functions.invoke('ifood-auth?action=token', {
         body: {
           restaurant_id: restaurant.id,
         },
@@ -208,7 +208,7 @@ export function useIFoodIntegration() {
     if (!restaurant?.id) return false;
 
     try {
-      const response = await supabase.functions.invoke('ifood-auth', {
+      const response = await supabase.functions.invoke('ifood-auth?action=test', {
         body: {
           restaurant_id: restaurant.id,
         },
