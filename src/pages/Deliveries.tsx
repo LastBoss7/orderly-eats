@@ -49,8 +49,10 @@ import {
   DollarSign,
   Pencil,
   Trash2,
-  Bike
+  Bike,
+  BarChart3
 } from 'lucide-react';
+import { DriverReportsTab } from '@/components/deliveries/DriverReportsTab';
 
 interface Customer {
   id: string;
@@ -959,6 +961,10 @@ export default function Deliveries() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="orders">Pedidos</TabsTrigger>
+            <TabsTrigger value="driver-reports" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Relatório Motoboys
+            </TabsTrigger>
             <TabsTrigger value="fees">Taxas de Entrega</TabsTrigger>
             <TabsTrigger value="customers">Clientes</TabsTrigger>
           </TabsList>
@@ -1088,6 +1094,10 @@ export default function Deliveries() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="driver-reports" className="mt-4">
+            <DriverReportsTab orders={orders} drivers={drivers} />
           </TabsContent>
 
           <TabsContent value="fees" className="mt-4">
