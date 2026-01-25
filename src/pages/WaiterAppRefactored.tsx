@@ -360,14 +360,14 @@ export default function WaiterAppRefactored({
         }
       });
 
-    // Fallback polling every 60s for reliability (reduced frequency due to realtime)
+    // Fallback polling every 30s for reliability (includes pending totals)
     const pollInterval = setInterval(async () => {
       try {
-        await refreshReadyOrders();
+        await Promise.all([refreshReadyOrders(), refreshPendingTotals()]);
       } catch (error) {
         // Silently ignore polling errors
       }
-    }, 60000);
+    }, 30000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -693,16 +693,32 @@ export default function WaiterAppRefactored({
 
       toast.success(successMessage);
 
-      // Optimistically update table/tab status locally first
+      // Optimistically update table/tab status AND pending totals locally first
       if (orderMode === 'table' && selectedTable) {
         setTables(prev => prev.map(t => 
           t.id === selectedTable.id ? { ...t, status: 'occupied' as const } : t
         ));
+        // Optimistically update pending totals for this table
+        setPendingTotals(prev => ({
+          ...prev,
+          tableTotals: {
+            ...prev.tableTotals,
+            [selectedTable.id]: (prev.tableTotals[selectedTable.id] || 0) + orderTotal
+          }
+        }));
       }
       if (orderMode === 'tab' && selectedTab) {
         setTabs(prev => prev.map(t => 
           t.id === selectedTab.id ? { ...t, status: 'occupied' as const } : t
         ));
+        // Optimistically update pending totals for this tab
+        setPendingTotals(prev => ({
+          ...prev,
+          tabTotals: {
+            ...prev.tabTotals,
+            [selectedTab.id]: (prev.tabTotals[selectedTab.id] || 0) + orderTotal
+          }
+        }));
       }
 
       // Navigate immediately - don't wait for refresh
@@ -724,13 +740,15 @@ export default function WaiterAppRefactored({
       });
       setSelectedCustomer(null);
 
-      // Refresh data in background (non-blocking)
+      // Refresh data in background (non-blocking) - fetch fresh pending totals too
       Promise.all([
         waiterData.fetchTables(),
         waiterData.fetchTabs(),
-      ]).then(([tablesData, tabsData]) => {
+        waiterData.fetchPendingTotals(),
+      ]).then(([tablesData, tabsData, totalsData]) => {
         setTables(tablesData as Table[]);
         setTabs(tabsData as Tab[]);
+        setPendingTotals(totalsData);
       }).catch(console.error);
     } catch (error: any) {
       toast.error('Erro ao enviar pedido: ' + error.message);
@@ -759,14 +777,28 @@ export default function WaiterAppRefactored({
         })),
       });
       
+      // Optimistically clear pending total for this table
+      setPendingTotals(prev => ({
+        ...prev,
+        tableTotals: {
+          ...prev.tableTotals,
+          [selectedTable.id]: 0
+        }
+      }));
+      
       toast.success(`Mesa ${selectedTable.number} fechada com sucesso!`);
       setShowCloseModal(false);
       setView('tables');
       setSelectedTable(null);
       setTableOrders([]);
       
-      const data = await waiterData.fetchTables();
-      setTables(data as Table[]);
+      // Refresh all data to ensure UI is in sync
+      const [tablesData, totalsData] = await Promise.all([
+        waiterData.fetchTables(),
+        waiterData.fetchPendingTotals(),
+      ]);
+      setTables(tablesData as Table[]);
+      setPendingTotals(totalsData);
     } catch (error: any) {
       toast.error('Erro ao fechar mesa');
     } finally {
@@ -794,14 +826,28 @@ export default function WaiterAppRefactored({
         })),
       });
       
+      // Optimistically clear pending total for this tab
+      setPendingTotals(prev => ({
+        ...prev,
+        tabTotals: {
+          ...prev.tabTotals,
+          [selectedTab.id]: 0
+        }
+      }));
+      
       toast.success(`Comanda #${selectedTab.number} fechada com sucesso!`);
       setShowCloseModal(false);
       setView('tables');
       setSelectedTab(null);
       setTableOrders([]);
       
-      const data = await waiterData.fetchTabs();
-      setTabs(data as Tab[]);
+      // Refresh all data to ensure UI is in sync
+      const [tabsData, totalsData] = await Promise.all([
+        waiterData.fetchTabs(),
+        waiterData.fetchPendingTotals(),
+      ]);
+      setTabs(tabsData as Tab[]);
+      setPendingTotals(totalsData);
     } catch (error: any) {
       toast.error('Erro ao fechar comanda');
     } finally {
