@@ -75,13 +75,9 @@ Deno.serve(async (req) => {
       const tokenResponse = await fetch(`${IFOOD_API_BASE}/authentication/v1.0/oauth/token`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify({
-          grantType: "client_credentials",
-          clientId,
-          clientSecret,
-        }),
+        body: `grantType=client_credentials&clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}`,
       });
 
       if (!tokenResponse.ok) {
@@ -142,14 +138,9 @@ Deno.serve(async (req) => {
       const refreshResponse = await fetch(`${IFOOD_API_BASE}/authentication/v1.0/oauth/token`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify({
-          grantType: "refresh_token",
-          clientId,
-          clientSecret,
-          refreshToken: settings.refresh_token,
-        }),
+        body: `grantType=refresh_token&clientId=${encodeURIComponent(clientId)}&clientSecret=${encodeURIComponent(clientSecret)}&refreshToken=${encodeURIComponent(settings.refresh_token)}`,
       });
 
       if (!refreshResponse.ok) {
