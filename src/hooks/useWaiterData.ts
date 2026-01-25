@@ -10,7 +10,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<any>>();
-const CACHE_TTL = 15000; // 15 seconds - increased for better performance
+const CACHE_TTL = 5000; // 5 seconds - reduced for fresher data
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -23,6 +23,19 @@ function getCached<T>(key: string): T | null {
 
 function setCache<T>(key: string, data: T): void {
   cache.set(key, { data, timestamp: Date.now() });
+}
+
+// Invalidate cache entries by prefix (e.g., after mutations)
+function invalidateCache(restaurantId: string, patterns?: string[]): void {
+  const keysToDelete: string[] = [];
+  cache.forEach((_, key) => {
+    if (key.includes(restaurantId)) {
+      if (!patterns || patterns.some(p => key.includes(p))) {
+        keysToDelete.push(key);
+      }
+    }
+  });
+  keysToDelete.forEach(key => cache.delete(key));
 }
 
 interface UseWaiterDataOptions {
@@ -234,8 +247,14 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
   }, [restaurantId, useEdgeFunction, fetchFromEdge]);
 
   const createOrder = useCallback(async (orderData: any) => {
+    // Invalidate cache for pending-totals and tables/tabs to ensure fresh data after order creation
+    invalidateCache(restaurantId, ['pending-totals', 'tables', 'tabs', 'table-total', 'tab-total']);
+    
     if (useEdgeFunction) {
-      return postToEdge('create-order', orderData);
+      const result = await postToEdge('create-order', orderData);
+      // After creating order, invalidate cache again to ensure next fetch gets fresh data
+      invalidateCache(restaurantId, ['pending-totals', 'tables', 'tabs', 'table-total', 'tab-total']);
+      return result;
     }
     
     // Get next order number atomically using database function
@@ -316,8 +335,14 @@ export function useWaiterData({ restaurantId, useEdgeFunction = false }: UseWait
       cashReceived?: number;
     }>;
   }) => {
+    // Invalidate cache before closing to ensure fresh state after
+    invalidateCache(restaurantId, ['pending-totals', 'tables', 'tabs', 'table-total', 'tab-total', 'table-orders', 'tab-orders']);
+    
     if (useEdgeFunction) {
-      return postToEdge('close-orders', data);
+      const result = await postToEdge('close-orders', data);
+      // Invalidate cache after closing
+      invalidateCache(restaurantId, ['pending-totals', 'tables', 'tabs', 'table-total', 'tab-total', 'table-orders', 'tab-orders']);
+      return result;
     }
 
     const isMixedPayment = data.payments && data.payments.length > 0;
