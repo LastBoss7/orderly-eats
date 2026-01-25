@@ -25,6 +25,7 @@ import {
   Shield,
   History
 } from 'lucide-react';
+import logoIfood from '@/assets/logo-ifood.png';
 
 export default function IFoodSettings() {
   const { restaurant } = useAuth();
@@ -150,9 +151,7 @@ export default function IFoodSettings() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">iF</span>
-              </div>
+              <img src={logoIfood} alt="iFood" className="w-10 h-10 rounded-lg object-cover" />
               Integração iFood
             </h1>
             <p className="text-muted-foreground mt-1">
