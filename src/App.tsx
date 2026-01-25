@@ -52,6 +52,7 @@ import Coupons from "./pages/Coupons";
 import DigitalMenuSettings from "./pages/DigitalMenuSettings";
 import OpeningHoursSettings from "./pages/OpeningHoursSettings";
 import Feedback from "./pages/Feedback";
+import IFoodSettings from "./pages/IFoodSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -145,6 +146,7 @@ const AnimatedRoutes = () => {
           <Route path="/digital-menu-settings" element={<DigitalMenuSettings />} />
           <Route path="/opening-hours" element={<OpeningHoursSettings />} />
           <Route path="/feedback" element={<Feedback />} />
+          <Route path="/ifood-settings" element={<IFoodSettings />} />
           
           {/* Public Digital Menu */}
           <Route path="/menu/:slug" element={<MenuPage />} />

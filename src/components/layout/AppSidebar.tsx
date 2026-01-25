@@ -86,6 +86,7 @@ const cardapioSubmenu = [
 
 const bottomMenuItems = [
   { title: 'Feedback Clientes', url: '/feedback', icon: MessageSquare },
+  { title: 'iFood', url: '/ifood-settings', icon: ExternalLink },
   { title: 'Estoque', url: '/inventory', icon: Package },
   { title: 'Ficha Técnica', url: '/product-recipes', icon: ChefHat },
   { title: 'Consumo', url: '/consumption-report', icon: BarChart3 },
