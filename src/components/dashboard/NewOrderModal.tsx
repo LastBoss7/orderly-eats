@@ -1428,13 +1428,16 @@ export function NewOrderModal({ open, onOpenChange, onOrderCreated, shouldAutoPr
                                 <div className="text-xs text-muted-foreground mt-0.5">
                                   {item.addons.map(addon => (
                                     <span key={addon.id} className="mr-1.5">
-                                      + {addon.name}
+                                      + {addon.quantity > 1 ? `${addon.quantity}x ` : ''}{addon.name}
                                     </span>
                                   ))}
                                 </div>
                               )}
                               <p className="text-xs text-muted-foreground">
-                                {formatCurrency(item.unitPrice)}
+                                {formatCurrency(
+                                  item.unitPrice + 
+                                  (item.addons || []).reduce((sum, a) => sum + (a.price * a.quantity), 0)
+                                )}
                               </p>
                             </div>
                             <div className="flex items-center gap-1">
