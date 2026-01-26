@@ -525,8 +525,11 @@ export default function MenuPage() {
 
         toast.success('Pedido enviado!');
 
-        // Open WhatsApp
-        window.open(whatsappLink, '_blank');
+        // Open WhatsApp - use location.href for better mobile support
+        // window.open with _blank doesn't work reliably on iOS/mobile
+        setTimeout(() => {
+          window.location.href = whatsappLink;
+        }, 300);
       } catch (err) {
         console.error('Error submitting order:', err);
         toast.error('Erro ao enviar pedido');
