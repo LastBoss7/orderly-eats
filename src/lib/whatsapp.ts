@@ -19,6 +19,9 @@ interface OrderInfo {
   notes?: string | null;
   status?: string | null;
   restaurantName?: string;
+  paymentMethod?: 'cash' | 'credit' | 'debit' | 'pix';
+  needsChange?: boolean;
+  changeFor?: number | null;
 }
 
 /**
@@ -92,6 +95,19 @@ export const formatPhoneForWhatsApp = (phone: string): string => {
 };
 
 /**
+ * Get payment method label in Portuguese
+ */
+const getPaymentMethodLabel = (method: string | undefined): string => {
+  switch (method) {
+    case 'pix': return 'PIX';
+    case 'cash': return 'Dinheiro';
+    case 'credit': return 'Cartão de Crédito';
+    case 'debit': return 'Cartão de Débito';
+    default: return 'Não informado';
+  }
+};
+
+/**
  * Generate clean, professional order message for WhatsApp
  */
 export const generateOrderMessage = (order: OrderInfo): string => {
@@ -140,6 +156,19 @@ export const generateOrderMessage = (order: OrderInfo): string => {
   }
   
   message += `*Total: ${formatCurrency(order.total || subtotal)}*\n`;
+  
+  // Payment method section
+  message += `\n*Pagamento:* ${getPaymentMethodLabel(order.paymentMethod)}\n`;
+  
+  if (order.paymentMethod === 'cash' && order.needsChange && order.changeFor) {
+    message += `Troco para: ${formatCurrency(order.changeFor)}\n`;
+    const changeAmount = order.changeFor - (order.total || subtotal);
+    if (changeAmount > 0) {
+      message += `_Troco: ${formatCurrency(changeAmount)}_\n`;
+    }
+  } else if (order.paymentMethod === 'cash' && !order.needsChange) {
+    message += `_Sem troco necessário_\n`;
+  }
   
   // Delivery address - Clean format
   if (order.orderType === 'delivery' && order.deliveryAddress) {

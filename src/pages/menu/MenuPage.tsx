@@ -29,6 +29,7 @@ import {
   ExperienceSurveyDrawer,
   CustomerProfile,
 } from './components';
+import type { PaymentInfo } from './components/MenuCheckout';
 import { Loader2, ShoppingCart, MessageSquare, Star, User } from 'lucide-react';
 import { generateWhatsAppOrderLink } from '@/lib/whatsapp';
 import { Button } from '@/components/ui/button';
@@ -324,7 +325,7 @@ export default function MenuPage() {
 
   // Submit order
   const handleSubmitOrder = useCallback(
-    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string) => {
+    async (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string, paymentInfo: PaymentInfo) => {
       if (!restaurant || cart.length === 0) return;
 
       setSubmitting(true);
@@ -370,8 +371,22 @@ export default function MenuPage() {
           status: 'pending',
         });
         
-        // Build notes
+        // Build notes - include payment info
         const notesArray = ['Pedido via Cardápio Digital'];
+        
+        // Add payment info to notes
+        const paymentLabels: Record<string, string> = {
+          pix: 'PIX',
+          cash: 'Dinheiro',
+          credit: 'Cartão de Crédito',
+          debit: 'Cartão de Débito',
+        };
+        notesArray.push(`Pagamento: ${paymentLabels[paymentInfo.method] || paymentInfo.method}`);
+        
+        if (paymentInfo.method === 'cash' && paymentInfo.needsChange && paymentInfo.changeFor) {
+          notesArray.push(`Troco para: ${formatCurrency(paymentInfo.changeFor)}`);
+        }
+        
         if (orderNotes.trim()) {
           notesArray.push(orderNotes.trim());
         }
@@ -496,6 +511,9 @@ export default function MenuPage() {
           notes: orderNotes || null,
           status: 'pending',
           restaurantName: restaurant.name,
+          paymentMethod: paymentInfo.method,
+          needsChange: paymentInfo.needsChange,
+          changeFor: paymentInfo.changeFor,
         });
 
         // Clear cart and close modals
