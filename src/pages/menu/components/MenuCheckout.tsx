@@ -10,11 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useState, useEffect, useCallback } from 'react';
-import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft, MessageSquare, Home, Plus } from 'lucide-react';
+import { Bike, Package, MapPin, User, Phone, Loader2, MessageCircle, AlertCircle, Clock, ArrowRight, CheckCircle2, Info, Truck, ChevronLeft, MessageSquare, Home, Plus, Banknote, CreditCard, QrCode, Wallet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SavedAddressesList } from './SavedAddressesList';
+
+type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
 
 interface DeliveryFeeData {
   fee: number;
@@ -35,11 +38,17 @@ interface SavedAddress {
   is_default: boolean;
 }
 
+export interface PaymentInfo {
+  method: PaymentMethod;
+  needsChange: boolean;
+  changeFor: number | null;
+}
+
 interface MenuCheckoutProps {
   open: boolean;
   onClose: () => void;
   total: number;
-  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string) => void;
+  onSubmit: (orderType: OrderType, customerInfo: CustomerInfo, customerId: string | null, deliveryFee: number, orderNotes: string, paymentInfo: PaymentInfo) => void;
   loading: boolean;
   menuSettings: MenuSettings;
   restaurantId: string;
@@ -96,6 +105,11 @@ export function MenuCheckout({
   // Order notes state
   const [orderNotes, setOrderNotes] = useState('');
 
+  // Payment method state
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix');
+  const [needsChange, setNeedsChange] = useState(false);
+  const [changeFor, setChangeFor] = useState('');
+
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -129,6 +143,9 @@ export function MenuCheckout({
       setDeliveryFeeData(null);
       setDeliveryFeeNotFound(false);
       setOrderNotes('');
+      setPaymentMethod('pix');
+      setNeedsChange(false);
+      setChangeFor('');
       setSavedAddresses([]);
       setSelectedAddressId(null);
       setAddressMode('list');
@@ -415,13 +432,30 @@ export function MenuCheckout({
     if (!customerInfo.name || !customerInfo.phone) return;
     if (orderType === 'delivery' && !customerInfo.address) return;
     
+    // Validate change amount if needed
+    if (paymentMethod === 'cash' && needsChange) {
+      const changeAmount = parseFloat(changeFor.replace(/[^\d,]/g, '').replace(',', '.'));
+      if (isNaN(changeAmount) || changeAmount < finalTotal) {
+        toast.error('O valor para troco deve ser maior que o total do pedido');
+        return;
+      }
+    }
+    
     // Save or update address if in form mode and has address data
     if (addressMode === 'form' && orderType === 'delivery' && customerId && customerInfo.address && customerInfo.neighborhood) {
       await saveOrUpdateAddress();
     }
     
+    const paymentInfo: PaymentInfo = {
+      method: paymentMethod,
+      needsChange: paymentMethod === 'cash' && needsChange,
+      changeFor: paymentMethod === 'cash' && needsChange 
+        ? parseFloat(changeFor.replace(/[^\d,]/g, '').replace(',', '.')) 
+        : null,
+    };
+    
     await updateCustomerData();
-    onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee, orderNotes);
+    onSubmit(orderType, customerInfo, customerId, calculatedDeliveryFee, orderNotes, paymentInfo);
   };
 
   // Save or update address using secure RPC function
@@ -1031,6 +1065,147 @@ export function MenuCheckout({
                   </div>
                 )}
 
+                {/* Payment Method */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4" />
+                    Forma de pagamento
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod('pix');
+                        setNeedsChange(false);
+                        setChangeFor('');
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 border rounded-xl transition-all ${
+                        paymentMethod === 'pix'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border active:bg-muted'
+                      }`}
+                    >
+                      <QrCode className="w-5 h-5 text-emerald-500 mb-1" />
+                      <span className="font-medium text-sm">PIX</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod('cash');
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 border rounded-xl transition-all ${
+                        paymentMethod === 'cash'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border active:bg-muted'
+                      }`}
+                    >
+                      <Banknote className="w-5 h-5 text-green-600 mb-1" />
+                      <span className="font-medium text-sm">Dinheiro</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod('credit');
+                        setNeedsChange(false);
+                        setChangeFor('');
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 border rounded-xl transition-all ${
+                        paymentMethod === 'credit'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border active:bg-muted'
+                      }`}
+                    >
+                      <CreditCard className="w-5 h-5 text-blue-500 mb-1" />
+                      <span className="font-medium text-sm">Crédito</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentMethod('debit');
+                        setNeedsChange(false);
+                        setChangeFor('');
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 border rounded-xl transition-all ${
+                        paymentMethod === 'debit'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border active:bg-muted'
+                      }`}
+                    >
+                      <CreditCard className="w-5 h-5 text-violet-500 mb-1" />
+                      <span className="font-medium text-sm">Débito</span>
+                    </button>
+                  </div>
+
+                  {/* Cash change options */}
+                  {paymentMethod === 'cash' && (
+                    <div className="space-y-3 pt-2 animate-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNeedsChange(false);
+                            setChangeFor('');
+                          }}
+                          className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all ${
+                            !needsChange
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border text-muted-foreground'
+                          }`}
+                        >
+                          Sem troco
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNeedsChange(true)}
+                          className={`flex-1 py-2.5 px-3 rounded-lg border text-sm font-medium transition-all ${
+                            needsChange
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border text-muted-foreground'
+                          }`}
+                        >
+                          Preciso de troco
+                        </button>
+                      </div>
+
+                      {needsChange && (
+                        <div className="animate-in slide-in-from-top-2 duration-200">
+                          <Label htmlFor="changeFor" className="text-xs text-muted-foreground">
+                            Troco para quanto?
+                          </Label>
+                          <div className="relative mt-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                              R$
+                            </span>
+                            <Input
+                              id="changeFor"
+                              placeholder="100,00"
+                              value={changeFor}
+                              onChange={(e) => {
+                                // Allow only numbers and comma
+                                const value = e.target.value.replace(/[^\d,]/g, '');
+                                setChangeFor(value);
+                              }}
+                              className="h-11 pl-10 text-lg font-semibold"
+                              inputMode="decimal"
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
+                          {changeFor && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Troco: {formatCurrency(
+                                Math.max(0, parseFloat(changeFor.replace(',', '.') || '0') - finalTotal)
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Order Notes */}
                 <div className="space-y-2.5">
                   <Label className="text-sm font-medium flex items-center gap-1.5">
@@ -1038,7 +1213,7 @@ export function MenuCheckout({
                     Observações do pedido
                   </Label>
                   <Textarea
-                    placeholder="Ex: Troco para R$ 100, entregar no portão, etc..."
+                    placeholder="Ex: Entregar no portão, chamar no interfone, etc..."
                     value={orderNotes}
                     onChange={(e) => setOrderNotes(e.target.value)}
                     className="resize-none text-sm min-h-[60px]"
