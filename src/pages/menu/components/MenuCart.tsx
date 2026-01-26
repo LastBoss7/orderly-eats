@@ -6,7 +6,6 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +87,8 @@ export function MenuCart({
             </div>
           ) : (
             <>
-              <ScrollArea className="flex-1 min-h-0 px-4">
+              {/* Native scrolling for better mobile support */}
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4">
                 <div className="space-y-2 py-4">
                   {items.map((item, index) => (
                     <div
@@ -212,7 +212,7 @@ export function MenuCart({
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
 
               <div className="px-4 pt-4 pb-6 border-t space-y-4 flex-shrink-0 bg-background">
                 {/* Coupon Section */}
