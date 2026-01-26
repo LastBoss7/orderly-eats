@@ -27,8 +27,11 @@ import {
   Smartphone,
   X,
   CheckCircle2,
+  MessageSquare,
 } from 'lucide-react';
 import { ProductSize, getSizeOptions, getProductPrice, getSizeLabel } from '@/components/products/SizeSelector';
+import { POSProductModal } from '@/components/pos/POSProductModal';
+import { SelectedAddon } from '@/components/products/ProductAddonSelector';
 
 interface Category {
   id: string;
@@ -48,21 +51,32 @@ interface Product {
   price_large?: number | null;
 }
 
+interface CartItemAddon {
+  id: string;
+  name: string;
+  price: number;
+  groupId: string;
+  groupName: string;
+  quantity: number;
+}
+
 interface CartItem {
   product: Product;
   quantity: number;
   notes?: string;
   size?: ProductSize | null;
   unitPrice: number;
+  addons?: CartItemAddon[];
 }
 
-type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix';
+type PaymentMethod = 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
   { id: 'cash', label: 'Dinheiro', icon: <Banknote className="w-6 h-6" /> },
   { id: 'credit', label: 'Crédito', icon: <CreditCard className="w-6 h-6" /> },
   { id: 'debit', label: 'Débito', icon: <CreditCard className="w-6 h-6" /> },
   { id: 'pix', label: 'Pix', icon: <Smartphone className="w-6 h-6" /> },
+  { id: 'voucher', label: 'Vale', icon: <CreditCard className="w-6 h-6" /> },
 ];
 
 export default function POS() {
@@ -80,9 +94,8 @@ export default function POS() {
   const [submitting, setSubmitting] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
-  const [showSizeModal, setShowSizeModal] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
-  const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -134,45 +147,53 @@ export default function POS() {
   });
 
   const handleProductClick = (product: Product) => {
-    const sizeOptions = getSizeOptions(product);
-    
-    if (sizeOptions.length > 0) {
-      // Product has sizes - show size modal
-      setPendingProduct(product);
-      setSelectedSize(null);
-      setShowSizeModal(true);
-    } else {
-      // Product without sizes - add directly
-      addToCartWithPrice(product, null, product.price);
-    }
+    // Always show product modal (for addons, notes, quantity)
+    setPendingProduct(product);
+    setShowProductModal(true);
   };
 
-  const addToCartWithPrice = (product: Product, size: ProductSize | null, unitPrice: number) => {
+  const handleProductConfirm = (
+    size: ProductSize | null,
+    quantity: number,
+    notes: string,
+    addons: SelectedAddon[],
+    unitPrice: number
+  ) => {
+    if (!pendingProduct) return;
+
+    // Generate a unique key for cart matching (product + size + addons combination)
+    const addonsKey = addons.map(a => `${a.id}:${a.quantity}`).sort().join(',');
+    
     setCart(prev => {
-      // For products with sizes, match by product ID + size
+      // For items with same product, size, notes and addons, increment quantity
       const existing = prev.find(
-        item => item.product.id === product.id && item.size === size
+        item => 
+          item.product.id === pendingProduct.id && 
+          item.size === size &&
+          item.notes === notes &&
+          (item.addons?.map(a => `${a.id}:${a.quantity}`).sort().join(',') || '') === addonsKey
       );
+      
       if (existing) {
         return prev.map(item =>
-          item.product.id === product.id && item.size === size
-            ? { ...item, quantity: item.quantity + 1 }
+          item === existing
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity: 1, size, unitPrice }];
+      
+      return [...prev, { 
+        product: pendingProduct, 
+        quantity, 
+        size, 
+        unitPrice, 
+        notes,
+        addons: addons.length > 0 ? addons : undefined
+      }];
     });
-  };
-
-  const handleConfirmSize = () => {
-    if (!pendingProduct || !selectedSize) return;
     
-    const unitPrice = getProductPrice(pendingProduct, selectedSize);
-    addToCartWithPrice(pendingProduct, selectedSize, unitPrice);
-    
-    setShowSizeModal(false);
+    setShowProductModal(false);
     setPendingProduct(null);
-    setSelectedSize(null);
   };
 
   const updateQuantity = (productId: string, size: ProductSize | null | undefined, delta: number) => {
@@ -266,18 +287,34 @@ export default function POS() {
       if (orderError) throw orderError;
 
       // Create order items
-      const orderItems = cart.map(item => ({
-        restaurant_id: restaurant?.id,
-        order_id: order.id,
-        product_id: item.product.id,
-        product_name: item.size 
-          ? `${item.product.name} (${getSizeLabel(item.size)})`
-          : item.product.name,
-        product_price: item.unitPrice,
-        product_size: item.size || null,
-        quantity: item.quantity,
-        category_id: item.product.category_id || null,
-      }));
+      const orderItems = cart.map(item => {
+        // Build product name with size and addons
+        let productName = item.product.name;
+        if (item.size) {
+          productName += ` (${getSizeLabel(item.size)})`;
+        }
+        if (item.addons && item.addons.length > 0) {
+          const addonsStr = item.addons
+            .map(a => a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name)
+            .join(', ');
+          productName += ` + ${addonsStr}`;
+        }
+        
+        // Combine product notes with item notes
+        let itemNotes = item.notes || null;
+        
+        return {
+          restaurant_id: restaurant?.id,
+          order_id: order.id,
+          product_id: item.product.id,
+          product_name: productName,
+          product_price: item.unitPrice,
+          product_size: item.size || null,
+          quantity: item.quantity,
+          category_id: item.product.category_id || null,
+          notes: itemNotes,
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('order_items')
@@ -460,55 +497,71 @@ export default function POS() {
               </div>
             ) : (
               <div className="space-y-3">
-                {cart.map((item) => (
-                  <div
-                    key={`${item.product.id}-${item.size || 'default'}`}
-                    className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {item.product.name}
-                        {item.size && (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({getSizeLabel(item.size)})
+                {cart.map((item, idx) => {
+                  const itemKey = `${item.product.id}-${item.size || 'default'}-${idx}`;
+                  return (
+                    <div
+                      key={itemKey}
+                      className="p-3 bg-muted/50 rounded-lg space-y-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">
+                            {item.product.name}
+                            {item.size && (
+                              <span className="ml-1 text-xs text-muted-foreground">
+                                ({getSizeLabel(item.size)})
+                              </span>
+                            )}
+                          </p>
+                          {item.addons && item.addons.length > 0 && (
+                            <p className="text-xs text-primary truncate">
+                              + {item.addons.map(a => a.quantity > 1 ? `${a.quantity}x ${a.name}` : a.name).join(', ')}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(item.unitPrice)} cada
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.product.id, item.size, -1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-6 text-center text-sm font-medium tabular-nums">
+                            {item.quantity}
                           </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatCurrency(item.unitPrice)} cada
-                      </p>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => updateQuantity(item.product.id, item.size, 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => removeFromCart(item.product.id, item.size)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      {item.notes && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground bg-background rounded px-2 py-1">
+                          <MessageSquare className="w-3 h-3" />
+                          {item.notes}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQuantity(item.product.id, item.size, -1)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="w-6 text-center text-sm font-medium">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQuantity(item.product.id, item.size, 1)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => removeFromCart(item.product.id, item.size)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
@@ -616,44 +669,19 @@ export default function POS() {
         </DialogContent>
       </Dialog>
 
-      {/* Size Selection Modal */}
-      <Dialog open={showSizeModal} onOpenChange={setShowSizeModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Selecione o Tamanho</DialogTitle>
-          </DialogHeader>
-          
-          {pendingProduct && (
-            <div className="py-4">
-              <p className="text-center font-medium mb-4">{pendingProduct.name}</p>
-              <div className="flex flex-col gap-2">
-                {getSizeOptions(pendingProduct).map(({ size, label, price }) => (
-                  <Button
-                    key={size}
-                    type="button"
-                    variant={selectedSize === size ? 'default' : 'outline'}
-                    className="justify-between h-12"
-                    onClick={() => setSelectedSize(size)}
-                  >
-                    <span className="font-medium">{label}</span>
-                    <span className={selectedSize === size ? "text-primary-foreground font-bold" : "text-primary font-bold"}>
-                      {formatCurrency(price)}
-                    </span>
-                  </Button>
-                ))}
-              </div>
-              
-              <Button
-                className="w-full mt-6"
-                disabled={!selectedSize}
-                onClick={handleConfirmSize}
-              >
-                Adicionar ao Pedido
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Product Modal with Addons */}
+      {pendingProduct && restaurant?.id && (
+        <POSProductModal
+          product={pendingProduct}
+          restaurantId={restaurant.id}
+          open={showProductModal}
+          onConfirm={handleProductConfirm}
+          onClose={() => {
+            setShowProductModal(false);
+            setPendingProduct(null);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
