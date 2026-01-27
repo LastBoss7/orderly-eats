@@ -310,6 +310,29 @@ export default function Dashboard() {
     };
 
     fetchSettings();
+
+    // Subscribe to realtime store status changes
+    const channel = supabase
+      .channel(`dashboard-store-status-${restaurant?.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'salon_settings',
+          filter: `restaurant_id=eq.${restaurant?.id}`,
+        },
+        (payload) => {
+          if (payload.new && 'is_open' in payload.new) {
+            setIsStoreOpen(payload.new.is_open as boolean);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [restaurant?.id]);
 
   useEffect(() => {
