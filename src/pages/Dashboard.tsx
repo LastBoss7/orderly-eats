@@ -1505,13 +1505,6 @@ ${order.notes && !order.notes.includes('Troco') ? `📝 *Obs:* ${order.notes}` :
           />
         </div>
 
-        {/* Stats Bar - Quick Overview */}
-        <StatsBar
-          totalRevenue={0}
-          totalOrders={orders.length}
-          avgPrepTime={prepTimes.counter_max}
-          orderCounts={orderCounts}
-        />
 
         {/* Kanban Board with DnD */}
         <DndContext 
