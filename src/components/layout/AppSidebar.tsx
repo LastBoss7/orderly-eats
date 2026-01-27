@@ -136,13 +136,13 @@ export function AppSidebar() {
 
     fetchStoreStatus();
 
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes (both INSERT and UPDATE)
     const channel = supabase
       .channel(`store-status-${restaurant.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'salon_settings',
           filter: `restaurant_id=eq.${restaurant.id}`,
