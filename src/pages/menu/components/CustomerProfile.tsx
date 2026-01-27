@@ -157,21 +157,25 @@ export function CustomerProfile({
 
     setSearchingCustomer(true);
     try {
+      // Use secure RPC function to lookup customer by phone
       const { data: existingCustomer, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .eq('phone', cleanPhone)
-        .maybeSingle();
+        .rpc('get_customer_by_phone', {
+          _restaurant_id: restaurantId,
+          _phone: cleanPhone,
+        });
 
       if (error) throw error;
 
-      if (existingCustomer) {
-        setCustomer(existingCustomer);
-        setEditName(existingCustomer.name);
-        await fetchSavedAddresses(existingCustomer.id);
+      // RPC returns an array, get first result
+      const customer = Array.isArray(existingCustomer) ? existingCustomer[0] : existingCustomer;
+
+      if (customer) {
+        // Customer found via RPC - need to fetch full record for INSERT policy
+        setCustomer({ ...customer, restaurant_id: restaurantId, phone: cleanPhone } as any);
+        setEditName(customer.name);
+        await fetchSavedAddresses(customer.id);
         setStep('profile');
-        toast.success(`Bem-vindo de volta, ${existingCustomer.name}!`);
+        toast.success(`Bem-vindo de volta, ${customer.name}!`);
       } else {
         // Create new customer
         const { data: newCustomer, error: createError } = await supabase

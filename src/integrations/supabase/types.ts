@@ -2852,6 +2852,21 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_customer_by_phone: {
+        Args: { _phone: string; _restaurant_id: string }
+        Returns: {
+          address: string
+          cep: string
+          city: string
+          complement: string
+          id: string
+          name: string
+          neighborhood: string
+          number: string
+          phone: string
+          state: string
+        }[]
+      }
       get_next_order_number: {
         Args: { _restaurant_id: string }
         Returns: number
@@ -2897,6 +2912,19 @@ export type Database = {
           _number?: string
           _restaurant_id: string
           _state?: string
+        }
+        Returns: string
+      }
+      upsert_printer_heartbeat: {
+        Args: {
+          _client_id: string
+          _client_name?: string
+          _client_version?: string
+          _is_printing?: boolean
+          _pending_orders?: number
+          _platform?: string
+          _printers_count?: number
+          _restaurant_id: string
         }
         Returns: string
       }
