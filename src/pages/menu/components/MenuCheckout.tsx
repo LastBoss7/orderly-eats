@@ -646,30 +646,8 @@ export function MenuCheckout({
   const finalTotal = orderType === 'delivery' ? total + calculatedDeliveryFee : total;
   const canSearchPhone = phoneInput.replace(/\D/g, '').length >= 10;
 
-  // Handle input focus for mobile keyboard - prevent jumping too high
-  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // Use requestAnimationFrame + timeout to wait for keyboard to fully appear
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const target = e.target;
-        const drawer = target.closest('[data-vaul-drawer]');
-        if (drawer) {
-          // Scroll within the drawer's scrollable container instead of the whole page
-          const scrollContainer = drawer.querySelector('.overflow-y-auto');
-          if (scrollContainer) {
-            const targetRect = target.getBoundingClientRect();
-            const containerRect = scrollContainer.getBoundingClientRect();
-            const offsetTop = targetRect.top - containerRect.top + scrollContainer.scrollTop;
-            // Scroll so input is roughly 1/3 from top of visible area
-            scrollContainer.scrollTo({
-              top: offsetTop - containerRect.height * 0.3,
-              behavior: 'smooth'
-            });
-          }
-        }
-      }, 400);
-    });
-  };
+  // REMOVED: Custom scroll handling - let browser handle keyboard behavior naturally
+  // This prevents the "jumping" issue on iOS when keyboard opens
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && !loading && onClose()}>
@@ -720,7 +698,6 @@ export function MenuCheckout({
                     inputMode="numeric"
                     autoComplete="tel"
                     onKeyDown={(e) => e.key === 'Enter' && canSearchPhone && handleSearchCustomer()}
-                    onFocus={handleInputFocus}
                   />
                   
                   <Button
@@ -840,7 +817,6 @@ export function MenuCheckout({
                           setCustomerInfo((prev) => ({ ...prev, name: e.target.value }))
                         }
                         className="h-11 mt-1"
-                        onFocus={handleInputFocus}
                       />
                     </div>
 
@@ -919,7 +895,6 @@ export function MenuCheckout({
                               value={addressLabel}
                               onChange={(e) => setAddressLabel(e.target.value)}
                               className="h-11 mt-1"
-                              onFocus={handleInputFocus}
                             />
                           </div>
                         )}
@@ -936,7 +911,6 @@ export function MenuCheckout({
                                 maxLength={9}
                                 inputMode="numeric"
                                 className={`h-11 ${cepError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                                onFocus={handleInputFocus}
                               />
                               {cepLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -959,7 +933,6 @@ export function MenuCheckout({
                                 value={customerInfo.neighborhood}
                                 onChange={(e) => handleNeighborhoodChange(e.target.value)}
                                 className="h-11"
-                                onFocus={handleInputFocus}
                               />
                               {deliveryFeeLoading && (
                                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -978,7 +951,6 @@ export function MenuCheckout({
                               setCustomerInfo((prev) => ({ ...prev, address: e.target.value }))
                             }
                             className="h-11 mt-1"
-                            onFocus={handleInputFocus}
                           />
                         </div>
 
@@ -994,7 +966,6 @@ export function MenuCheckout({
                               }
                               className="h-11 mt-1"
                               inputMode="numeric"
-                              onFocus={handleInputFocus}
                             />
                           </div>
 
@@ -1008,7 +979,6 @@ export function MenuCheckout({
                                 setCustomerInfo((prev) => ({ ...prev, complement: e.target.value }))
                               }
                               className="h-11 mt-1"
-                              onFocus={handleInputFocus}
                             />
                           </div>
                         </div>
@@ -1023,7 +993,6 @@ export function MenuCheckout({
                               setCustomerInfo((prev) => ({ ...prev, city: e.target.value }))
                             }
                             className="h-11 mt-1"
-                            onFocus={handleInputFocus}
                           />
                         </div>
 
@@ -1193,7 +1162,6 @@ export function MenuCheckout({
                               }}
                               className="h-11 pl-10 text-lg font-semibold"
                               inputMode="decimal"
-                              onFocus={handleInputFocus}
                             />
                           </div>
                           {changeFor && (
@@ -1221,7 +1189,6 @@ export function MenuCheckout({
                     onChange={(e) => setOrderNotes(e.target.value)}
                     className="resize-none text-sm min-h-[60px]"
                     rows={2}
-                    onFocus={handleInputFocus}
                   />
                 </div>
 
