@@ -309,23 +309,6 @@ export function AppSidebar() {
           </Tooltip>
         )}
 
-        {/* Caixa status - hidden when collapsed */}
-        {!isCollapsed && (
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-sidebar-accent flex items-center justify-center">
-              <ShoppingCart className="w-5 h-5 text-sidebar-foreground" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sidebar-foreground text-sm">Caixa</span>
-                <Badge className="bg-success text-success-foreground text-[10px] px-1.5 py-0">
-                  Aberto
-                </Badge>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-sidebar-foreground/50" />
-          </div>
-        )}
 
         {/* Search - hidden when collapsed */}
         {!isCollapsed && (
