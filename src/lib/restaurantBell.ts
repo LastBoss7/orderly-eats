@@ -299,3 +299,122 @@ export function playScheduleUrgent(volume: number = 0.6): void {
     console.warn('Não foi possível tocar o alerta urgente:', error);
   }
 }
+
+/**
+ * Toca som de notificação iFood (distintivo vermelho/urgente)
+ * Som característico que lembra o app iFood
+ */
+export function playIFoodNotification(volume: number = 0.7): void {
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+
+    // Sequência de 3 notas curtas e vibrantes (estilo iFood)
+    const notes = [
+      { freq: 987.77, delay: 0 },      // B5
+      { freq: 1318.51, delay: 0.12 },  // E6
+      { freq: 1567.98, delay: 0.24 },  // G6
+    ];
+
+    notes.forEach(({ freq, delay }) => {
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      filter.type = 'bandpass';
+      filter.frequency.value = freq * 1.2;
+      filter.Q.value = 2;
+
+      oscillator.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.frequency.value = freq;
+      oscillator.type = 'sine';
+
+      const noteStart = now + delay;
+      const noteDuration = 0.15;
+
+      gainNode.gain.setValueAtTime(0, noteStart);
+      gainNode.gain.linearRampToValueAtTime(volume, noteStart + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(volume * 0.5, noteStart + noteDuration * 0.6);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, noteStart + noteDuration);
+
+      oscillator.start(noteStart);
+      oscillator.stop(noteStart + noteDuration + 0.05);
+    });
+
+    // "Ding" final mais prolongado
+    setTimeout(() => {
+      const ctx2 = getAudioContext();
+      const now2 = ctx2.currentTime;
+
+      const finalOsc = ctx2.createOscillator();
+      const finalGain = ctx2.createGain();
+
+      finalOsc.connect(finalGain);
+      finalGain.connect(ctx2.destination);
+
+      finalOsc.frequency.value = 1975.53; // B6 - nota alta final
+      finalOsc.type = 'sine';
+
+      finalGain.gain.setValueAtTime(0, now2);
+      finalGain.gain.linearRampToValueAtTime(volume * 0.6, now2 + 0.01);
+      finalGain.gain.exponentialRampToValueAtTime(0.001, now2 + 0.5);
+
+      finalOsc.start(now2);
+      finalOsc.stop(now2 + 0.6);
+
+      // Harmônicos para riqueza sonora
+      [2637.02, 3135.96].forEach((freq, i) => {
+        const harmOsc = ctx2.createOscillator();
+        const harmGain = ctx2.createGain();
+
+        harmOsc.connect(harmGain);
+        harmGain.connect(ctx2.destination);
+
+        harmOsc.frequency.value = freq;
+        harmOsc.type = 'sine';
+
+        const harmVol = volume * 0.2 * (1 - i * 0.3);
+
+        harmGain.gain.setValueAtTime(0, now2);
+        harmGain.gain.linearRampToValueAtTime(harmVol, now2 + 0.01);
+        harmGain.gain.exponentialRampToValueAtTime(0.001, now2 + 0.4);
+
+        harmOsc.start(now2);
+        harmOsc.stop(now2 + 0.5);
+      });
+    }, 350);
+
+    // Segundo toque para maior urgência
+    setTimeout(() => {
+      const ctx3 = getAudioContext();
+      const now3 = ctx3.currentTime;
+
+      [987.77, 1318.51, 1567.98].forEach((freq, i) => {
+        const osc = ctx3.createOscillator();
+        const gain = ctx3.createGain();
+
+        osc.connect(gain);
+        gain.connect(ctx3.destination);
+
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+
+        const noteStart = now3 + i * 0.1;
+        const vol = volume * 0.6 * (1 - i * 0.1);
+
+        gain.gain.setValueAtTime(0, noteStart);
+        gain.gain.linearRampToValueAtTime(vol, noteStart + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.12);
+
+        osc.start(noteStart);
+        osc.stop(noteStart + 0.15);
+      });
+    }, 700);
+
+  } catch (error) {
+    console.warn('Não foi possível tocar notificação iFood:', error);
+  }
+}
