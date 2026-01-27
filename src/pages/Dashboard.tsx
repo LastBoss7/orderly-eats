@@ -317,7 +317,7 @@ export default function Dashboard() {
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'salon_settings',
           filter: `restaurant_id=eq.${restaurant?.id}`,
