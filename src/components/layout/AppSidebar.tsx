@@ -308,18 +308,6 @@ export function AppSidebar() {
             </TooltipContent>
           </Tooltip>
         )}
-
-
-        {/* Search - hidden when collapsed */}
-        {!isCollapsed && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/50" />
-            <Input 
-              placeholder="Procurando por algo?" 
-              className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50 h-9"
-            />
-          </div>
-        )}
       </SidebarHeader>
 
       <SidebarContent className={`${isCollapsed ? 'px-0' : 'px-3'} py-4`}>
