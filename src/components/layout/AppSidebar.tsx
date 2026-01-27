@@ -265,11 +265,11 @@ export function AppSidebar() {
       <SidebarHeader className={`border-b border-sidebar-border ${isCollapsed ? 'p-2' : 'p-5'}`}>
         {/* Logo */}
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} ${isCollapsed ? 'mb-0' : 'mb-4'}`}>
-          <Link to="/dashboard" className="flex items-center">
+        <Link to="/dashboard" className="flex items-center">
             {isCollapsed ? (
-              <img src={logoGamakoIcon} alt="Gamako" className="h-8 w-8 object-contain" />
+              <img src={logoGamakoIcon} alt="Gamako" className="h-12 w-12 object-contain" />
             ) : (
-              <img src={logoGamako} alt="Gamako" className="h-16 object-contain animate-fade-in-up" />
+              <img src={logoGamako} alt="Gamako" className="h-20 object-contain animate-fade-in-up" />
             )}
           </Link>
           {!isCollapsed && (
