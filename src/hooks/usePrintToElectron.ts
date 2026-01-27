@@ -488,11 +488,178 @@ export function usePrintToElectron(options?: UsePrintToElectronOptions) {
     }
   }, [effectiveRestaurantId]);
 
+  /**
+   * Imprime comanda de pedido iFood com template específico
+   * Segue o padrão oficial do iFood com proteção de dados (LGPD)
+   */
+  const printIFoodOrder = useCallback(async (params: {
+    ifoodOrderId: string;
+    displayId: string;
+    pickupCode?: string | null;
+    localizer?: string | null;
+    orderTiming: string;
+    orderType: string;
+    deliveredBy: string;
+    scheduledTo?: string | null;
+    customer: {
+      name: string;
+      phone?: string | null;
+    };
+    delivery?: {
+      streetName?: string;
+      streetNumber?: string;
+      neighborhood?: string;
+      complement?: string;
+      reference?: string;
+      city?: string;
+      state?: string;
+    };
+    items: Array<{
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice?: number;
+      options?: Array<{ name: string; quantity: number; unitPrice: number }>;
+      observations?: string;
+    }>;
+    total: {
+      subTotal: number;
+      deliveryFee: number;
+      benefits: number;
+      orderAmount: number;
+    };
+    payments: Array<{
+      method: string;
+      value: number;
+      prepaid: boolean;
+    }>;
+  }) => {
+    if (!effectiveRestaurantId) {
+      toast.error('Restaurante não identificado');
+      return false;
+    }
+
+    try {
+      // Mask phone number for privacy (LGPD)
+      const maskPhone = (phone: string | null | undefined): string => {
+        if (!phone) return '';
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length >= 10) {
+          const ddd = digits.slice(0, 2);
+          const prefix = digits.slice(2, -4);
+          return `(${ddd}) ${prefix}-xxxx`;
+        }
+        return phone;
+      };
+
+      // Create temporary order with iFood type
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          restaurant_id: effectiveRestaurantId,
+          order_type: 'ifood',
+          customer_name: params.customer.name,
+          total: params.total.orderAmount,
+          delivery_fee: params.total.deliveryFee,
+          status: 'ifood_print',
+          print_status: 'pending',
+          notes: JSON.stringify({
+            isIFoodPrint: true,
+            displayId: params.displayId,
+            pickupCode: params.pickupCode || null,
+            localizer: params.localizer || null,
+            orderTiming: params.orderTiming,
+            orderType: params.orderType,
+            deliveredBy: params.deliveredBy,
+            scheduledTo: params.scheduledTo || null,
+            customer: {
+              name: params.customer.name,
+              phone: maskPhone(params.customer.phone),
+            },
+            delivery: params.delivery || null,
+            items: params.items.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice || (item.unitPrice * item.quantity),
+              options: item.options || [],
+              observations: item.observations || null,
+            })),
+            total: {
+              subTotal: params.total.subTotal,
+              deliveryFee: params.total.deliveryFee,
+              benefits: params.total.benefits,
+              orderAmount: params.total.orderAmount,
+            },
+            payments: params.payments.map(pay => ({
+              method: pay.method,
+              value: pay.value,
+              prepaid: pay.prepaid,
+            })),
+          }),
+        })
+        .select('id, order_number')
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items for the print
+      if (params.items.length > 0) {
+        const itemsToInsert = params.items.map(item => ({
+          order_id: order.id,
+          restaurant_id: effectiveRestaurantId,
+          product_name: item.name,
+          product_price: item.unitPrice,
+          quantity: item.quantity,
+          notes: item.observations || null,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsToInsert);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Log the print request
+      await supabase.from('print_logs').insert({
+        restaurant_id: effectiveRestaurantId,
+        order_id: order.id,
+        order_number: params.displayId,
+        event_type: 'print',
+        status: 'pending',
+        printer_name: 'Electron App',
+        items_count: params.items.length,
+      });
+
+      toast.success('Comanda iFood enviada para impressão!');
+
+      // Delete the temporary order after 120 seconds
+      setTimeout(async () => {
+        try {
+          await supabase.from('order_items').delete().eq('order_id', order.id);
+          await supabase.from('orders').delete().eq('id', order.id);
+        } catch (e) {
+          console.log('iFood order cleanup:', e);
+        }
+      }, 120000);
+
+      return true;
+    } catch (error: any) {
+      console.error('Error sending iFood order to Electron:', error);
+      toast.error('Erro ao enviar comanda iFood', {
+        description: error.message,
+      });
+      return false;
+    }
+  }, [effectiveRestaurantId]);
+
   return {
     printOrder,
     reprintOrder,
     printConference,
     printClosing,
     printCategoryTest,
+    printIFoodOrder,
   };
 }

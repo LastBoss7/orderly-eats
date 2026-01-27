@@ -14,12 +14,15 @@ import {
   Phone,
   User,
   Calendar,
-  Navigation
+  Navigation,
+  Printer
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import logoIfood from '@/assets/logo-ifood.png';
+import { usePrintToElectron } from '@/hooks/usePrintToElectron';
+import { useAuth } from '@/lib/auth';
 
 interface IFoodOrderCardProps {
   order: {
@@ -63,27 +66,115 @@ export function IFoodOrderCard({
 }: IFoodOrderCardProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [expired, setExpired] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  
+  const { restaurant } = useAuth();
+  const { printIFoodOrder } = usePrintToElectron();
 
-  // Parse order data
+  // Parse order data - extended for printing
   const orderData = useMemo(() => {
     const data = order.order_data as Record<string, unknown>;
-    const customer = (data?.customer || {}) as { name?: string; phone?: { number?: string } | string };
-    const delivery = (data?.delivery || {}) as { deliveryAddress?: Record<string, string> };
-    const total = (data?.total || {}) as { orderAmount?: number; deliveryFee?: number };
-    const items = (data?.items || []) as Array<{ name?: string; quantity?: number; unitPrice?: number }>;
+    const customer = (data?.customer || {}) as { 
+      name?: string; 
+      phone?: { number?: string; localizer?: string } | string;
+      documentNumber?: string;
+    };
+    const delivery = (data?.delivery || {}) as { 
+      deliveryAddress?: Record<string, string>;
+      pickupCode?: string;
+    };
+    const total = (data?.total || {}) as { 
+      orderAmount?: number; 
+      deliveryFee?: number;
+      subTotal?: number;
+      benefits?: number;
+    };
+    const items = (data?.items || []) as Array<{ 
+      name?: string; 
+      quantity?: number; 
+      unitPrice?: number;
+      totalPrice?: number;
+      options?: Array<{ name?: string; quantity?: number; unitPrice?: number }>;
+      observations?: string;
+    }>;
+    const payments = (data?.payments || {}) as {
+      methods?: Array<{ method?: string; value?: number; prepaid?: boolean }>;
+    };
 
     return {
       customerName: customer.name || 'Cliente iFood',
       customerPhone: typeof customer.phone === 'object' ? customer.phone?.number : customer.phone,
+      localizer: typeof customer.phone === 'object' ? customer.phone?.localizer : null,
       address: delivery.deliveryAddress 
         ? `${delivery.deliveryAddress.streetName || ''}, ${delivery.deliveryAddress.streetNumber || ''}`
         : null,
       neighborhood: delivery.deliveryAddress?.neighborhood,
+      deliveryAddress: delivery.deliveryAddress,
       total: total.orderAmount || 0,
       deliveryFee: total.deliveryFee || 0,
+      subTotal: total.subTotal || 0,
+      benefits: total.benefits || 0,
       items,
+      payments: payments.methods || [],
     };
   }, [order.order_data]);
+
+  // Handle print
+  const handlePrint = async () => {
+    if (!restaurant?.id) return;
+    
+    setIsPrinting(true);
+    try {
+      await printIFoodOrder({
+        ifoodOrderId: order.ifood_order_id,
+        displayId: order.ifood_display_id || order.ifood_order_id.slice(-6),
+        pickupCode: order.pickup_code,
+        localizer: orderData.localizer,
+        orderTiming: order.order_timing || 'IMMEDIATE',
+        orderType: order.order_type || 'DELIVERY',
+        deliveredBy: order.delivered_by || 'IFOOD',
+        scheduledTo: order.scheduled_to,
+        customer: {
+          name: orderData.customerName,
+          phone: orderData.customerPhone,
+        },
+        delivery: orderData.deliveryAddress ? {
+          streetName: orderData.deliveryAddress.streetName,
+          streetNumber: orderData.deliveryAddress.streetNumber,
+          neighborhood: orderData.deliveryAddress.neighborhood,
+          complement: orderData.deliveryAddress.complement,
+          reference: orderData.deliveryAddress.reference,
+          city: orderData.deliveryAddress.city,
+          state: orderData.deliveryAddress.state,
+        } : undefined,
+        items: orderData.items.map(item => ({
+          name: item.name || 'Item',
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || 0,
+          totalPrice: item.totalPrice,
+          options: item.options?.map(opt => ({
+            name: opt.name || '',
+            quantity: opt.quantity || 1,
+            unitPrice: opt.unitPrice || 0,
+          })),
+          observations: item.observations,
+        })),
+        total: {
+          subTotal: orderData.subTotal || orderData.total - orderData.deliveryFee,
+          deliveryFee: orderData.deliveryFee,
+          benefits: orderData.benefits,
+          orderAmount: orderData.total,
+        },
+        payments: orderData.payments.map(pay => ({
+          method: pay.method || 'UNKNOWN',
+          value: pay.value || 0,
+          prepaid: pay.prepaid || false,
+        })),
+      });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   // Timer for pending orders (8 minutes)
   useEffect(() => {
@@ -362,6 +453,19 @@ export function IFoodOrderCard({
             >
               <Navigation className="h-4 w-4 mr-1" />
               Rastrear
+            </Button>
+          )}
+
+          {/* Print button - show for all non-pending orders */}
+          {order.status !== 'pending' && (
+            <Button 
+              onClick={handlePrint} 
+              disabled={isPrinting}
+              variant="outline"
+              size="sm"
+            >
+              <Printer className="h-4 w-4 mr-1" />
+              {isPrinting ? 'Imprimindo...' : 'Imprimir'}
             </Button>
           )}
         </div>
