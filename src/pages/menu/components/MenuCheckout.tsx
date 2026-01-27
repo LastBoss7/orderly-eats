@@ -297,32 +297,35 @@ export function MenuCheckout({
 
     setSearchingCustomer(true);
     try {
+      // Use secure RPC function to lookup customer by phone
       const { data: existingCustomer, error: searchError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('restaurant_id', restaurantId)
-        .eq('phone', cleanPhone)
-        .maybeSingle();
+        .rpc('get_customer_by_phone', {
+          _restaurant_id: restaurantId,
+          _phone: cleanPhone,
+        });
 
       if (searchError) throw searchError;
 
-      if (existingCustomer) {
-        setCustomerId(existingCustomer.id);
+      // RPC returns an array, get first result
+      const customer = Array.isArray(existingCustomer) ? existingCustomer[0] : existingCustomer;
+
+      if (customer) {
+        setCustomerId(customer.id);
         setIsNewCustomer(false);
         setCustomerInfo({
-          name: existingCustomer.name || '',
+          name: customer.name || '',
           phone: cleanPhone,
-          address: existingCustomer.address || '',
-          number: existingCustomer.number || '',
-          complement: existingCustomer.complement || '',
-          neighborhood: existingCustomer.neighborhood || '',
-          city: existingCustomer.city || '',
-          cep: existingCustomer.cep || '',
+          address: customer.address || '',
+          number: customer.number || '',
+          complement: customer.complement || '',
+          neighborhood: customer.neighborhood || '',
+          city: customer.city || '',
+          cep: customer.cep || '',
         });
-        toast.success(`Bem-vindo de volta, ${existingCustomer.name}!`);
+        toast.success(`Bem-vindo de volta, ${customer.name}!`);
         
         // Fetch saved addresses for existing customer
-        await fetchSavedAddresses(existingCustomer.id);
+        await fetchSavedAddresses(customer.id);
       } else {
         const { data: newCustomer, error: createError } = await supabase
           .from('customers')
