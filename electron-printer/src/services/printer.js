@@ -27,6 +27,7 @@ class PrinterService {
     const { layout = {}, restaurantInfo = {}, printerName = '' } = options;
     const isConference = order.order_type === 'conference';
     const isClosing = order.order_type === 'closing';
+    const isIFood = order.order_type === 'ifood';
     
     console.log('[PrintOrder] Order: #' + (order.order_number || (order.id ? order.id.slice(0, 8) : '?')));
     console.log('[PrintOrder] Printer: "' + printerName + '"');
@@ -38,6 +39,8 @@ class PrinterService {
       receipt = this.formatClosingReceipt(order, layout, restaurantInfo);
     } else if (isConference) {
       receipt = this.formatConferenceReceipt(order, layout, restaurantInfo);
+    } else if (isIFood) {
+      receipt = this.formatIFoodReceipt(order, layout, restaurantInfo);
     } else {
       receipt = this.formatReceipt(order, layout, restaurantInfo);
     }
@@ -1138,6 +1141,219 @@ class PrinterService {
     lines.push(this.center('Relatorio gerado automaticamente', width));
     lines.push(this.center(new Date().toLocaleString('pt-BR'), width));
     
+    lines.push('');
+    lines.push(this.center('Powered By: Gamako', width));
+    lines.push(this.center('Cadastre ja: gamako.com.br', width));
+    lines.push('');
+    lines.push('');
+    lines.push('');
+    
+    return lines.join('\n');
+  }
+
+  /**
+   * Format iFood order receipt following official iFood template
+   * Privacy: Phone masked, no CPF printed (LGPD compliance)
+   */
+  formatIFoodReceipt(order, layout, restaurantInfo = {}) {
+    const width = parseInt(layout.paperWidth, 10) || 48;
+    const div = '='.repeat(width);
+    const divSmall = '-'.repeat(width);
+    const lines = [];
+    
+    // Parse iFood data from notes
+    let data = {};
+    try {
+      data = JSON.parse(order.notes || '{}');
+    } catch (e) {
+      data = {};
+    }
+    
+    // Payment method labels
+    const paymentLabels = {
+      'CREDIT': 'Cartao Credito',
+      'DEBIT': 'Cartao Debito',
+      'MEAL_VOUCHER': 'Vale Refeicao',
+      'FOOD_VOUCHER': 'Vale Alimentacao',
+      'CASH': 'Dinheiro',
+      'PIX': 'PIX',
+      'ONLINE': 'Online',
+    };
+    
+    // Order type labels
+    const orderTypeLabels = {
+      'DELIVERY': 'ENTREGA',
+      'TAKEOUT': 'RETIRADA',
+    };
+    
+    lines.push(div);
+    
+    // Restaurant name
+    if (restaurantInfo.name) {
+      const restaurantName = this.sanitizeText(restaurantInfo.name.toUpperCase());
+      this.wrapText(restaurantName, width).forEach(line => {
+        lines.push(this.center(line, width));
+      });
+    }
+    
+    // Order type header
+    const orderTypeLabel = orderTypeLabels[data.orderType] || 'PEDIDO';
+    lines.push(this.center('PEDIDO IFOOD - ' + orderTypeLabel, width));
+    
+    lines.push(div);
+    lines.push('');
+    
+    // Display ID - BIG and prominent
+    const displayId = data.displayId || order.order_number || '???';
+    lines.push(this.center('*** PEDIDO #' + displayId + ' ***', width));
+    lines.push('');
+    
+    // Date/Time
+    const orderDate = new Date(order.created_at || Date.now());
+    const dateStr = orderDate.toLocaleDateString('pt-BR');
+    const timeStr = orderDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    lines.push('Data/Hora: ' + dateStr + ' ' + timeStr);
+    
+    // Scheduled info
+    if (data.orderTiming === 'SCHEDULED' && data.scheduledTo) {
+      const scheduledDate = new Date(data.scheduledTo);
+      lines.push('Agendado para: ' + scheduledDate.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }));
+    }
+    
+    lines.push('');
+    
+    // Pickup code - PROMINENT for delivery person
+    if (data.pickupCode) {
+      lines.push(divSmall);
+      lines.push(this.center('CODIGO DE COLETA: ' + data.pickupCode, width));
+      lines.push(divSmall);
+      lines.push('');
+    }
+    
+    // Customer info
+    if (data.customer) {
+      lines.push('CLIENTE: ' + this.sanitizeText(data.customer.name || 'Cliente iFood'));
+      if (data.customer.phone) {
+        lines.push('TEL: ' + data.customer.phone); // Already masked from frontend
+      }
+      if (data.localizer) {
+        lines.push('LOCALIZADOR: ' + data.localizer);
+      }
+    }
+    
+    // Delivery address (only for delivery orders)
+    if (data.orderType === 'DELIVERY' && data.delivery) {
+      lines.push(divSmall);
+      lines.push('ENDERECO:');
+      
+      const addr = data.delivery;
+      if (addr.streetName) {
+        const streetLine = addr.streetName + (addr.streetNumber ? ', ' + addr.streetNumber : '');
+        this.wrapText(this.sanitizeText(streetLine), width).forEach(line => lines.push(line));
+      }
+      if (addr.neighborhood || addr.city) {
+        const locationLine = [addr.neighborhood, addr.city, addr.state].filter(Boolean).join(' - ');
+        lines.push(this.sanitizeText(locationLine));
+      }
+      if (addr.complement) {
+        lines.push('Complemento: ' + this.sanitizeText(addr.complement));
+      }
+      if (addr.reference) {
+        lines.push('Referencia: ' + this.sanitizeText(addr.reference));
+      }
+    }
+    
+    lines.push(divSmall);
+    lines.push('');
+    lines.push('ITENS:');
+    lines.push(divSmall);
+    
+    // Items with options (addons)
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        const qty = item.quantity || 1;
+        const name = this.sanitizeText(item.name || 'Item');
+        const totalPrice = item.totalPrice || (item.unitPrice * qty);
+        const priceStr = 'R$ ' + totalPrice.toFixed(2).replace('.', ',');
+        
+        const itemLine = '(' + qty + ') ' + name;
+        
+        if (itemLine.length + priceStr.length + 1 <= width) {
+          lines.push(this.alignBoth(itemLine, priceStr, width));
+        } else {
+          const wrapped = this.wrapText(itemLine, width - priceStr.length - 1);
+          wrapped.forEach((line, i) => {
+            if (i === wrapped.length - 1) {
+              lines.push(this.alignBoth(line, priceStr, width));
+            } else {
+              lines.push(line);
+            }
+          });
+        }
+        
+        // Print options (addons) indented
+        if (item.options && item.options.length > 0) {
+          for (const opt of item.options) {
+            const optQty = opt.quantity || 1;
+            const optName = this.sanitizeText(opt.name || '');
+            if (optName) {
+              lines.push('      (' + optQty + ') - ' + optName);
+            }
+          }
+        }
+        
+        // Item observations
+        if (item.observations) {
+          lines.push('   OBS: ' + this.sanitizeText(item.observations));
+        }
+      }
+    }
+    
+    lines.push(divSmall);
+    lines.push('');
+    
+    // Totals
+    const total = data.total || {};
+    if (total.subTotal !== undefined) {
+      lines.push(this.alignBoth('Subtotal:', 'R$ ' + (total.subTotal || 0).toFixed(2).replace('.', ','), width));
+    }
+    if (total.deliveryFee > 0) {
+      lines.push(this.alignBoth('Taxa de entrega:', 'R$ ' + total.deliveryFee.toFixed(2).replace('.', ','), width));
+    }
+    if (total.benefits > 0) {
+      lines.push(this.alignBoth('Desconto:', '-R$ ' + total.benefits.toFixed(2).replace('.', ','), width));
+    }
+    
+    lines.push(divSmall);
+    lines.push(this.alignBoth('TOTAL:', 'R$ ' + (total.orderAmount || order.total || 0).toFixed(2).replace('.', ','), width));
+    lines.push(divSmall);
+    
+    // Payments
+    if (data.payments && data.payments.length > 0) {
+      lines.push('');
+      lines.push('PAGAMENTO:');
+      for (const pay of data.payments) {
+        const methodLabel = paymentLabels[pay.method] || pay.method || 'Outro';
+        const typeLabel = pay.prepaid ? 'Online' : 'na entrega';
+        const statusLabel = pay.prepaid ? '[PAGO]' : '[A PAGAR]';
+        const payLine = methodLabel + ' (' + typeLabel + ') - R$ ' + (pay.value || 0).toFixed(2).replace('.', ',') + ' ' + statusLabel;
+        this.wrapText(payLine, width).forEach(line => lines.push(line));
+      }
+    }
+    
+    lines.push('');
+    lines.push(divSmall);
+    
+    // Delivery info
+    const deliveredByLabel = data.deliveredBy === 'MERCHANT' ? 'Propria' : 'iFood';
+    lines.push(this.center('Entrega: ' + deliveredByLabel, width));
+    
+    lines.push(divSmall);
     lines.push('');
     lines.push(this.center('Powered By: Gamako', width));
     lines.push(this.center('Cadastre ja: gamako.com.br', width));
