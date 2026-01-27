@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
     const body = await req.json().catch(() => ({}));
     
-    const { restaurant_id, ifood_order_id, reason } = body;
+    const { restaurant_id, ifood_order_id, reason, cancellation_code, pickup_code } = body;
 
     if (!restaurant_id) {
       return new Response(
@@ -48,7 +48,6 @@ Deno.serve(async (req) => {
 
     // Check token expiration and refresh if needed
     if (settings.token_expires_at && new Date(settings.token_expires_at) < new Date()) {
-      // Token expired - trigger refresh
       return new Response(
         JSON.stringify({ error: "Token expired, refresh required" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -62,6 +61,9 @@ Deno.serve(async (req) => {
       case "reject":
         return await rejectOrder(supabase, accessToken, restaurant_id, ifood_order_id, reason);
 
+      case "startPreparation":
+        return await startPreparation(supabase, accessToken, restaurant_id, ifood_order_id);
+
       case "ready":
         return await markOrderReady(accessToken, ifood_order_id);
 
@@ -70,6 +72,18 @@ Deno.serve(async (req) => {
 
       case "fetch":
         return await fetchOrderDetails(accessToken, ifood_order_id);
+
+      case "getCancellationReasons":
+        return await getCancellationReasons(accessToken, ifood_order_id);
+
+      case "requestCancellation":
+        return await requestCancellation(supabase, accessToken, restaurant_id, ifood_order_id, cancellation_code, reason);
+
+      case "getTracking":
+        return await getTracking(accessToken, ifood_order_id);
+
+      case "validatePickupCode":
+        return await validatePickupCode(accessToken, ifood_order_id, pickup_code);
 
       case "polling":
         return await pollEvents(supabase, accessToken, restaurant_id, settings.merchant_id);
@@ -96,7 +110,6 @@ async function acceptOrder(
   restaurantId: string,
   ifoodOrderId: string
 ) {
-  // Get the iFood order details
   const { data: ifoodOrder, error: orderError } = await supabase
     .from("ifood_orders")
     .select("*")
@@ -111,7 +124,6 @@ async function acceptOrder(
     );
   }
 
-  // Confirm order on iFood
   const confirmResponse = await fetch(
     `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/confirm`,
     {
@@ -132,7 +144,6 @@ async function acceptOrder(
     );
   }
 
-  // Convert to local order
   const orderData = ifoodOrder.order_data as Record<string, unknown>;
   const localOrder = await convertToLocalOrder(supabase, restaurantId, orderData, ifoodOrder.ifood_display_id);
 
@@ -143,11 +154,10 @@ async function acceptOrder(
     );
   }
 
-  // Update ifood_orders with local order reference
   await supabase
     .from("ifood_orders")
     .update({
-      status: "synced",
+      status: "confirmed",
       local_order_id: localOrder.id,
       updated_at: new Date().toISOString(),
     })
@@ -166,7 +176,6 @@ async function rejectOrder(
   ifoodOrderId: string,
   reason?: string
 ) {
-  // Reject on iFood
   const rejectResponse = await fetch(
     `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/reject`,
     {
@@ -177,7 +186,7 @@ async function rejectOrder(
       },
       body: JSON.stringify({
         reason: reason || "RESTAURANT_CANCELLED",
-        cancellationCode: "501", // Generic cancellation
+        cancellationCode: "501",
       }),
     }
   );
@@ -190,7 +199,6 @@ async function rejectOrder(
     );
   }
 
-  // Update local record
   await supabase
     .from("ifood_orders")
     .update({
@@ -200,6 +208,64 @@ async function rejectOrder(
     })
     .eq("ifood_order_id", ifoodOrderId)
     .eq("restaurant_id", restaurantId);
+
+  return new Response(
+    JSON.stringify({ success: true }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// NEW: Start Preparation
+async function startPreparation(
+  supabase: SupabaseClient,
+  accessToken: string,
+  restaurantId: string,
+  ifoodOrderId: string
+) {
+  const response = await fetch(
+    `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/startPreparation`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return new Response(
+      JSON.stringify({ error: "Failed to start preparation", details: errorText }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Update local record
+  await supabase
+    .from("ifood_orders")
+    .update({
+      status: "preparing",
+      preparation_started_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("ifood_order_id", ifoodOrderId)
+    .eq("restaurant_id", restaurantId);
+
+  // Also update local order if exists
+  const { data: ifoodOrder } = await supabase
+    .from("ifood_orders")
+    .select("local_order_id")
+    .eq("ifood_order_id", ifoodOrderId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+
+  if (ifoodOrder?.local_order_id) {
+    await supabase
+      .from("orders")
+      .update({ status: "preparing" })
+      .eq("id", ifoodOrder.local_order_id);
+  }
 
   return new Response(
     JSON.stringify({ success: true }),
@@ -283,6 +349,147 @@ async function fetchOrderDetails(accessToken: string, ifoodOrderId: string) {
   );
 }
 
+// NEW: Get Cancellation Reasons
+async function getCancellationReasons(accessToken: string, ifoodOrderId: string) {
+  const response = await fetch(
+    `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/cancellationReasons`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 204) {
+      return new Response(
+        JSON.stringify({ reasons: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const errorText = await response.text();
+    return new Response(
+      JSON.stringify({ error: "Failed to get cancellation reasons", details: errorText }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const reasons = await response.json();
+  return new Response(
+    JSON.stringify({ reasons }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// NEW: Request Cancellation
+async function requestCancellation(
+  supabase: SupabaseClient,
+  accessToken: string,
+  restaurantId: string,
+  ifoodOrderId: string,
+  cancellationCode: string,
+  reason?: string
+) {
+  const response = await fetch(
+    `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/requestCancellation`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        cancellationCode,
+        reason: reason || "",
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return new Response(
+      JSON.stringify({ error: "Failed to request cancellation", details: errorText }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Update local record - status will be updated via webhook when confirmed
+  await supabase
+    .from("ifood_orders")
+    .update({
+      status: "cancellation_requested",
+      rejection_reason: `${cancellationCode}: ${reason || ""}`,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("ifood_order_id", ifoodOrderId)
+    .eq("restaurant_id", restaurantId);
+
+  return new Response(
+    JSON.stringify({ success: true, message: "Cancellation requested - awaiting confirmation" }),
+    { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// NEW: Get Tracking
+async function getTracking(accessToken: string, ifoodOrderId: string) {
+  const response = await fetch(
+    `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/tracking`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return new Response(
+        JSON.stringify({ error: "Tracking not available yet", available: false }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const errorText = await response.text();
+    return new Response(
+      JSON.stringify({ error: "Failed to get tracking", details: errorText }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const tracking = await response.json();
+  return new Response(
+    JSON.stringify({ ...tracking, available: true }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+// NEW: Validate Pickup Code
+async function validatePickupCode(accessToken: string, ifoodOrderId: string, code: string) {
+  const response = await fetch(
+    `${IFOOD_API_BASE}/order/v1.0/orders/${ifoodOrderId}/validatePickupCode`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ code }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return new Response(
+      JSON.stringify({ error: "Invalid pickup code", valid: false, details: errorText }),
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ valid: true }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
 async function pollEvents(
   supabase: SupabaseClient,
   accessToken: string,
@@ -312,13 +519,20 @@ async function pollEvents(
     );
   }
 
-  const events = await pollingResponse.json() as Array<{ id: string; code: string; orderId: string }>;
+  const events = await pollingResponse.json() as Array<{ 
+    id: string; 
+    code: string; 
+    orderId: string;
+    metadata?: Record<string, unknown>;
+  }>;
   
-  // Process events (similar to webhook handling)
   let processed = 0;
+  const eventIds: Array<{ id: string }> = [];
+
   for (const event of events) {
+    eventIds.push({ id: event.id });
+
     if (event.code === "PLC" || event.code === "PLACED") {
-      // Check if order exists
       const { data: existing } = await supabase
         .from("ifood_orders")
         .select("id")
@@ -326,7 +540,6 @@ async function pollEvents(
         .maybeSingle();
 
       if (!existing) {
-        // Fetch and save order
         const orderResponse = await fetch(
           `${IFOOD_API_BASE}/order/v1.0/orders/${event.orderId}`,
           {
@@ -335,21 +548,38 @@ async function pollEvents(
         );
 
         if (orderResponse.ok) {
-          const orderData = await orderResponse.json() as { displayId?: string };
+          const orderData = await orderResponse.json() as { 
+            displayId?: string;
+            orderTiming?: string;
+            orderType?: string;
+            delivery?: { deliveredBy?: string };
+            scheduling?: { scheduledDateTimeStart?: string };
+            preparationStartDateTime?: string;
+            pickupCode?: string;
+          };
+          
           await supabase.from("ifood_orders").insert({
             restaurant_id: restaurantId,
             ifood_order_id: event.orderId,
             ifood_display_id: orderData.displayId || "",
             order_data: orderData,
             status: "pending",
-            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            expires_at: new Date(Date.now() + 8 * 60 * 1000).toISOString(), // 8 minutes
+            order_timing: orderData.orderTiming || "IMMEDIATE",
+            order_type: orderData.orderType || "DELIVERY",
+            delivered_by: orderData.delivery?.deliveredBy || null,
+            scheduled_to: orderData.scheduling?.scheduledDateTimeStart || null,
+            preparation_start_datetime: orderData.preparationStartDateTime || null,
+            pickup_code: orderData.pickupCode || null,
           });
           processed++;
         }
       }
     }
+  }
 
-    // Acknowledge the event
+  // Batch acknowledge all events
+  if (eventIds.length > 0) {
     await fetch(
       `${IFOOD_API_BASE}/order/v1.0/events/acknowledgment`,
       {
@@ -358,12 +588,11 @@ async function pollEvents(
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify([{ id: event.id }]),
+        body: JSON.stringify(eventIds),
       }
     );
   }
 
-  // Update last sync time
   await supabase
     .from("ifood_settings")
     .update({ last_sync_at: new Date().toISOString() })
@@ -386,13 +615,11 @@ async function convertToLocalOrder(
   displayId: string
 ): Promise<LocalOrder | null> {
   try {
-    // Map iFood order to local order structure
     const customer = (orderData.customer || {}) as Record<string, unknown>;
     const delivery = (orderData.delivery || {}) as Record<string, unknown>;
     const payments = (orderData.payments || []) as Array<{ method?: string }>;
     const total = (orderData.total || {}) as { orderAmount?: number; deliveryFee?: number };
 
-    // Get payment method
     let paymentMethod = "other";
     if (payments.length > 0) {
       const method = payments[0].method?.toLowerCase() || "";
@@ -402,7 +629,6 @@ async function convertToLocalOrder(
       else if (method.includes("cash") || method.includes("dinheiro")) paymentMethod = "cash";
     }
 
-    // Format delivery address
     const deliveryAddress = (delivery.deliveryAddress || {}) as Record<string, string>;
     const formattedAddress = [
       deliveryAddress.streetName,
@@ -412,16 +638,13 @@ async function convertToLocalOrder(
       deliveryAddress.city,
     ].filter(Boolean).join(", ");
 
-    // Get next order number
     const { data: orderNumber } = await supabase.rpc("get_next_order_number", {
       _restaurant_id: restaurantId,
     });
 
-    // Get customer phone
     const customerPhone = customer.phone as { number?: string } | string | undefined;
     const phoneNumber = typeof customerPhone === "object" ? customerPhone?.number : customerPhone;
 
-    // Create the order
     const { data: newOrder, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -446,7 +669,6 @@ async function convertToLocalOrder(
       return null;
     }
 
-    // Create order items
     const items = (orderData.items || []) as Array<{
       name?: string;
       unitPrice?: number;
