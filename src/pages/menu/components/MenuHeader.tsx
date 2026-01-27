@@ -1,5 +1,5 @@
-import { Restaurant, MenuSettings, isRestaurantOpen } from '../types';
-import { ShoppingCart, Search, X, Phone, MapPin, Clock } from 'lucide-react';
+import { Restaurant, MenuSettings, DaySchedule, isRestaurantOpen } from '../types';
+import { ShoppingCart, Search, X, Phone, MapPin, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
@@ -13,6 +13,25 @@ interface MenuHeaderProps {
   onSearchChange: (query: string) => void;
 }
 
+const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function formatOpeningHours(hours: DaySchedule[]): { today: string; schedule: { day: string; hours: string }[] } {
+  const now = new Date();
+  const currentDay = now.getDay();
+  
+  const todaySchedule = hours.find((h) => h.day === currentDay);
+  const todayStr = todaySchedule?.enabled 
+    ? `${todaySchedule.open} - ${todaySchedule.close}`
+    : 'Fechado';
+  
+  const schedule = hours.map((h) => ({
+    day: dayNames[h.day],
+    hours: h.enabled ? `${h.open} - ${h.close}` : 'Fechado',
+  }));
+  
+  return { today: todayStr, schedule };
+}
+
 export function MenuHeader({
   restaurant,
   menuSettings,
@@ -22,7 +41,9 @@ export function MenuHeader({
   onSearchChange,
 }: MenuHeaderProps) {
   const [showSearch, setShowSearch] = useState(false);
-  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours);
+  const [showHours, setShowHours] = useState(false);
+  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours, menuSettings.is_open);
+  const hoursInfo = formatOpeningHours(menuSettings.opening_hours);
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/50">
@@ -111,23 +132,85 @@ export function MenuHeader({
         )}
       </div>
 
-      {/* Info Bar - Minimal */}
-      {(restaurant.phone || restaurant.address) && (
-        <div className="px-4 py-2 bg-muted/30 border-t border-border/30 flex items-center gap-4 text-xs text-muted-foreground">
-          {restaurant.phone && (
-            <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
-              <Phone className="w-3.5 h-3.5" />
-              {restaurant.phone}
-            </a>
-          )}
-          {restaurant.address && (
-            <span className="flex items-center gap-1.5 truncate">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{restaurant.address}</span>
-            </span>
-          )}
-        </div>
-      )}
+      {/* Info Bar - Opening Hours */}
+      <div className="px-4 py-2 bg-muted/30 border-t border-border/30">
+        {/* Clickable status row with opening hours */}
+        {menuSettings.use_opening_hours && (
+          <button 
+            onClick={() => setShowHours(!showHours)}
+            className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              <span className={openStatus.isOpen ? 'text-emerald-600 dark:text-emerald-400' : ''}>
+                {openStatus.message}
+              </span>
+              {openStatus.isOpen && (
+                <span className="text-muted-foreground ml-1">
+                  (Hoje: {hoursInfo.today})
+                </span>
+              )}
+            </div>
+            {showHours ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        )}
+
+        {/* Expandable hours list */}
+        {showHours && menuSettings.use_opening_hours && (
+          <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            {hoursInfo.schedule.map((item, idx) => {
+              const isToday = idx === new Date().getDay();
+              return (
+                <div 
+                  key={item.day} 
+                  className={`flex justify-between ${isToday ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}
+                >
+                  <span>{item.day}</span>
+                  <span className={item.hours === 'Fechado' ? 'text-zinc-400' : ''}>
+                    {item.hours}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Contact info if not showing hours toggle */}
+        {!menuSettings.use_opening_hours && (restaurant.phone || restaurant.address) && (
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {restaurant.phone && (
+              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                <Phone className="w-3.5 h-3.5" />
+                {restaurant.phone}
+              </a>
+            )}
+            {restaurant.address && (
+              <span className="flex items-center gap-1.5 truncate">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{restaurant.address}</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Contact info when hours are enabled */}
+        {menuSettings.use_opening_hours && (restaurant.phone || restaurant.address) && (
+          <div className="mt-2 pt-2 border-t border-border/30 flex items-center gap-4 text-xs text-muted-foreground">
+            {restaurant.phone && (
+              <a href={`tel:${restaurant.phone}`} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                <Phone className="w-3.5 h-3.5" />
+                {restaurant.phone}
+              </a>
+            )}
+            {restaurant.address && (
+              <span className="flex items-center gap-1.5 truncate">
+                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="truncate">{restaurant.address}</span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </header>
   );
 }

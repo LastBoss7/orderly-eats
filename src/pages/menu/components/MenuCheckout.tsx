@@ -69,7 +69,7 @@ export function MenuCheckout({
   const deliveryEnabled = menuSettings.digital_menu_delivery_enabled;
   const pickupEnabled = menuSettings.digital_menu_pickup_enabled;
   const minOrderValue = menuSettings.digital_menu_min_order_value || 0;
-  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours);
+  const openStatus = isRestaurantOpen(menuSettings.opening_hours, menuSettings.use_opening_hours, menuSettings.is_open);
 
   const getDefaultOrderType = (): OrderType => {
     if (deliveryEnabled) return 'delivery';
@@ -640,7 +640,7 @@ export function MenuCheckout({
     (orderType === 'takeaway' || (orderType === 'delivery' && customerInfo.address));
 
   const isBelowMinOrder = total < minOrderValue;
-  const isClosed = menuSettings.use_opening_hours && !openStatus.isOpen;
+  const isClosed = !openStatus.isOpen;
   const canSubmit = isValid && !isBelowMinOrder && !isClosed;
 
   const finalTotal = orderType === 'delivery' ? total + calculatedDeliveryFee : total;
