@@ -708,41 +708,71 @@ export type Database = {
       ifood_orders: {
         Row: {
           created_at: string
+          delivered_by: string | null
+          driver_name: string | null
+          driver_phone: string | null
           expires_at: string | null
           id: string
           ifood_display_id: string | null
           ifood_order_id: string
           local_order_id: string | null
           order_data: Json
+          order_timing: string | null
+          order_type: string | null
+          pickup_code: string | null
+          preparation_start_datetime: string | null
+          preparation_started_at: string | null
           rejection_reason: string | null
           restaurant_id: string
+          scheduled_to: string | null
           status: string
+          tracking_available: boolean | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          delivered_by?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
           expires_at?: string | null
           id?: string
           ifood_display_id?: string | null
           ifood_order_id: string
           local_order_id?: string | null
           order_data: Json
+          order_timing?: string | null
+          order_type?: string | null
+          pickup_code?: string | null
+          preparation_start_datetime?: string | null
+          preparation_started_at?: string | null
           rejection_reason?: string | null
           restaurant_id: string
+          scheduled_to?: string | null
           status?: string
+          tracking_available?: boolean | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          delivered_by?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
           expires_at?: string | null
           id?: string
           ifood_display_id?: string | null
           ifood_order_id?: string
           local_order_id?: string | null
           order_data?: Json
+          order_timing?: string | null
+          order_type?: string | null
+          pickup_code?: string | null
+          preparation_start_datetime?: string | null
+          preparation_started_at?: string | null
           rejection_reason?: string | null
           restaurant_id?: string
+          scheduled_to?: string | null
           status?: string
+          tracking_available?: boolean | null
           updated_at?: string
         }
         Relationships: [
