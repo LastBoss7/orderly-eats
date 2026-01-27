@@ -26,10 +26,16 @@ export interface MenuSettings {
   digital_menu_min_order_value: number;
   opening_hours: DaySchedule[];
   use_opening_hours: boolean;
+  is_open: boolean;
 }
 
-// Helper to check if restaurant is currently open
-export function isRestaurantOpen(hours: DaySchedule[], useOpeningHours: boolean): { isOpen: boolean; message: string } {
+// Helper to check if restaurant is currently open (considering is_open flag AND opening hours)
+export function isRestaurantOpen(hours: DaySchedule[], useOpeningHours: boolean, isStoreOpen: boolean = true): { isOpen: boolean; message: string } {
+  // First check if the store is manually closed
+  if (!isStoreOpen) {
+    return { isOpen: false, message: 'Loja fechada no momento' };
+  }
+  
   if (!useOpeningHours) {
     return { isOpen: true, message: 'Aberto' };
   }
