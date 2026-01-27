@@ -745,24 +745,33 @@ class PrinterService {
         
         let name = this.sanitizeText(baseName);
         
-        // Translate size to Portuguese label
+        // Translate size to Portuguese short label (P/M/G) for consistency
         const getSizeLabel = (size) => {
           switch (size) {
-            case 'small': return 'Pequeno';
-            case 'medium': return 'Medio';
-            case 'large': return 'Grande';
+            case 'small': return 'P';
+            case 'medium': return 'M';
+            case 'large': return 'G';
             default: return size;
           }
         };
         
+        // Normalize existing size labels in product name to short format (P/M/G)
+        // Replace (Pequeno), (Medio), (Grande) with (P), (M), (G)
+        name = name
+          .replace(/\(Pequeno\)/gi, '(P)')
+          .replace(/\(Medio\)/gi, '(M)')
+          .replace(/\(Grande\)/gi, '(G)')
+          .replace(/\(small\)/gi, '(P)')
+          .replace(/\(medium\)/gi, '(M)')
+          .replace(/\(large\)/gi, '(G)');
+        
         // Only add size if it's NOT already in the product_name
-        // Check for both English (small/medium/large) and Portuguese (Pequeno/Medio/Grande/P/M/G)
+        // Check for P/M/G pattern which is our standard format
         if (layout.showItemSize !== false && item.product_size) {
-          const sizeLabel = getSizeLabel(item.product_size);
-          const hasEnglishSize = new RegExp('\\(' + item.product_size + '\\)', 'i').test(name);
-          const hasPortugueseSize = new RegExp('\\((Pequeno|Medio|Grande|P|M|G)\\)', 'i').test(name);
+          const hasSize = /\([PMG]\)/i.test(name);
           
-          if (!hasEnglishSize && !hasPortugueseSize) {
+          if (!hasSize) {
+            const sizeLabel = getSizeLabel(item.product_size);
             name += ' (' + sizeLabel + ')';
           }
         }
@@ -948,7 +957,15 @@ class PrinterService {
           }).filter(a => a.name);
         }
         
-        const name = this.sanitizeText(baseName);
+        // Normalize size labels to short format (P/M/G)
+        let name = this.sanitizeText(baseName)
+          .replace(/\(Pequeno\)/gi, '(P)')
+          .replace(/\(Medio\)/gi, '(M)')
+          .replace(/\(Grande\)/gi, '(G)')
+          .replace(/\(small\)/gi, '(P)')
+          .replace(/\(medium\)/gi, '(M)')
+          .replace(/\(large\)/gi, '(G)');
+        
         const priceStr = 'R$ ' + (price * qty).toFixed(2).replace('.', ',');
         
         lines.push(this.alignBoth('(' + qty + ') ' + name, priceStr, width));

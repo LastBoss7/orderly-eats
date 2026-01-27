@@ -392,7 +392,7 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
         </div>
       </div>
 
-      {/* Products */}
+      {/* Products - dynamically adjust bottom padding based on cart presence */}
       <ScrollArea className="flex-1">
         {loadingProducts ? (
           <div className={`p-3 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'}`}>
@@ -416,7 +416,7 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
             ))}
           </div>
         ) : (
-        <div className={`p-3 pb-24 ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'} overflow-hidden`}>
+        <div className={`p-3 ${cart.length > 0 ? 'pb-4' : 'pb-6'} ${menuViewMode === 'grid' ? 'grid grid-cols-2 gap-2' : 'grid gap-2'} overflow-hidden`}>
           {filteredProducts.map((product) => {
             const totalQty = cart.filter(i => i.product.id === product.id).reduce((s, i) => s + i.quantity, 0);
             const minPrice = product.has_sizes
@@ -438,85 +438,73 @@ export const OrderViewRefactored = memo(function OrderViewRefactored({
         )}
       </ScrollArea>
 
-      {/* Floating Action Button - Quick access to send order */}
+      {/* Cart Summary - Compact and accessible */}
       {cart.length > 0 && (
-        <Button
-          className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
-          disabled={submitting}
-          onClick={onSubmitOrder}
-        >
-          {submitting ? (
-            <Loader2 className="w-6 h-6 animate-spin" />
-          ) : (
-            <div className="relative">
-              <Send className="w-6 h-6" />
-              <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                {cart.reduce((sum, item) => sum + item.quantity, 0)}
-              </span>
+        <div className="sticky bottom-0 bg-card border-t shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.15)] z-40">
+          {/* Collapsible Cart Items */}
+          <details className="group">
+            <summary className="flex items-center justify-between px-3 py-2 cursor-pointer list-none">
+              <div className="flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-0.5 rounded-full">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+                <span className="text-sm font-medium">Itens no pedido</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-primary">{formatCurrency(orderTotal)}</span>
+                <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </div>
+            </summary>
+            
+            <ScrollArea className="max-h-40 px-3 pb-2">
+              <div className="space-y-2">
+                {cart.map((item, index) => {
+                  const itemKey = `${item.product.id}-${item.size}-${index}`;
+                  const isEditingThis = editingItemNotes === itemKey;
+                  
+                  return (
+                    <CartItemRow
+                      key={itemKey}
+                      item={item}
+                      itemKey={itemKey}
+                      isEditing={isEditingThis}
+                      onUpdateQuantity={(delta) => onUpdateQuantity(item.product.id, item.size, delta)}
+                      onUpdateItemNotes={(notes) => onUpdateItemNotes(item.product.id, item.size, notes)}
+                      onRemoveFromCart={() => onRemoveFromCart(item.product.id, item.size)}
+                      onToggleEdit={() => setEditingItemNotes(isEditingThis ? null : itemKey)}
+                    />
+                  );
+                })}
+              </div>
+            </ScrollArea>
+            
+            {/* Order Notes - Only visible when expanded */}
+            <div className="px-3 py-2 border-t">
+              <div className="flex items-center gap-2 mb-1">
+                <FileText className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Observação do pedido</span>
+              </div>
+              <Textarea
+                placeholder="Obs geral: mesa do fundo, entregar primeiro a bebida..."
+                value={orderNotes}
+                onChange={(e) => onOrderNotesChange(e.target.value)}
+                className="resize-none min-h-[36px] max-h-[50px] text-sm"
+                rows={1}
+              />
             </div>
-          )}
-        </Button>
-      )}
-
-      {/* Cart Summary */}
-      {cart.length > 0 && (
-        <div className="sticky bottom-0 bg-card border-t shadow-lg">
-          <ScrollArea className="max-h-48 p-3">
-            <div className="space-y-2">
-              {cart.map((item, index) => {
-                const itemKey = `${item.product.id}-${item.size}-${index}`;
-                const isEditingThis = editingItemNotes === itemKey;
-                
-                return (
-                  <CartItemRow
-                    key={itemKey}
-                    item={item}
-                    itemKey={itemKey}
-                    isEditing={isEditingThis}
-                    onUpdateQuantity={(delta) => onUpdateQuantity(item.product.id, item.size, delta)}
-                    onUpdateItemNotes={(notes) => onUpdateItemNotes(item.product.id, item.size, notes)}
-                    onRemoveFromCart={() => onRemoveFromCart(item.product.id, item.size)}
-                    onToggleEdit={() => setEditingItemNotes(isEditingThis ? null : itemKey)}
-                  />
-                );
-              })}
-            </div>
-          </ScrollArea>
+          </details>
           
-          {/* Order Notes */}
-          <div className="px-3 py-2 border-t">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Observação do pedido</span>
-            </div>
-            <Textarea
-              placeholder="Obs geral: mesa do fundo, entregar primeiro a bebida..."
-              value={orderNotes}
-              onChange={(e) => onOrderNotesChange(e.target.value)}
-              className="h-16 text-xs resize-none"
-              rows={2}
-            />
-          </div>
-
-          {/* Submit */}
-          <div className="p-3 pt-0 flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground">Total</p>
-              <p className="text-lg font-bold">{formatCurrency(orderTotal)}</p>
-            </div>
-            <Button
-              className="h-12 px-6"
-              disabled={submitting || cart.length === 0}
+          {/* Submit Button - Always visible */}
+          <div className="p-3 border-t bg-primary/5">
+            <Button 
+              className="w-full h-12 gap-2 text-base font-bold" 
+              disabled={cart.length === 0 || submitting}
               onClick={onSubmitOrder}
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Enviar
-                </>
-              )}
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              Enviar • {formatCurrency(orderTotal)}
             </Button>
           </div>
         </div>
