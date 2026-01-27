@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
+import { playIFoodNotification } from '@/lib/restaurantBell';
 
 interface IFoodSettings {
   id: string;
@@ -154,9 +155,8 @@ export function useIFoodIntegration() {
             const newOrder = payload.new as IFoodOrder;
             if (newOrder.status === 'pending') {
               setPendingOrders(prev => [newOrder, ...prev]);
-              // Play notification sound
-              const audio = new Audio('/sounds/ifood-notification.mp3');
-              audio.play().catch(() => {});
+              // Play iFood notification sound
+              playIFoodNotification(0.7);
               toast.info('🍔 Novo pedido iFood!', {
                 description: `Pedido #${newOrder.ifood_display_id || 'Novo'}`,
                 duration: 10000,
