@@ -65,8 +65,8 @@ import {
   Volume2,
   MessageSquare,
 } from 'lucide-react';
-import logoGamako from '@/assets/logo-gamako-white-full.png';
-import logoGamakoIcon from '@/assets/logo-gamako-white-icon.png';
+import logoGamako from '@/assets/logo-gamako-white.png';
+import logoGamakoIcon from '@/assets/logo-gamako-white-icon-new.png';
 
 const mainMenuItems = [
   { title: 'Meus pedidos', url: '/dashboard', icon: ClipboardList, badge: 0 },

@@ -26,15 +26,18 @@ export function SplashScreen({ onComplete, minDuration = 2000 }: SplashScreenPro
 
   return (
     <div 
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-primary to-primary/90 transition-opacity duration-500 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 ${
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
+      style={{
+        background: 'linear-gradient(180deg, hsl(200 75% 12%) 0%, hsl(195 100% 35%) 50%, hsl(187 80% 50%) 100%)'
+      }}
     >
-      {/* Animated background circles */}
+      {/* Animated ocean wave circles */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-20 -left-20 w-64 h-64 bg-white/5 rounded-full animate-pulse" />
-        <div className="absolute top-1/4 -right-16 w-48 h-48 bg-white/5 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute -bottom-20 left-1/4 w-56 h-56 bg-white/5 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute -top-20 -left-20 w-64 h-64 bg-cyan-400/10 rounded-full animate-pulse" />
+        <div className="absolute top-1/4 -right-16 w-48 h-48 bg-cyan-300/10 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+        <div className="absolute -bottom-20 left-1/4 w-56 h-56 bg-teal-400/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
       </div>
 
       {/* Logo container with animations */}

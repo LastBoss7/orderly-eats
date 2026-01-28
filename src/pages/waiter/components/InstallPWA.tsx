@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, Share, Plus, X, Smartphone } from 'lucide-react';
-import logoAppGarcom from '@/assets/logo-app-garcom.png';
+import logoGamako from '@/assets/logo-gamako-new.png';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -85,8 +85,8 @@ export function InstallPWA() {
 
           <div className="flex justify-center">
             <img 
-              src={logoAppGarcom} 
-              alt="App do Garçom" 
+              src={logoGamako} 
+              alt="Gamako" 
               className="w-24 h-24 rounded-2xl shadow-lg"
             />
           </div>
@@ -148,12 +148,12 @@ export function InstallPWA() {
         <div className="bg-card border border-border rounded-2xl p-4 shadow-xl">
           <div className="flex items-center gap-4">
             <img 
-              src={logoAppGarcom} 
-              alt="App do Garçom" 
+              src={logoGamako} 
+              alt="Gamako" 
               className="w-14 h-14 rounded-xl shadow"
             />
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-foreground truncate">App do Garçom</h3>
+              <h3 className="font-bold text-foreground truncate">Gamako</h3>
               <p className="text-sm text-muted-foreground">Instale para acesso rápido</p>
             </div>
             <div className="flex items-center gap-2">

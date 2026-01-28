@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Building2, CheckCircle2, AlertCircle, MapPin, Phone, Eye, EyeOff, Smartphone, Monitor, ClipboardList, Ban, Mail, RefreshCw, Clock, MessageCircle } from 'lucide-react';
 import { PasswordStrength } from '@/components/ui/password-strength';
-import logoGamako from '@/assets/logo-gamako-full.png';
+import logoGamako from '@/assets/logo-gamako-new.png';
 import gestaoInteligente from '@/assets/gestao-inteligente.png';
 import { supabase } from '@/integrations/supabase/client';
 import {

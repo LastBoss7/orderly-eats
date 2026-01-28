@@ -8,30 +8,30 @@
 
 @layer base {
   :root {
-    /* Base colors - Clean white */
-    --background: 210 20% 98%;
-    --foreground: 210 50% 10%;
+    /* Base colors - Clean white with ocean tint */
+    --background: 195 20% 98%;
+    --foreground: 200 50% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 50% 10%;
+    --card-foreground: 200 50% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 50% 10%;
+    --popover-foreground: 200 50% 10%;
 
-    /* Primary - Gamako Blue */
-    --primary: 210 100% 35%;
+    /* Primary - Mako Cyan (Oceanic) */
+    --primary: 195 100% 45%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Light blue gray */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 210 50% 10%;
+    /* Secondary - Sea Foam light */
+    --secondary: 195 30% 96%;
+    --secondary-foreground: 200 50% 10%;
 
     /* Muted surfaces */
-    --muted: 210 20% 96%;
-    --muted-foreground: 210 15% 45%;
+    --muted: 195 20% 96%;
+    --muted-foreground: 200 15% 45%;
 
-    /* Accent - Deeper blue */
-    --accent: 210 100% 45%;
+    /* Accent - Turquoise */
+    --accent: 187 80% 50%;
     --accent-foreground: 0 0% 100%;
 
     /* Status colors */
@@ -54,43 +54,43 @@
     --table-occupied: 0 72% 51%;
     --table-closing: 38 92% 50%;
 
-    --border: 210 20% 90%;
-    --input: 210 20% 90%;
-    --ring: 210 100% 35%;
+    --border: 195 20% 90%;
+    --input: 195 20% 90%;
+    --ring: 195 100% 45%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - Gamako Dark Blue */
-    --sidebar-background: 210 80% 15%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 210 100% 50%;
+    /* Sidebar - Ocean Deep */
+    --sidebar-background: 200 75% 12%;
+    --sidebar-foreground: 195 30% 95%;
+    --sidebar-primary: 195 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 60% 22%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 210 60% 22%;
-    --sidebar-ring: 210 100% 50%;
+    --sidebar-accent: 200 60% 18%;
+    --sidebar-accent-foreground: 195 30% 95%;
+    --sidebar-border: 200 60% 18%;
+    --sidebar-ring: 195 100% 55%;
   }
 
   .dark {
-    --background: 210 50% 6%;
-    --foreground: 210 20% 98%;
+    --background: 200 50% 6%;
+    --foreground: 195 20% 98%;
 
-    --card: 210 50% 8%;
-    --card-foreground: 210 20% 98%;
+    --card: 200 50% 8%;
+    --card-foreground: 195 20% 98%;
 
-    --popover: 210 50% 8%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 200 50% 8%;
+    --popover-foreground: 195 20% 98%;
 
-    --primary: 210 100% 50%;
+    --primary: 195 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 17%;
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 200 40% 17%;
+    --secondary-foreground: 195 20% 98%;
 
-    --muted: 210 40% 17%;
-    --muted-foreground: 210 20% 65%;
+    --muted: 200 40% 17%;
+    --muted-foreground: 195 20% 65%;
 
-    --accent: 210 100% 55%;
+    --accent: 187 80% 55%;
     --accent-foreground: 0 0% 100%;
 
     --success: 152 69% 41%;
@@ -100,7 +100,7 @@
     --warning-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
-    --destructive-foreground: 210 20% 98%;
+    --destructive-foreground: 195 20% 98%;
 
     --column-analysis: 38 92% 50%;
     --column-production: 0 62% 50%;
@@ -110,18 +110,18 @@
     --table-occupied: 0 62% 50%;
     --table-closing: 38 92% 50%;
 
-    --border: 210 40% 17%;
-    --input: 210 40% 17%;
-    --ring: 210 100% 50%;
+    --border: 200 40% 17%;
+    --input: 200 40% 17%;
+    --ring: 195 100% 50%;
 
-    --sidebar-background: 210 50% 4%;
-    --sidebar-foreground: 210 20% 98%;
-    --sidebar-primary: 210 100% 50%;
+    --sidebar-background: 200 60% 5%;
+    --sidebar-foreground: 195 20% 98%;
+    --sidebar-primary: 195 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 12%;
-    --sidebar-accent-foreground: 210 20% 98%;
-    --sidebar-border: 210 40% 12%;
-    --sidebar-ring: 210 100% 50%;
+    --sidebar-accent: 200 50% 12%;
+    --sidebar-accent-foreground: 195 20% 98%;
+    --sidebar-border: 200 50% 12%;
+    --sidebar-ring: 195 100% 55%;
   }
 }
 
