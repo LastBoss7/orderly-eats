@@ -364,6 +364,7 @@ export function TableOrderPOS({ table, tab, onClose, onOrderCreated }: TableOrde
           product_size: item.size || null,
           quantity: item.quantity,
           notes: itemNotes || null,
+          category_id: item.product.category_id || null,
         };
       });
 

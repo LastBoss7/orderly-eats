@@ -72,6 +72,7 @@ interface Product {
   name: string;
   price: number;
   is_available: boolean | null;
+  category_id: string | null;
 }
 
 interface OrderItem {
@@ -79,6 +80,7 @@ interface OrderItem {
   product_name: string;
   product_price: number;
   quantity: number;
+  category_id: string | null;
 }
 
 interface Order {
@@ -314,7 +316,8 @@ export default function Deliveries() {
         product_id: product.id,
         product_name: product.name,
         product_price: product.price,
-        quantity: 1
+        quantity: 1,
+        category_id: product.category_id || null
       }]);
     }
   };
@@ -459,6 +462,7 @@ export default function Deliveries() {
         product_name: item.product_name,
         product_price: item.product_price,
         quantity: item.quantity,
+        category_id: item.category_id || null,
       }));
 
       const { error: itemsError } = await supabase

@@ -13,6 +13,7 @@ interface OrderItem {
   notes: string | null;
   product_price: number;
   product_id: string | null;
+  category_id: string | null;
   products: { category_id: string | null }[] | null;
 }
 
@@ -28,11 +29,13 @@ interface Order {
   delivery_phone: string | null;
   delivery_fee: number | null;
   table_id: string | null;
+  tab_id: string | null;
   print_status: string | null;
   waiter_id: string | null;
   order_number: number | null;
   order_items: OrderItem[];
   tables: { number: number }[] | null;
+  tabs: { tab_number: string }[] | null;
   waiters: { id: string; name: string }[] | null;
 }
 
@@ -79,6 +82,10 @@ Deno.serve(async (req) => {
           print_status,
           waiter_id,
           order_number,
+          tab_id,
+          tabs (
+            tab_number
+          ),
           order_items (
             id,
             product_name,
@@ -87,6 +94,7 @@ Deno.serve(async (req) => {
             notes,
             product_price,
             product_id,
+            category_id,
             products (
               category_id
             )
@@ -128,18 +136,27 @@ Deno.serve(async (req) => {
         delivery_fee: order.delivery_fee,
         table_number: order.tables?.[0]?.number || null,
         table_id: order.table_id,
+        tab_number: order.tabs?.[0]?.tab_number || null,
+        tab_id: order.tab_id,
         waiter_name: order.waiters?.[0]?.name || null,
         waiter_id: order.waiter_id,
-        order_items: order.order_items.map((item) => ({
-          id: item.id,
-          product_name: item.product_name,
-          product_size: item.product_size,
-          quantity: item.quantity,
-          notes: item.notes,
-          product_price: item.product_price,
-          product_id: item.product_id,
-          products: item.products,
-        })),
+        order_items: order.order_items.map((item) => {
+          // Get category_id: first try from order_items directly, then fallback to products relation
+          const categoryId = item.category_id || 
+            (Array.isArray(item.products) ? item.products[0]?.category_id : (item.products as any)?.category_id) || 
+            null;
+          
+          return {
+            id: item.id,
+            product_name: item.product_name,
+            product_size: item.product_size,
+            quantity: item.quantity,
+            notes: item.notes,
+            product_price: item.product_price,
+            product_id: item.product_id,
+            category_id: categoryId,
+          };
+        }),
       }));
 
       return new Response(

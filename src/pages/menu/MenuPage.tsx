@@ -450,6 +450,7 @@ export default function MenuPage() {
             product_size: item.size,
             quantity: item.quantity,
             notes: item.notes || null,
+            category_id: item.product.category_id || null,
           };
         });
 
