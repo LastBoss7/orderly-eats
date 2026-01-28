@@ -674,6 +674,7 @@ class PrinterService {
         table: 'MESA',
         delivery: 'ENTREGA',
         takeaway: 'RETIRADA',
+        tab: 'COMANDA',
       };
       lines.push('Tipo: ' + (typeLabels[order.order_type] || order.order_type || 'N/A'));
     }
@@ -686,6 +687,14 @@ class PrinterService {
         ? tableNum 
         : 'Mesa ' + tableNum;
       lines.push(tableLabel);
+    }
+    
+    // Tab (Comanda) - Show tab number
+    if (layout.showTable !== false && order.order_type === 'tab' && (order.tab_number || order.tab_id)) {
+      const tabNum = order.tab_number || (order.tab_id ? order.tab_id.slice(0, 8).toUpperCase() : '');
+      if (tabNum) {
+        lines.push('Comanda: ' + tabNum);
+      }
     }
     
     // Waiter or system user
